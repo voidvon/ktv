@@ -1,17 +1,20 @@
 # ktv2
 
-A new Flutter project.
+从原项目中抽离出来的最小 KTV 播放器，只保留：
 
-## Getting Started
+- 本地视频播放
+- 完整原唱 / 伴唱切换
+- Android libVLC 播放链路
+- macOS 原生播放器桥接
 
-This project is a starting point for a Flutter application.
+## 说明文档
 
-A few resources to get you started if this is your first Flutter project:
+- Android 播放链路与排错记录：
+  [docs/android_playback_notes.md](docs/android_playback_notes.md)
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## 常用命令
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter analyze
+flutter build apk --release
+```
