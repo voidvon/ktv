@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
+import androidx.documentfile.provider.DocumentFile
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
@@ -14,10 +15,25 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private companion object {
+        const val preferencesName = "ktv2_example_prefs"
+        const val selectedDirectoryKey = "selected_directory_uri"
         const val videoPickerRequestCode = 9021
         const val directoryPickerRequestCode = 9022
         const val videoPickerChannel = "ktv2_example/video_picker"
         const val androidStorageChannel = "ktv2_example/android_storage"
+        val supportedExtensions =
+            setOf(
+                "mp4",
+                "mkv",
+                "avi",
+                "mov",
+                "dat",
+                "rmvb",
+                "rm",
+                "mpg",
+                "mpeg",
+                "vob",
+            )
     }
 
     private var pendingVideoPickerResult: MethodChannel.Result? = null
@@ -49,6 +65,29 @@ class MainActivity : FlutterActivity() {
                 "clearDirectoryAccess" -> {
                     clearDirectoryAccess(call.argument("path"))
                     result.success(null)
+                }
+                "saveSelectedDirectory" -> {
+                    saveSelectedDirectory(call.argument("path"))
+                    result.success(null)
+                }
+                "loadSelectedDirectory" -> {
+                    result.success(loadSelectedDirectory())
+                }
+                "scanLibrary" -> {
+                    val rootUri = call.argument<String>("rootUri")
+                    if (rootUri.isNullOrBlank()) {
+                        result.error("invalid_args", "Missing rootUri", null)
+                    } else {
+                        try {
+                            result.success(scanLibrary(rootUri))
+                        } catch (error: Exception) {
+                            result.error(
+                                "scan_failed",
+                                error.message ?: "Failed to scan library",
+                                null,
+                            )
+                        }
+                    }
                 }
                 else -> result.notImplemented()
             }
@@ -233,6 +272,110 @@ class MainActivity : FlutterActivity() {
             } catch (_: SecurityException) {
             }
         }
+    }
+
+    private fun saveSelectedDirectory(path: String?) {
+        getSharedPreferences(preferencesName, MODE_PRIVATE)
+            .edit()
+            .putString(selectedDirectoryKey, path)
+            .apply()
+    }
+
+    private fun loadSelectedDirectory(): String? {
+        return getSharedPreferences(preferencesName, MODE_PRIVATE)
+            .getString(selectedDirectoryKey, null)
+    }
+
+    private fun scanLibrary(rootUri: String): List<Map<String, Any?>> {
+        val uri = Uri.parse(rootUri)
+        val root =
+            DocumentFile.fromTreeUri(this, uri)
+                ?: throw IllegalStateException("无法打开选中的 Android 目录。")
+
+        val items = mutableListOf<Map<String, Any?>>()
+        scanDirectoryRecursive(root, items)
+        return items.sortedWith(
+            compareBy<Map<String, Any?>>(
+                { (it["title"] as? String).orEmpty() },
+                { (it["artist"] as? String).orEmpty() },
+            ),
+        )
+    }
+
+    private fun scanDirectoryRecursive(
+        directory: DocumentFile,
+        items: MutableList<Map<String, Any?>>,
+    ) {
+        val files =
+            try {
+                directory.listFiles()
+            } catch (_: SecurityException) {
+                return
+            } catch (_: Exception) {
+                return
+            }
+
+        for (file in files) {
+            if (file.isDirectory) {
+                scanDirectoryRecursive(file, items)
+                continue
+            }
+
+            if (!file.isFile) {
+                continue
+            }
+
+            val fileName = file.name ?: continue
+            val extension = extractExtension(fileName)
+            if (!supportedExtensions.contains(extension)) {
+                continue
+            }
+
+            val parsedName = parseFileName(fileName)
+            items.add(
+                mapOf(
+                    "title" to parsedName.first,
+                    "artist" to parsedName.second,
+                    "filePath" to file.uri.toString(),
+                    "fileName" to fileName,
+                    "extension" to extension,
+                ),
+            )
+        }
+    }
+
+    private fun extractExtension(fileName: String): String {
+        val dotIndex = fileName.lastIndexOf('.')
+        if (dotIndex == -1 || dotIndex == fileName.length - 1) {
+            return ""
+        }
+        return fileName.substring(dotIndex + 1).lowercase()
+    }
+
+    private fun parseFileName(fileName: String): Pair<String, String> {
+        val dotIndex = fileName.lastIndexOf('.')
+        val baseName =
+            if (dotIndex == -1) {
+                fileName
+            } else {
+                fileName.substring(0, dotIndex)
+            }
+
+        val separators = listOf(" - ", " — ", " – ", "_", "-")
+        for (separator in separators) {
+            val separatorIndex = baseName.indexOf(separator)
+            if (separatorIndex <= 0 || separatorIndex >= baseName.length - separator.length) {
+                continue
+            }
+
+            val artist = baseName.substring(0, separatorIndex).trim()
+            val title = baseName.substring(separatorIndex + separator.length).trim()
+            if (artist.isNotEmpty() && title.isNotEmpty()) {
+                return title to artist
+            }
+        }
+
+        return baseName.trim() to "未识别歌手"
     }
 
     private fun resolveDisplayName(uri: Uri): String? {

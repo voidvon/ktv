@@ -24,4 +24,12 @@ class DemoScanDirectoryService {
   Future<void> clearDirectoryAccess({String? path}) {
     return _androidStorageService.clearDirectoryAccess(path: path);
   }
+
+  Future<void> saveSelectedDirectory(String path) {
+    return _androidStorageService.saveSelectedDirectory(path);
+  }
+
+  Future<String?> loadSelectedDirectory() {
+    return _androidStorageService.loadSelectedDirectory();
+  }
 }

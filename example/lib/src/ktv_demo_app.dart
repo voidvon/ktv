@@ -2,11 +2,10 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:ktv2/ktv2.dart';
 
+import 'demo_media_library_service.dart';
 import 'demo_scan_directory_service.dart';
-import 'demo_video_picker_service.dart';
 
 const List<String> _languageTabs = <String>[
   '全部',
@@ -60,26 +59,6 @@ const List<_HomeShortcut> _homeShortcuts = <_HomeShortcut>[
   ),
 ];
 
-const List<_DemoSong> _demoSongs = <_DemoSong>[
-  _DemoSong('夜曲', '周杰伦', '国语', 'yequ zhoujielun'),
-  _DemoSong('后来', '刘若英', '国语', 'houlai liuruoying'),
-  _DemoSong('光辉岁月', 'Beyond', '粤语', 'guanghuisuiyue beyond'),
-  _DemoSong('海阔天空', 'Beyond', '粤语', 'haikuotiankong beyond'),
-  _DemoSong('爱拼才会赢', '叶启田', '闽南语', 'aipinca huiying yeqitian'),
-  _DemoSong(
-    'Yesterday Once More',
-    'Carpenters',
-    '英语',
-    'yesterday once more carpenters',
-  ),
-  _DemoSong('Lemon', '米津玄师', '日语', 'lemon mizuxuanshi yonezu'),
-  _DemoSong('Spring Day', 'BTS', '韩语', 'spring day bts'),
-  _DemoSong('演员', '薛之谦', '国语', 'yanyuan xuezhiqian'),
-  _DemoSong('小幸运', '田馥甄', '国语', 'xiaoxingyun hebe'),
-  _DemoSong('红色高跟鞋', '蔡健雅', '国语', 'hongsegaogenxie caijianya'),
-  _DemoSong('Sugar', 'Maroon 5', '英语', 'sugar maroon5'),
-];
-
 class KtvDemoApp extends StatelessWidget {
   const KtvDemoApp({super.key});
 
@@ -121,25 +100,27 @@ class _KtvDemoShell extends StatefulWidget {
 
 class _KtvDemoShellState extends State<_KtvDemoShell> {
   final PlayerController _controller = createPlayerController();
-  final DemoVideoPickerService _videoPickerService = DemoVideoPickerService();
+  final DemoMediaLibraryService _mediaLibraryService =
+      DemoMediaLibraryService();
   final DemoScanDirectoryService _scanDirectoryService =
       DemoScanDirectoryService();
   final TextEditingController _searchController = TextEditingController();
 
   final List<_DemoSong> _queuedSongs = <_DemoSong>[];
+  List<_DemoSong> _librarySongs = <_DemoSong>[];
 
   _DemoRoute _route = _DemoRoute.home;
   String _selectedLanguage = _languageTabs.first;
   String? _directoryPickerErrorMessage;
+  String? _libraryScanErrorMessage;
   String? _scanDirectoryPath;
-  MediaSource? _selectedMedia;
-  bool _isPickingVideo = false;
-  bool _isPickingDirectory = false;
+  bool _isScanningLibrary = false;
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_handleSearchChanged);
+    unawaited(_restoreSavedDirectory());
   }
 
   @override
@@ -153,7 +134,7 @@ class _KtvDemoShellState extends State<_KtvDemoShell> {
 
   List<_DemoSong> get _filteredSongs {
     final query = _searchController.text.trim().toLowerCase();
-    return _demoSongs
+    return _librarySongs
         .where((_DemoSong song) {
           final languageMatches =
               _selectedLanguage == _languageTabs.first ||
@@ -172,9 +153,6 @@ class _KtvDemoShellState extends State<_KtvDemoShell> {
   }
 
   String get _currentTitle {
-    if (_selectedMedia != null) {
-      return _selectedMedia!.displayName;
-    }
     if (_queuedSongs.isNotEmpty) {
       return _queuedSongs.first.title;
     }
@@ -183,129 +161,116 @@ class _KtvDemoShellState extends State<_KtvDemoShell> {
 
   String get _currentSubtitle {
     if (_queuedSongs.isNotEmpty) {
-      return '${_queuedSongs.first.artist} · 已点 ${_queuedSongs.length} 首';
+      return '${_queuedSongs.first.artist} · 已从目录中加载 ${_librarySongs.length} 首';
     }
-    return '常驻播放器已接入，先从下方选择一个本地视频。';
+    if (_scanDirectoryPath != null && _librarySongs.isNotEmpty) {
+      return '已从扫描目录加载 ${_librarySongs.length} 首歌曲。';
+    }
+    return '请先在设置中选择扫描目录。';
   }
 
   void _handleSearchChanged() {
     setState(() {});
   }
 
-  Future<void> _pickAndPlay() async {
-    if (_isPickingVideo) {
+  Future<void> _restoreSavedDirectory() async {
+    final String? savedDirectory = await _scanDirectoryService
+        .loadSelectedDirectory();
+    if (!mounted || savedDirectory == null) {
+      return;
+    }
+
+    final bool hasAccess = await _scanDirectoryService.ensureDirectoryAccess(
+      savedDirectory,
+    );
+    if (!mounted) {
+      return;
+    }
+
+    if (!hasAccess) {
+      await _scanDirectoryService.clearDirectoryAccess(path: savedDirectory);
       return;
     }
 
     setState(() {
-      _isPickingVideo = true;
+      _scanDirectoryPath = savedDirectory;
     });
-
-    try {
-      final MediaSource? source = await _videoPickerService.pickVideo();
-      if (!mounted || source == null) {
-        return;
-      }
-
-      await _controller.openMedia(source);
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _selectedMedia = source;
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isPickingVideo = false;
-        });
-      }
-    }
+    await _scanLibrary(savedDirectory);
   }
 
-  Future<void> _pickScanDirectory() async {
-    if (_isPickingDirectory) {
-      return;
-    }
-
+  Future<bool> _scanLibrary(String directory) async {
     setState(() {
-      _isPickingDirectory = true;
-      _directoryPickerErrorMessage = null;
+      _isScanningLibrary = true;
+      _libraryScanErrorMessage = null;
     });
 
     try {
-      final String? directory = await _scanDirectoryService.pickDirectory(
-        initialDirectory: _scanDirectoryPath,
-      );
-      if (!mounted || directory == null) {
-        return;
-      }
-
-      final bool hasAccess = await _scanDirectoryService.ensureDirectoryAccess(
-        directory,
-      );
+      final List<DemoLibrarySong> songs = await _mediaLibraryService
+          .scanLibrary(directory);
       if (!mounted) {
-        return;
-      }
-      if (!hasAccess) {
-        setState(() {
-          _directoryPickerErrorMessage = '系统没有保留这个目录的读取授权，请重新选择目录。';
-        });
-        return;
+        return false;
       }
 
       setState(() {
-        _scanDirectoryPath = directory;
-        _directoryPickerErrorMessage = null;
+        _librarySongs = songs
+            .map(
+              (DemoLibrarySong song) => _DemoSong(
+                title: song.title,
+                artist: song.artist,
+                language: song.language,
+                searchIndex: song.searchIndex,
+                mediaPath: song.mediaPath,
+              ),
+            )
+            .toList(growable: false);
+        _libraryScanErrorMessage = null;
+        _selectedLanguage = _languageTabs.first;
+        _route = _DemoRoute.songBook;
       });
-    } on PlatformException catch (error) {
+      _searchController.clear();
+      return true;
+    } catch (error) {
       if (!mounted) {
-        return;
+        return false;
       }
       setState(() {
-        _directoryPickerErrorMessage = error.message ?? '系统目录选择器没有成功启动。';
-      });
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _directoryPickerErrorMessage = '系统目录选择器没有成功启动。';
+        _librarySongs = <_DemoSong>[];
+        _libraryScanErrorMessage = '扫描目录失败：$error';
       });
     } finally {
       if (mounted) {
         setState(() {
-          _isPickingDirectory = false;
+          _isScanningLibrary = false;
         });
       }
     }
+    return false;
   }
 
   Future<void> _openSettingsDialog() async {
-    await showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setDialogState) {
-            Future<void> handlePickDirectory() async {
-              await _pickScanDirectory();
-
-              if (context.mounted) {
-                setDialogState(() {});
-              }
-            }
-
-            return _ScanDirectoryDialog(
-              scanDirectoryPath: _scanDirectoryPath,
-              errorMessage: _directoryPickerErrorMessage,
-              isPickingDirectory: _isPickingDirectory,
-              onPickDirectory: handlePickDirectory,
-            );
-          },
-        );
-      },
+    final String? directory = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (BuildContext context) {
+          return _SettingsPage(
+            scanDirectoryService: _scanDirectoryService,
+            initialDirectoryPath: _scanDirectoryPath,
+            initialErrorMessage: _directoryPickerErrorMessage,
+          );
+        },
+        fullscreenDialog: true,
+      ),
     );
+
+    if (!mounted || directory == null) {
+      return;
+    }
+
+    setState(() {
+      _scanDirectoryPath = directory;
+      _directoryPickerErrorMessage = null;
+    });
+    await _scanDirectoryService.saveSelectedDirectory(directory);
+    await _scanLibrary(directory);
   }
 
   void _togglePlayback() {
@@ -376,12 +341,17 @@ class _KtvDemoShellState extends State<_KtvDemoShell> {
     _searchController.clear();
   }
 
-  void _queueSong(_DemoSong song) {
-    if (_queuedSongs.contains(song)) {
+  Future<void> _playSong(_DemoSong song) async {
+    await _controller.openMedia(
+      MediaSource(path: song.mediaPath, displayName: song.title),
+    );
+    if (!mounted) {
       return;
     }
     setState(() {
-      _queuedSongs.add(song);
+      _queuedSongs
+        ..remove(song)
+        ..insert(0, song);
     });
   }
 
@@ -450,6 +420,11 @@ class _KtvDemoShellState extends State<_KtvDemoShell> {
                                           searchController: _searchController,
                                           selectedLanguage: _selectedLanguage,
                                           songs: _filteredSongs,
+                                          hasConfiguredDirectory:
+                                              _scanDirectoryPath != null,
+                                          isScanningLibrary: _isScanningLibrary,
+                                          libraryScanErrorMessage:
+                                              _libraryScanErrorMessage,
                                           queuedSongs: _queuedSongs,
                                           onBackPressed: _returnHome,
                                           onLanguageSelected: _selectLanguage,
@@ -458,7 +433,7 @@ class _KtvDemoShellState extends State<_KtvDemoShell> {
                                           onRemoveSearchCharacter:
                                               _removeSearchCharacter,
                                           onClearSearch: _clearSearch,
-                                          onQueueSong: _queueSong,
+                                          onPlaySong: _playSong,
                                           onSettingsPressed:
                                               _openSettingsDialog,
                                           onToggleAudioMode: _toggleAudioMode,
@@ -469,19 +444,6 @@ class _KtvDemoShellState extends State<_KtvDemoShell> {
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1080),
-                        child: _ResidentPlayerBar(
-                          controller: _controller,
-                          title: _currentTitle,
-                          subtitle: _currentSubtitle,
-                          isPickingVideo: _isPickingVideo,
-                          onPickVideo: _pickAndPlay,
-                          onToggleAudioMode: _toggleAudioMode,
-                          onTogglePlayback: _togglePlayback,
                         ),
                       ),
                     ],
@@ -598,13 +560,16 @@ class _SongBookPage extends StatelessWidget {
     required this.searchController,
     required this.selectedLanguage,
     required this.songs,
+    required this.hasConfiguredDirectory,
+    required this.isScanningLibrary,
+    required this.libraryScanErrorMessage,
     required this.queuedSongs,
     required this.onBackPressed,
     required this.onLanguageSelected,
     required this.onAppendSearchToken,
     required this.onRemoveSearchCharacter,
     required this.onClearSearch,
-    required this.onQueueSong,
+    required this.onPlaySong,
     required this.onSettingsPressed,
     required this.onToggleAudioMode,
     required this.onTogglePlayback,
@@ -615,13 +580,16 @@ class _SongBookPage extends StatelessWidget {
   final TextEditingController searchController;
   final String selectedLanguage;
   final List<_DemoSong> songs;
+  final bool hasConfiguredDirectory;
+  final bool isScanningLibrary;
+  final String? libraryScanErrorMessage;
   final List<_DemoSong> queuedSongs;
   final VoidCallback onBackPressed;
   final ValueChanged<String> onLanguageSelected;
   final ValueChanged<String> onAppendSearchToken;
   final VoidCallback onRemoveSearchCharacter;
   final VoidCallback onClearSearch;
-  final ValueChanged<_DemoSong> onQueueSong;
+  final ValueChanged<_DemoSong> onPlaySong;
   final VoidCallback onSettingsPressed;
   final VoidCallback onToggleAudioMode;
   final VoidCallback onTogglePlayback;
@@ -655,10 +623,13 @@ class _SongBookPage extends StatelessWidget {
                       compact: true,
                       selectedLanguage: selectedLanguage,
                       songs: songs,
+                      hasConfiguredDirectory: hasConfiguredDirectory,
+                      isScanningLibrary: isScanningLibrary,
+                      libraryScanErrorMessage: libraryScanErrorMessage,
                       queuedSongs: queuedSongs,
                       onBackPressed: onBackPressed,
                       onLanguageSelected: onLanguageSelected,
-                      onQueueSong: onQueueSong,
+                      onPlaySong: onPlaySong,
                       onSettingsPressed: onSettingsPressed,
                       onToggleAudioMode: onToggleAudioMode,
                       onTogglePlayback: onTogglePlayback,
@@ -685,10 +656,13 @@ class _SongBookPage extends StatelessWidget {
                         controller: controller,
                         selectedLanguage: selectedLanguage,
                         songs: songs,
+                        hasConfiguredDirectory: hasConfiguredDirectory,
+                        isScanningLibrary: isScanningLibrary,
+                        libraryScanErrorMessage: libraryScanErrorMessage,
                         queuedSongs: queuedSongs,
                         onBackPressed: onBackPressed,
                         onLanguageSelected: onLanguageSelected,
-                        onQueueSong: onQueueSong,
+                        onPlaySong: onPlaySong,
                         onSettingsPressed: onSettingsPressed,
                         onToggleAudioMode: onToggleAudioMode,
                         onTogglePlayback: onTogglePlayback,
@@ -1441,10 +1415,13 @@ class _SongBookRightColumn extends StatelessWidget {
     required this.controller,
     required this.selectedLanguage,
     required this.songs,
+    required this.hasConfiguredDirectory,
+    required this.isScanningLibrary,
+    required this.libraryScanErrorMessage,
     required this.queuedSongs,
     required this.onBackPressed,
     required this.onLanguageSelected,
-    required this.onQueueSong,
+    required this.onPlaySong,
     required this.onSettingsPressed,
     required this.onToggleAudioMode,
     required this.onTogglePlayback,
@@ -1455,10 +1432,13 @@ class _SongBookRightColumn extends StatelessWidget {
   final PlayerController controller;
   final String selectedLanguage;
   final List<_DemoSong> songs;
+  final bool hasConfiguredDirectory;
+  final bool isScanningLibrary;
+  final String? libraryScanErrorMessage;
   final List<_DemoSong> queuedSongs;
   final VoidCallback onBackPressed;
   final ValueChanged<String> onLanguageSelected;
-  final ValueChanged<_DemoSong> onQueueSong;
+  final ValueChanged<_DemoSong> onPlaySong;
   final VoidCallback onSettingsPressed;
   final VoidCallback onToggleAudioMode;
   final VoidCallback onTogglePlayback;
@@ -1467,6 +1447,40 @@ class _SongBookRightColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Widget libraryContent = !hasConfiguredDirectory
+        ? const _EmptyContentCard(message: '请先在设置里选择扫描目录，扫描完成后这里会展示歌曲列表。')
+        : isScanningLibrary
+        ? const _EmptyContentCard(message: '正在扫描目录中的歌曲，请稍候。')
+        : libraryScanErrorMessage != null
+        ? _EmptyContentCard(message: libraryScanErrorMessage!)
+        : songs.isEmpty
+        ? const _EmptyContentCard(
+            message: '当前目录下没有扫描到可播放歌曲，请确认目录中包含 mp4、dat 等媒体文件。',
+          )
+        : GridView.builder(
+            shrinkWrap: compact,
+            physics: compact
+                ? const NeverScrollableScrollPhysics()
+                : const ClampingScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 6,
+              crossAxisSpacing: 12,
+              childAspectRatio: 2.86,
+            ),
+            itemCount: songs.length,
+            itemBuilder: (BuildContext context, int index) {
+              final _DemoSong song = songs[index];
+              final bool isCurrent =
+                  queuedSongs.isNotEmpty && queuedSongs.first == song;
+              return _SongTile(
+                song: song,
+                isCurrent: isCurrent,
+                onTap: () => onPlaySong(song),
+              );
+            },
+          );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -1539,52 +1553,20 @@ class _SongBookRightColumn extends StatelessWidget {
               .toList(growable: false),
         ),
         const SizedBox(height: 12),
-        Expanded(
-          child: Column(
-            children: <Widget>[
-              Expanded(
-                child: songs.isEmpty
-                    ? const _EmptyContentCard(
-                        message: '当前筛选条件下没有歌曲，试试切换分类或清空搜索关键字。',
-                      )
-                    : LayoutBuilder(
-                        builder:
-                            (BuildContext context, BoxConstraints constraints) {
-                              return GridView.builder(
-                                gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 2,
-                                      mainAxisSpacing: 6,
-                                      crossAxisSpacing: 12,
-                                      childAspectRatio: 2.86,
-                                    ),
-                                itemCount: songs.length,
-                                itemBuilder: (BuildContext context, int index) {
-                                  final _DemoSong song = songs[index];
-                                  final bool inQueue = queuedSongs.contains(
-                                    song,
-                                  );
-                                  final bool isCurrent =
-                                      queuedSongs.isNotEmpty &&
-                                      queuedSongs.first == song;
-                                  return _SongTile(
-                                    song: song,
-                                    inQueue: inQueue,
-                                    isCurrent: isCurrent,
-                                    onTap: inQueue
-                                        ? null
-                                        : () => onQueueSong(song),
-                                  );
-                                },
-                              );
-                            },
-                      ),
-              ),
-              const SizedBox(height: 12),
-              const _PaginationBar(),
-            ],
+        if (compact) ...<Widget>[
+          libraryContent,
+          const SizedBox(height: 12),
+          const _PaginationBar(),
+        ] else
+          Expanded(
+            child: Column(
+              children: <Widget>[
+                Expanded(child: libraryContent),
+                const SizedBox(height: 12),
+                const _PaginationBar(),
+              ],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -1663,109 +1645,159 @@ class _SongBookActionRow extends StatelessWidget {
   }
 }
 
-class _ScanDirectoryDialog extends StatelessWidget {
-  const _ScanDirectoryDialog({
-    required this.scanDirectoryPath,
-    required this.errorMessage,
-    required this.isPickingDirectory,
-    required this.onPickDirectory,
+class _SettingsPage extends StatefulWidget {
+  const _SettingsPage({
+    required this.scanDirectoryService,
+    required this.initialDirectoryPath,
+    required this.initialErrorMessage,
   });
 
-  final String? scanDirectoryPath;
-  final String? errorMessage;
-  final bool isPickingDirectory;
-  final Future<void> Function() onPickDirectory;
+  final DemoScanDirectoryService scanDirectoryService;
+  final String? initialDirectoryPath;
+  final String? initialErrorMessage;
+
+  @override
+  State<_SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<_SettingsPage> {
+  late String? _currentDirectoryPath = widget.initialDirectoryPath;
+  late String? _errorMessage = widget.initialErrorMessage;
+  bool _isPickingDirectory = false;
+
+  Future<void> _pickDirectory() async {
+    if (_isPickingDirectory) {
+      return;
+    }
+
+    setState(() {
+      _isPickingDirectory = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final String? directory = await widget.scanDirectoryService.pickDirectory(
+        initialDirectory: _currentDirectoryPath,
+      );
+      if (!mounted || directory == null) {
+        return;
+      }
+
+      final bool hasAccess = await widget.scanDirectoryService
+          .ensureDirectoryAccess(directory);
+      if (!mounted) {
+        return;
+      }
+      if (!hasAccess) {
+        setState(() {
+          _errorMessage = '系统没有保留这个目录的读取授权，请重新选择目录。';
+        });
+        return;
+      }
+
+      setState(() {
+        _currentDirectoryPath = directory;
+      });
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(directory);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _errorMessage = '系统目录选择器没有成功启动：$error';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPickingDirectory = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      title: const Text('媒体库设置'),
-      content: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width > 560
-              ? 520
-              : MediaQuery.sizeOf(context).width - 48,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const Text(
-                '配置扫描目录后，后续点歌页会基于这个目录建立扫描范围。Android 这里走系统文档树授权，不依赖额外存储权限。',
-                style: TextStyle(height: 1.5),
-              ),
-              const SizedBox(height: 18),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF7F2FF),
-                  borderRadius: BorderRadius.circular(18),
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A0014),
+      appBar: AppBar(
+        title: const Text('媒体库设置'),
+        backgroundColor: Colors.transparent,
+      ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: ListView(
+              padding: const EdgeInsets.all(24),
+              children: <Widget>[
+                const Text(
+                  '配置扫描目录后，后续点歌页会基于这个目录建立扫描范围。取消目录选择后会回到这个设置页。',
+                  style: TextStyle(height: 1.5),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Text(
-                      '扫描目录',
-                      style: TextStyle(
-                        color: Color(0xFF1D1230),
-                        fontWeight: FontWeight.w700,
+                const SizedBox(height: 18),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7F2FF),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Text(
+                        '扫描目录',
+                        style: TextStyle(
+                          color: Color(0xFF1D1230),
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
+                      const SizedBox(height: 8),
+                      SelectableText(
+                        _currentDirectoryPath ?? '当前还没有配置扫描目录。',
+                        style: const TextStyle(
+                          color: Color(0xFF6B5D7C),
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _isPickingDirectory ? null : _pickDirectory,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF6E67),
+                  ),
+                  icon: const Icon(Icons.folder_open_rounded),
+                  label: Text(_isPickingDirectory ? '选择中' : '选择目录'),
+                ),
+                if (_errorMessage != null) ...<Widget>[
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF1F1),
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    const SizedBox(height: 8),
-                    SelectableText(
-                      scanDirectoryPath ?? '当前还没有配置扫描目录。',
+                    child: Text(
+                      _errorMessage!,
                       style: const TextStyle(
-                        color: Color(0xFF6B5D7C),
+                        color: Color(0xFF9C2F2F),
                         height: 1.5,
                       ),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: isPickingDirectory ? null : onPickDirectory,
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF6E67),
-                ),
-                icon: const Icon(Icons.folder_open_rounded),
-                label: Text(isPickingDirectory ? '选择中' : '选择目录'),
-              ),
-              if (errorMessage != null) ...<Widget>[
-                const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF1F1),
-                    borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Text(
-                    errorMessage!,
-                    style: const TextStyle(
-                      color: Color(0xFF9C2F2F),
-                      height: 1.5,
-                    ),
-                  ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
-      actions: <Widget>[
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('关闭'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('完成'),
-        ),
-      ],
     );
   }
 }
@@ -1824,15 +1856,9 @@ class _ActionPill extends StatelessWidget {
 }
 
 class _SongTile extends StatelessWidget {
-  const _SongTile({
-    required this.song,
-    required this.inQueue,
-    required this.isCurrent,
-    this.onTap,
-  });
+  const _SongTile({required this.song, required this.isCurrent, this.onTap});
 
   final _DemoSong song;
-  final bool inQueue;
   final bool isCurrent;
   final VoidCallback? onTap;
 
@@ -1892,15 +1918,11 @@ class _SongTile extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                isCurrent
-                    ? '当前播放'
-                    : inQueue
-                    ? '已点'
-                    : '点唱',
+                isCurrent ? '当前播放' : '播放',
                 style: TextStyle(
                   fontSize: 8,
                   fontWeight: FontWeight.w700,
-                  color: inQueue
+                  color: isCurrent
                       ? const Color(0xFFFFD85E)
                       : const Color(0xB8FFF7FF),
                 ),
@@ -1985,234 +2007,6 @@ class _PaginationButton extends StatelessWidget {
           color: Color(0x7AFFF2FF),
         ),
       ),
-    );
-  }
-}
-
-class _ResidentPlayerBar extends StatelessWidget {
-  const _ResidentPlayerBar({
-    required this.controller,
-    required this.title,
-    required this.subtitle,
-    required this.isPickingVideo,
-    required this.onPickVideo,
-    required this.onToggleAudioMode,
-    required this.onTogglePlayback,
-  });
-
-  final PlayerController controller;
-  final String title;
-  final String subtitle;
-  final bool isPickingVideo;
-  final Future<void> Function() onPickVideo;
-  final VoidCallback onToggleAudioMode;
-  final VoidCallback onTogglePlayback;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (BuildContext context, Widget? child) {
-        return Container(
-          padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-          decoration: BoxDecoration(
-            color: const Color(0xCC12041F),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0x1FFFFFFF)),
-            boxShadow: const <BoxShadow>[
-              BoxShadow(
-                color: Color(0x52070012),
-                blurRadius: 30,
-                offset: Offset(0, 14),
-              ),
-            ],
-          ),
-          child: LayoutBuilder(
-            builder: (BuildContext context, BoxConstraints constraints) {
-              final bool compact = constraints.maxWidth < 760;
-              final Widget leading = Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: <Color>[Color(0xFFFF5D88), Color(0xFF8839F4)],
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.music_note_rounded,
-                      color: Colors.white,
-                      size: 26,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: compact ? constraints.maxWidth - 120 : 280,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          subtitle,
-                          maxLines: compact ? 2 : 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xCCF3DAFF),
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-
-              final Widget progress = Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  _PlayerProgressTrack(
-                    controller: controller,
-                    thickness: 6,
-                    barHeight: 12,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: <Widget>[
-                      Text(
-                        _formatDuration(controller.playbackPosition),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xB8FFF2FF),
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        _formatDuration(controller.playbackDuration),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xB8FFF2FF),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-
-              final Widget actions = Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                alignment: WrapAlignment.end,
-                children: <Widget>[
-                  FilledButton.icon(
-                    onPressed: isPickingVideo ? null : onPickVideo,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF6E67),
-                      foregroundColor: Colors.white,
-                    ),
-                    icon: const Icon(Icons.folder_open_rounded),
-                    label: Text(isPickingVideo ? '选择中' : '选择本地视频'),
-                  ),
-                  _ResidentIconButton(
-                    icon: Icons.mic_rounded,
-                    label:
-                        controller.audioOutputMode ==
-                            AudioOutputMode.accompaniment
-                        ? '原唱'
-                        : '伴唱',
-                    onPressed: controller.hasMedia ? onToggleAudioMode : null,
-                  ),
-                  _ResidentIconButton(
-                    icon: controller.isPlaying
-                        ? Icons.pause_rounded
-                        : Icons.play_arrow_rounded,
-                    label: controller.isPlaying ? '暂停' : '播放',
-                    onPressed: controller.hasMedia ? onTogglePlayback : null,
-                  ),
-                ],
-              );
-
-              if (compact) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    leading,
-                    const SizedBox(height: 16),
-                    progress,
-                    const SizedBox(height: 16),
-                    actions,
-                  ],
-                );
-              }
-
-              return Row(
-                children: <Widget>[
-                  Expanded(flex: 35, child: leading),
-                  const SizedBox(width: 20),
-                  Expanded(flex: 38, child: progress),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    flex: 27,
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: actions,
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ResidentIconButton extends StatelessWidget {
-  const _ResidentIconButton({
-    required this.icon,
-    required this.label,
-    this.onPressed,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: onPressed == null
-            ? const Color(0x7AFFF7FF)
-            : const Color(0xEBFFF7FF),
-        side: BorderSide(
-          color: onPressed == null
-              ? const Color(0x14FFFFFF)
-              : const Color(0x33FFFFFF),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      ),
-      icon: Icon(icon, size: 18),
-      label: Text(label),
     );
   }
 }
@@ -2328,28 +2122,25 @@ class _HomeShortcut {
 }
 
 class _DemoSong {
-  const _DemoSong(this.title, this.artist, this.language, this.searchIndex);
+  const _DemoSong({
+    required this.title,
+    required this.artist,
+    required this.language,
+    required this.searchIndex,
+    required this.mediaPath,
+  });
 
   final String title;
   final String artist;
   final String language;
   final String searchIndex;
-}
+  final String mediaPath;
 
-String _formatDuration(Duration duration) {
-  if (duration <= Duration.zero) {
-    return '00:00';
+  @override
+  bool operator ==(Object other) {
+    return other is _DemoSong && other.mediaPath == mediaPath;
   }
 
-  final int totalSeconds = duration.inSeconds;
-  final int hours = totalSeconds ~/ 3600;
-  final int minutes = (totalSeconds % 3600) ~/ 60;
-  final int seconds = totalSeconds % 60;
-  if (hours > 0) {
-    return '${hours.toString().padLeft(2, '0')}:'
-        '${minutes.toString().padLeft(2, '0')}:'
-        '${seconds.toString().padLeft(2, '0')}';
-  }
-  return '${minutes.toString().padLeft(2, '0')}:'
-      '${seconds.toString().padLeft(2, '0')}';
+  @override
+  int get hashCode => mediaPath.hashCode;
 }
