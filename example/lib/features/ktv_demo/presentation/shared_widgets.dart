@@ -1,49 +1,14 @@
 part of 'ktv_demo_shell.dart';
 
 class _GradientShell extends StatelessWidget {
-  const _GradientShell({
-    required this.child,
-    required this.padding,
-    required this.compact,
-  });
+  const _GradientShell({required this.child, required this.padding});
 
   final Widget child;
   final EdgeInsetsGeometry padding;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[
-            Color(0xFF23004F),
-            Color(0xFF4A0A99),
-            Color(0xFF2B005A),
-            Color(0xFF30006B),
-            Color(0xFF6820D9),
-            Color(0xFF461094),
-            Color(0xFF16012D),
-            Color(0xFF3B1177),
-            Color(0xFF25024A),
-          ],
-          stops: <double>[0.0, 0.12, 0.24, 0.36, 0.48, 0.6, 0.74, 0.86, 1.0],
-        ),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: const Color(
-              0xFF090012,
-            ).withValues(alpha: compact ? 0.25 : 0.28),
-            blurRadius: compact ? 28 : 32,
-            offset: Offset(0, compact ? 18 : 20),
-          ),
-        ],
-      ),
-      child: Padding(padding: padding, child: child),
-    );
+    return Padding(padding: padding, child: child);
   }
 }
 

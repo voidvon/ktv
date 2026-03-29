@@ -366,13 +366,7 @@ class _KtvDemoShellState extends State<KtvDemoShell>
                                           maxWidth: 980,
                                         ),
                                         child: _GradientShell(
-                                          padding: const EdgeInsets.fromLTRB(
-                                            18,
-                                            12,
-                                            18,
-                                            16,
-                                          ),
-                                          compact: constraints.maxWidth < 860,
+                                          padding: EdgeInsets.zero,
                                           child: constraints.maxWidth < 860
                                               ? _buildCompactRouteLayout()
                                               : _demoController.route ==
