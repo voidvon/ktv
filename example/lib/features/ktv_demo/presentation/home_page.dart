@@ -2,95 +2,51 @@ part of 'ktv_demo_shell.dart';
 
 class _HomePage extends StatelessWidget {
   const _HomePage({
-    super.key,
     required this.controller,
     required this.queueCount,
-    required this.currentTitle,
-    required this.currentSubtitle,
     required this.onEnterSongBook,
     required this.onSettingsPressed,
     required this.onToggleAudioMode,
     required this.onTogglePlayback,
+    this.compact = false,
   });
 
   final PlayerController controller;
   final int queueCount;
-  final String currentTitle;
-  final String currentSubtitle;
   final VoidCallback onEnterSongBook;
   final VoidCallback onSettingsPressed;
   final VoidCallback onToggleAudioMode;
   final VoidCallback onTogglePlayback;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final bool compact = constraints.maxWidth < 860;
-        final Widget content = _GradientShell(
-          padding: compact
-              ? const EdgeInsets.all(16)
-              : const EdgeInsets.fromLTRB(18, 12, 18, 16),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _HomeToolbar(
+          controller: controller,
+          queueCount: queueCount,
           compact: compact,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              _HomeToolbar(
-                controller: controller,
-                queueCount: queueCount,
-                compact: compact,
-                onQueuePressed: onEnterSongBook,
-                onSettingsPressed: onSettingsPressed,
-                onToggleAudioMode: onToggleAudioMode,
-                onTogglePlayback: onTogglePlayback,
+          onQueuePressed: onEnterSongBook,
+          onSettingsPressed: onSettingsPressed,
+          onToggleAudioMode: onToggleAudioMode,
+          onTogglePlayback: onTogglePlayback,
+        ),
+        SizedBox(height: compact ? 16 : 18),
+        if (compact)
+          _HomeShortcutGrid(onEnterSongBook: onEnterSongBook, compact: true)
+        else
+          Expanded(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 324),
+                child: _HomeShortcutGrid(onEnterSongBook: onEnterSongBook),
               ),
-              SizedBox(height: compact ? 16 : 18),
-              if (compact) ...<Widget>[
-                _HomePreviewCard(
-                  controller: controller,
-                  title: currentTitle,
-                  subtitle: currentSubtitle,
-                  compact: true,
-                ),
-                const SizedBox(height: 16),
-                _HomeShortcutGrid(
-                  onEnterSongBook: onEnterSongBook,
-                  compact: true,
-                ),
-              ] else
-                Expanded(
-                  child: Row(
-                    children: <Widget>[
-                      const SizedBox(width: 48),
-                      Expanded(
-                        flex: 384,
-                        child: _HomePreviewCard(
-                          controller: controller,
-                          title: currentTitle,
-                          subtitle: currentSubtitle,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 324,
-                        child: _HomeShortcutGrid(
-                          onEnterSongBook: onEnterSongBook,
-                        ),
-                      ),
-                      const SizedBox(width: 48),
-                    ],
-                  ),
-                ),
-            ],
+            ),
           ),
-        );
-
-        if (compact) {
-          return content;
-        }
-
-        return AspectRatio(aspectRatio: 852 / 393, child: content);
-      },
+      ],
     );
   }
 }
@@ -235,12 +191,14 @@ class _ToolbarPill extends StatelessWidget {
 class _HomePreviewCard extends StatelessWidget {
   const _HomePreviewCard({
     required this.controller,
+    required this.previewSurface,
     required this.title,
     required this.subtitle,
     this.compact = false,
   });
 
   final PlayerController controller;
+  final Widget previewSurface;
   final String title;
   final String subtitle;
   final bool compact;
@@ -270,11 +228,7 @@ class _HomePreviewCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: KtvPlayerView(
-                    controller: controller,
-                    placeholder: const _HomePreviewPlaceholder(),
-                    backgroundColor: const Color(0xFF0A0018),
-                  ),
+                  child: previewSurface,
                 ),
                 const DecoratedBox(
                   decoration: BoxDecoration(

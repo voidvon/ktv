@@ -28,6 +28,7 @@ abstract class PlatformChannelPlayerController extends PlayerController {
   );
 
   late final StreamSubscription<dynamic> _eventSubscription;
+  late final Widget _videoView = buildPlatformVideoView();
 
   String? _currentMediaPath;
   AudioOutputMode _audioOutputMode = AudioOutputMode.original;
@@ -281,7 +282,7 @@ abstract class PlatformChannelPlayerController extends PlayerController {
   }
 
   @override
-  Widget? buildVideoView() => buildPlatformVideoView();
+  Widget? buildVideoView() => _videoView;
 
   @override
   void dispose() {

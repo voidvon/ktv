@@ -83,6 +83,31 @@ class _PlayerProgressTrack extends StatelessWidget {
   }
 }
 
+class _PersistentPreviewSurface extends StatelessWidget {
+  const _PersistentPreviewSurface({
+    super.key,
+    required this.controller,
+    required this.route,
+  });
+
+  final PlayerController controller;
+  final DemoRoute route;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isHome = route == DemoRoute.home;
+    return KtvPlayerView(
+      controller: controller,
+      backgroundColor: isHome
+          ? const Color(0xFF0A0018)
+          : const Color(0xFF090013),
+      placeholder: isHome
+          ? const _HomePreviewPlaceholder()
+          : const _SongPreviewPlaceholder(),
+    );
+  }
+}
+
 class _KtvAtmosphereBackground extends StatelessWidget {
   const _KtvAtmosphereBackground();
 

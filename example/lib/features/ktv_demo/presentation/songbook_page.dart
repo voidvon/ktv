@@ -2,7 +2,6 @@ part of 'ktv_demo_shell.dart';
 
 class _SongBookPage extends StatelessWidget {
   const _SongBookPage({
-    super.key,
     required this.controller,
     required this.searchController,
     required this.selectedLanguage,
@@ -21,6 +20,7 @@ class _SongBookPage extends StatelessWidget {
     required this.onToggleAudioMode,
     required this.onTogglePlayback,
     required this.onRestartPlayback,
+    this.compact = false,
   });
 
   final PlayerController controller;
@@ -41,95 +41,44 @@ class _SongBookPage extends StatelessWidget {
   final VoidCallback onToggleAudioMode;
   final VoidCallback onTogglePlayback;
   final VoidCallback onRestartPlayback;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final bool compact = constraints.maxWidth < 860;
-        final bool showLetterKeyboard =
-            MediaQuery.orientationOf(context) == Orientation.landscape;
-        final Widget content = _GradientShell(
-          padding: compact
-              ? const EdgeInsets.all(18)
-              : const EdgeInsets.fromLTRB(56, 22, 28, 18),
+    final bool showLetterKeyboard =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    final Widget rightColumn = _SongBookRightColumn(
+      controller: controller,
+      compact: compact,
+      selectedLanguage: selectedLanguage,
+      songs: songs,
+      hasConfiguredDirectory: hasConfiguredDirectory,
+      isScanningLibrary: isScanningLibrary,
+      libraryScanErrorMessage: libraryScanErrorMessage,
+      queuedSongs: queuedSongs,
+      onBackPressed: onBackPressed,
+      onLanguageSelected: onLanguageSelected,
+      onPlaySong: onPlaySong,
+      onSettingsPressed: onSettingsPressed,
+      onToggleAudioMode: onToggleAudioMode,
+      onTogglePlayback: onTogglePlayback,
+      onRestartPlayback: onRestartPlayback,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _SongBookLeftColumn(
+          controller: controller,
+          searchController: searchController,
           compact: compact,
-          child: compact
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    _SongBookLeftColumn(
-                      controller: controller,
-                      searchController: searchController,
-                      compact: true,
-                      showLetterKeyboard: showLetterKeyboard,
-                      onAppendSearchToken: onAppendSearchToken,
-                      onRemoveSearchCharacter: onRemoveSearchCharacter,
-                      onClearSearch: onClearSearch,
-                    ),
-                    const SizedBox(height: 20),
-                    _SongBookRightColumn(
-                      controller: controller,
-                      compact: true,
-                      selectedLanguage: selectedLanguage,
-                      songs: songs,
-                      hasConfiguredDirectory: hasConfiguredDirectory,
-                      isScanningLibrary: isScanningLibrary,
-                      libraryScanErrorMessage: libraryScanErrorMessage,
-                      queuedSongs: queuedSongs,
-                      onBackPressed: onBackPressed,
-                      onLanguageSelected: onLanguageSelected,
-                      onPlaySong: onPlaySong,
-                      onSettingsPressed: onSettingsPressed,
-                      onToggleAudioMode: onToggleAudioMode,
-                      onTogglePlayback: onTogglePlayback,
-                      onRestartPlayback: onRestartPlayback,
-                    ),
-                  ],
-                )
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    SizedBox(
-                      width: 304,
-                      child: _SongBookLeftColumn(
-                        controller: controller,
-                        searchController: searchController,
-                        showLetterKeyboard: showLetterKeyboard,
-                        onAppendSearchToken: onAppendSearchToken,
-                        onRemoveSearchCharacter: onRemoveSearchCharacter,
-                        onClearSearch: onClearSearch,
-                      ),
-                    ),
-                    const SizedBox(width: 28),
-                    Expanded(
-                      child: _SongBookRightColumn(
-                        controller: controller,
-                        selectedLanguage: selectedLanguage,
-                        songs: songs,
-                        hasConfiguredDirectory: hasConfiguredDirectory,
-                        isScanningLibrary: isScanningLibrary,
-                        libraryScanErrorMessage: libraryScanErrorMessage,
-                        queuedSongs: queuedSongs,
-                        onBackPressed: onBackPressed,
-                        onLanguageSelected: onLanguageSelected,
-                        onPlaySong: onPlaySong,
-                        onSettingsPressed: onSettingsPressed,
-                        onToggleAudioMode: onToggleAudioMode,
-                        onTogglePlayback: onTogglePlayback,
-                        onRestartPlayback: onRestartPlayback,
-                      ),
-                    ),
-                  ],
-                ),
-        );
-
-        if (compact) {
-          return content;
-        }
-
-        return AspectRatio(aspectRatio: 852 / 393, child: content);
-      },
+          showLetterKeyboard: showLetterKeyboard,
+          onAppendSearchToken: onAppendSearchToken,
+          onRemoveSearchCharacter: onRemoveSearchCharacter,
+          onClearSearch: onClearSearch,
+        ),
+        SizedBox(height: compact ? 20 : 0),
+        if (compact) rightColumn else Expanded(child: rightColumn),
+      ],
     );
   }
 }
@@ -158,9 +107,6 @@ class _SongBookLeftColumn extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        SizedBox(height: compact ? 6 : 10),
-        _SongPreviewCard(controller: controller, compact: compact),
-        SizedBox(height: compact ? 4 : 6),
         _SongBookSearchField(
           controller: searchController,
           enableSystemKeyboard: !showLetterKeyboard,
@@ -172,82 +118,6 @@ class _SongBookLeftColumn extends StatelessWidget {
           _LetterKeyboard(onKeyPressed: onAppendSearchToken),
         ],
       ],
-    );
-  }
-}
-
-class _SongPreviewCard extends StatelessWidget {
-  const _SongPreviewCard({required this.controller, required this.compact});
-
-  final PlayerController controller;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (BuildContext context, Widget? child) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(compact ? 12 : 4),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: <Widget>[
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0x87111111)),
-                        boxShadow: const <BoxShadow>[
-                          BoxShadow(
-                            color: Color(0x870A001E),
-                            blurRadius: 18,
-                            offset: Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: KtvPlayerView(
-                        controller: controller,
-                        backgroundColor: const Color(0xFF090013),
-                        placeholder: const _SongPreviewPlaceholder(),
-                      ),
-                    ),
-                    Positioned(
-                      left: 10,
-                      top: 10,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: const BoxDecoration(
-                          color: Color(0x1FFFFFFF),
-                          borderRadius: BorderRadius.all(Radius.circular(999)),
-                        ),
-                        child: const Text(
-                          '等待点唱',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 2),
-            _PlayerProgressTrack(
-              controller: controller,
-              thickness: 6,
-              barHeight: 8,
-            ),
-          ],
-        );
-      },
     );
   }
 }
@@ -536,42 +406,48 @@ class _SongBookRightColumn extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 4,
-          runSpacing: 4,
-          children: _languageTabs
-              .map((String language) {
-                final bool selected = language == selectedLanguage;
-                return Material(
-                  color: selected
-                      ? const Color(0x14FFFFFF)
-                      : const Color(0x0AFFFFFF),
-                  borderRadius: BorderRadius.circular(10),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(10),
-                    onTap: () => onLanguageSelected(language),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 3,
-                      ),
-                      child: Text(
-                        language,
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: selected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: selected
-                              ? const Color(0xFFFF625E)
-                              : const Color(0xB8FFF0FF),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _languageTabs
+                .map((String language) {
+                  final bool selected = language == selectedLanguage;
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      right: language == _languageTabs.last ? 0 : 4,
+                    ),
+                    child: Material(
+                      color: selected
+                          ? const Color(0x14FFFFFF)
+                          : const Color(0x0AFFFFFF),
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => onLanguageSelected(language),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 3,
+                          ),
+                          child: Text(
+                            language,
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: selected
+                                  ? const Color(0xFFFF625E)
+                                  : const Color(0xB8FFF0FF),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              })
-              .toList(growable: false),
+                  );
+                })
+                .toList(growable: false),
+          ),
         ),
         const SizedBox(height: 12),
         if (compact) ...<Widget>[
@@ -619,46 +495,53 @@ class _SongBookActionRow extends StatelessWidget {
       builder: (BuildContext context, Widget? child) {
         return Align(
           alignment: compact ? Alignment.centerLeft : Alignment.centerRight,
-          child: Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            alignment: WrapAlignment.end,
-            children: <Widget>[
-              _ActionPill(
-                label: '已点$queueCount',
-                icon: Icons.queue_music_rounded,
-              ),
-              _ActionPill(
-                label:
-                    controller.audioOutputMode == AudioOutputMode.accompaniment
-                    ? '原唱'
-                    : '伴唱',
-                icon: Icons.mic_rounded,
-                onPressed: controller.hasMedia ? onToggleAudioMode : null,
-              ),
-              const _ActionPill(
-                label: '切歌',
-                icon: Icons.skip_next_rounded,
-                enabled: false,
-              ),
-              _ActionPill(
-                label: controller.isPlaying ? '暂停' : '播放',
-                icon: controller.isPlaying
-                    ? Icons.pause_rounded
-                    : Icons.play_arrow_rounded,
-                onPressed: controller.hasMedia ? onTogglePlayback : null,
-              ),
-              _ActionPill(
-                label: '重唱',
-                icon: Icons.replay_rounded,
-                onPressed: controller.hasMedia ? onRestartPlayback : null,
-              ),
-              _ActionPill(
-                label: '设置',
-                icon: Icons.settings_rounded,
-                onPressed: onSettingsPressed,
-              ),
-            ],
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                _ActionPill(
+                  label: '已点$queueCount',
+                  icon: Icons.queue_music_rounded,
+                ),
+                const SizedBox(width: 4),
+                _ActionPill(
+                  label:
+                      controller.audioOutputMode ==
+                          AudioOutputMode.accompaniment
+                      ? '原唱'
+                      : '伴唱',
+                  icon: Icons.mic_rounded,
+                  onPressed: controller.hasMedia ? onToggleAudioMode : null,
+                ),
+                const SizedBox(width: 4),
+                const _ActionPill(
+                  label: '切歌',
+                  icon: Icons.skip_next_rounded,
+                  enabled: false,
+                ),
+                const SizedBox(width: 4),
+                _ActionPill(
+                  label: controller.isPlaying ? '暂停' : '播放',
+                  icon: controller.isPlaying
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
+                  onPressed: controller.hasMedia ? onTogglePlayback : null,
+                ),
+                const SizedBox(width: 4),
+                _ActionPill(
+                  label: '重唱',
+                  icon: Icons.replay_rounded,
+                  onPressed: controller.hasMedia ? onRestartPlayback : null,
+                ),
+                const SizedBox(width: 4),
+                _ActionPill(
+                  label: '设置',
+                  icon: Icons.settings_rounded,
+                  onPressed: onSettingsPressed,
+                ),
+              ],
+            ),
           ),
         );
       },

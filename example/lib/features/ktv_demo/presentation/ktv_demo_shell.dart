@@ -75,6 +75,7 @@ class _KtvDemoShellState extends State<KtvDemoShell>
     with WidgetsBindingObserver {
   final KtvDemoController _demoController = KtvDemoController();
   final TextEditingController _searchController = TextEditingController();
+  final GlobalKey _previewSurfaceKey = GlobalKey();
 
   @override
   void initState() {
@@ -185,6 +186,141 @@ class _KtvDemoShellState extends State<KtvDemoShell>
     await _demoController.playSong(song);
   }
 
+  Widget _buildPreviewSurface() {
+    return _PersistentPreviewSurface(
+      key: _previewSurfaceKey,
+      controller: _demoController.playerController,
+      route: _demoController.route,
+    );
+  }
+
+  Widget _buildWideHomeLayout() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        SizedBox(
+          width: 304,
+          child: _HomePreviewCard(
+            controller: _demoController.playerController,
+            previewSurface: _buildPreviewSurface(),
+            title: _demoController.currentTitle,
+            subtitle: _demoController.currentSubtitle,
+          ),
+        ),
+        const SizedBox(width: 28),
+        Expanded(
+          child: _HomePage(
+            controller: _demoController.playerController,
+            compact: false,
+            queueCount: _demoController.queuedSongs.length,
+            onEnterSongBook: _enterSongBook,
+            onSettingsPressed: _openSettingsPage,
+            onToggleAudioMode: _toggleAudioMode,
+            onTogglePlayback: _togglePlayback,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWideSongBookLayout() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        SizedBox(
+          width: 304,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              _HomePreviewCard(
+                controller: _demoController.playerController,
+                previewSurface: _buildPreviewSurface(),
+                title: _demoController.currentTitle,
+                subtitle: _demoController.currentSubtitle,
+              ),
+              const SizedBox(height: 6),
+              _SongBookLeftColumn(
+                controller: _demoController.playerController,
+                searchController: _searchController,
+                showLetterKeyboard: true,
+                onAppendSearchToken: _appendSearchToken,
+                onRemoveSearchCharacter: _removeSearchCharacter,
+                onClearSearch: _clearSearch,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 28),
+        Expanded(
+          child: _SongBookRightColumn(
+            controller: _demoController.playerController,
+            selectedLanguage: _demoController.selectedLanguage,
+            songs: _demoController.filteredSongs,
+            hasConfiguredDirectory: _demoController.hasConfiguredDirectory,
+            isScanningLibrary: _demoController.isScanningLibrary,
+            libraryScanErrorMessage: _demoController.libraryScanErrorMessage,
+            queuedSongs: _demoController.queuedSongs,
+            onBackPressed: _returnHome,
+            onLanguageSelected: _selectLanguage,
+            onPlaySong: _playSong,
+            onSettingsPressed: _openSettingsPage,
+            onToggleAudioMode: _toggleAudioMode,
+            onTogglePlayback: _togglePlayback,
+            onRestartPlayback: _restartPlayback,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompactRouteLayout() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _HomePreviewCard(
+          controller: _demoController.playerController,
+          previewSurface: _buildPreviewSurface(),
+          title: _demoController.currentTitle,
+          subtitle: _demoController.currentSubtitle,
+          compact: true,
+        ),
+        const SizedBox(height: 16),
+        if (_demoController.route == DemoRoute.home)
+          _HomePage(
+            controller: _demoController.playerController,
+            compact: true,
+            queueCount: _demoController.queuedSongs.length,
+            onEnterSongBook: _enterSongBook,
+            onSettingsPressed: _openSettingsPage,
+            onToggleAudioMode: _toggleAudioMode,
+            onTogglePlayback: _togglePlayback,
+          )
+        else
+          _SongBookPage(
+            controller: _demoController.playerController,
+            compact: true,
+            searchController: _searchController,
+            selectedLanguage: _demoController.selectedLanguage,
+            songs: _demoController.filteredSongs,
+            hasConfiguredDirectory: _demoController.hasConfiguredDirectory,
+            isScanningLibrary: _demoController.isScanningLibrary,
+            libraryScanErrorMessage: _demoController.libraryScanErrorMessage,
+            queuedSongs: _demoController.queuedSongs,
+            onBackPressed: _returnHome,
+            onLanguageSelected: _selectLanguage,
+            onAppendSearchToken: _appendSearchToken,
+            onRemoveSearchCharacter: _removeSearchCharacter,
+            onClearSearch: _clearSearch,
+            onPlaySong: _playSong,
+            onSettingsPressed: _openSettingsPage,
+            onToggleAudioMode: _toggleAudioMode,
+            onTogglePlayback: _togglePlayback,
+            onRestartPlayback: _restartPlayback,
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -210,101 +346,48 @@ class _KtvDemoShellState extends State<KtvDemoShell>
                 SafeArea(
                   minimum: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                   child: LayoutBuilder(
-                    builder: (BuildContext context, BoxConstraints constraints) {
-                      final double minContentHeight = math.max(
-                        0,
-                        constraints.maxHeight - 158,
-                      );
-                      return Column(
-                        children: <Widget>[
-                          Expanded(
-                            child: SingleChildScrollView(
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minHeight: minContentHeight,
-                                ),
-                                child: Center(
+                    builder:
+                        (BuildContext context, BoxConstraints constraints) {
+                          final double minContentHeight = math.max(
+                            0,
+                            constraints.maxHeight - 158,
+                          );
+                          return Column(
+                            children: <Widget>[
+                              Expanded(
+                                child: SingleChildScrollView(
                                   child: ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 980,
+                                    constraints: BoxConstraints(
+                                      minHeight: minContentHeight,
                                     ),
-                                    child: AnimatedSwitcher(
-                                      duration: const Duration(
-                                        milliseconds: 320,
+                                    child: Center(
+                                      child: ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 980,
+                                        ),
+                                        child: _GradientShell(
+                                          padding: const EdgeInsets.fromLTRB(
+                                            18,
+                                            12,
+                                            18,
+                                            16,
+                                          ),
+                                          compact: constraints.maxWidth < 860,
+                                          child: constraints.maxWidth < 860
+                                              ? _buildCompactRouteLayout()
+                                              : _demoController.route ==
+                                                    DemoRoute.home
+                                              ? _buildWideHomeLayout()
+                                              : _buildWideSongBookLayout(),
+                                        ),
                                       ),
-                                      switchInCurve: Curves.easeOutCubic,
-                                      switchOutCurve: Curves.easeInCubic,
-                                      child:
-                                          _demoController.route ==
-                                              DemoRoute.home
-                                          ? _HomePage(
-                                              key: const ValueKey<String>(
-                                                'home',
-                                              ),
-                                              controller: _demoController
-                                                  .playerController,
-                                              queueCount: _demoController
-                                                  .queuedSongs
-                                                  .length,
-                                              currentTitle:
-                                                  _demoController.currentTitle,
-                                              currentSubtitle: _demoController
-                                                  .currentSubtitle,
-                                              onEnterSongBook: _enterSongBook,
-                                              onSettingsPressed:
-                                                  _openSettingsPage,
-                                              onToggleAudioMode:
-                                                  _toggleAudioMode,
-                                              onTogglePlayback: _togglePlayback,
-                                            )
-                                          : _SongBookPage(
-                                              key: const ValueKey<String>(
-                                                'song_book',
-                                              ),
-                                              controller: _demoController
-                                                  .playerController,
-                                              searchController:
-                                                  _searchController,
-                                              selectedLanguage: _demoController
-                                                  .selectedLanguage,
-                                              songs:
-                                                  _demoController.filteredSongs,
-                                              hasConfiguredDirectory:
-                                                  _demoController
-                                                      .hasConfiguredDirectory,
-                                              isScanningLibrary: _demoController
-                                                  .isScanningLibrary,
-                                              libraryScanErrorMessage:
-                                                  _demoController
-                                                      .libraryScanErrorMessage,
-                                              queuedSongs:
-                                                  _demoController.queuedSongs,
-                                              onBackPressed: _returnHome,
-                                              onLanguageSelected:
-                                                  _selectLanguage,
-                                              onAppendSearchToken:
-                                                  _appendSearchToken,
-                                              onRemoveSearchCharacter:
-                                                  _removeSearchCharacter,
-                                              onClearSearch: _clearSearch,
-                                              onPlaySong: _playSong,
-                                              onSettingsPressed:
-                                                  _openSettingsPage,
-                                              onToggleAudioMode:
-                                                  _toggleAudioMode,
-                                              onTogglePlayback: _togglePlayback,
-                                              onRestartPlayback:
-                                                  _restartPlayback,
-                                            ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+                            ],
+                          );
+                        },
                   ),
                 ),
               ],
