@@ -1,35 +1,6 @@
-import 'package:file_selector/file_selector.dart';
-import 'package:flutter/foundation.dart';
+import '../features/media_library/data/scan_directory_data_source.dart';
 
-import 'demo_android_storage_service.dart';
+export '../features/media_library/data/scan_directory_data_source.dart'
+    show DemoScanDirectoryDataSource;
 
-class DemoScanDirectoryService {
-  final DemoAndroidStorageService _androidStorageService =
-      DemoAndroidStorageService();
-
-  Future<String?> pickDirectory({String? initialDirectory}) async {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return _androidStorageService.pickDirectory(
-        initialDirectory: initialDirectory,
-      );
-    }
-
-    return getDirectoryPath(initialDirectory: initialDirectory);
-  }
-
-  Future<bool> ensureDirectoryAccess(String path) {
-    return _androidStorageService.ensureDirectoryAccess(path);
-  }
-
-  Future<void> clearDirectoryAccess({String? path}) {
-    return _androidStorageService.clearDirectoryAccess(path: path);
-  }
-
-  Future<void> saveSelectedDirectory(String path) {
-    return _androidStorageService.saveSelectedDirectory(path);
-  }
-
-  Future<String?> loadSelectedDirectory() {
-    return _androidStorageService.loadSelectedDirectory();
-  }
-}
+typedef DemoScanDirectoryService = DemoScanDirectoryDataSource;

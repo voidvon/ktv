@@ -1,44 +1,44 @@
 import '../../../core/models/demo_song.dart';
-import '../../../src/demo_media_library_service.dart';
-import '../../../src/demo_scan_directory_service.dart';
+import 'media_library_data_source.dart';
+import 'scan_directory_data_source.dart';
 
 class DemoMediaLibraryRepository {
   DemoMediaLibraryRepository({
-    DemoMediaLibraryService? mediaLibraryService,
-    DemoScanDirectoryService? scanDirectoryService,
-  }) : _mediaLibraryService = mediaLibraryService ?? DemoMediaLibraryService(),
-       _scanDirectoryService =
-           scanDirectoryService ?? DemoScanDirectoryService();
+    DemoMediaLibraryDataSource? mediaLibraryDataSource,
+    DemoScanDirectoryDataSource? scanDirectoryDataSource,
+  }) : _mediaLibraryDataSource =
+           mediaLibraryDataSource ?? DemoMediaLibraryDataSource(),
+       _scanDirectoryDataSource =
+           scanDirectoryDataSource ?? DemoScanDirectoryDataSource();
 
-  final DemoMediaLibraryService _mediaLibraryService;
-  final DemoScanDirectoryService _scanDirectoryService;
+  final DemoMediaLibraryDataSource _mediaLibraryDataSource;
+  final DemoScanDirectoryDataSource _scanDirectoryDataSource;
 
   Future<String?> pickDirectory({String? initialDirectory}) {
-    return _scanDirectoryService.pickDirectory(
+    return _scanDirectoryDataSource.pickDirectory(
       initialDirectory: initialDirectory,
     );
   }
 
   Future<bool> ensureDirectoryAccess(String path) {
-    return _scanDirectoryService.ensureDirectoryAccess(path);
+    return _scanDirectoryDataSource.ensureDirectoryAccess(path);
   }
 
   Future<void> clearDirectoryAccess({String? path}) {
-    return _scanDirectoryService.clearDirectoryAccess(path: path);
+    return _scanDirectoryDataSource.clearDirectoryAccess(path: path);
   }
 
   Future<void> saveSelectedDirectory(String path) {
-    return _scanDirectoryService.saveSelectedDirectory(path);
+    return _scanDirectoryDataSource.saveSelectedDirectory(path);
   }
 
   Future<String?> loadSelectedDirectory() {
-    return _scanDirectoryService.loadSelectedDirectory();
+    return _scanDirectoryDataSource.loadSelectedDirectory();
   }
 
   Future<List<DemoSong>> scanLibrary(String directory) async {
-    final List<DemoLibrarySong> songs = await _mediaLibraryService.scanLibrary(
-      directory,
-    );
+    final List<DemoLibrarySong> songs = await _mediaLibraryDataSource
+        .scanLibrary(directory);
     return songs
         .map(
           (DemoLibrarySong song) => DemoSong(
