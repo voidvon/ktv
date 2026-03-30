@@ -64,23 +64,64 @@ void main() {
     },
   );
 
-  test('playSong opens media and moves song to queue head', () async {
-    final FakePlayerController playerController = FakePlayerController();
+  test(
+    'requestSong keeps current playback and appends new songs to queue',
+    () async {
+      final FakePlayerController playerController = FakePlayerController();
+      final KtvDemoController controller = KtvDemoController(
+        mediaLibraryRepository: FakeDemoMediaLibraryRepository(),
+        playerController: playerController,
+      );
+      final DemoSong first = _song(title: '第一首', artist: '歌手甲');
+      final DemoSong second = _song(title: '第二首', artist: '歌手乙');
+
+      await controller.requestSong(first);
+      await controller.requestSong(second);
+      await controller.requestSong(first);
+
+      expect(playerController.lastOpenedSource?.displayName, '第一首');
+      expect(controller.queuedSongs.first, first);
+      expect(controller.queuedSongs, <DemoSong>[first, second]);
+      expect(controller.currentTitle, '第一首');
+    },
+  );
+
+  test(
+    'prioritizeQueuedSong moves later queued item behind current song',
+    () async {
+      final KtvDemoController controller = KtvDemoController(
+        mediaLibraryRepository: FakeDemoMediaLibraryRepository(),
+        playerController: FakePlayerController(),
+      );
+      final DemoSong current = _song(title: '当前播放', artist: '歌手甲');
+      final DemoSong next = _song(title: '下一首', artist: '歌手乙');
+      final DemoSong later = _song(title: '后面那首', artist: '歌手丙');
+
+      await controller.requestSong(current);
+      await controller.requestSong(next);
+      await controller.requestSong(later);
+
+      controller.prioritizeQueuedSong(later);
+
+      expect(controller.queuedSongs, <DemoSong>[current, later, next]);
+    },
+  );
+
+  test('removeQueuedSong only removes non-current queued items', () async {
     final KtvDemoController controller = KtvDemoController(
       mediaLibraryRepository: FakeDemoMediaLibraryRepository(),
-      playerController: playerController,
+      playerController: FakePlayerController(),
     );
-    final DemoSong first = _song(title: '第一首', artist: '歌手甲');
-    final DemoSong second = _song(title: '第二首', artist: '歌手乙');
+    final DemoSong current = _song(title: '当前播放', artist: '歌手甲');
+    final DemoSong next = _song(title: '下一首', artist: '歌手乙');
 
-    await controller.playSong(first);
-    await controller.playSong(second);
-    await controller.playSong(first);
+    await controller.requestSong(current);
+    await controller.requestSong(next);
 
-    expect(playerController.lastOpenedSource?.displayName, '第一首');
-    expect(controller.queuedSongs.first, first);
-    expect(controller.queuedSongs, <DemoSong>[first, second]);
-    expect(controller.currentTitle, '第一首');
+    controller.removeQueuedSong(current);
+    controller.removeQueuedSong(next);
+
+    expect(controller.queuedSongs, <DemoSong>[current]);
   });
 
   test('stopPlayback pauses current media and rewinds to start', () async {
@@ -90,7 +131,7 @@ void main() {
       playerController: playerController,
     );
 
-    await controller.playSong(_song(title: '夜空中最亮的星', artist: '逃跑计划'));
+    await controller.requestSong(_song(title: '夜空中最亮的星', artist: '逃跑计划'));
     await playerController.seekToProgress(0.5);
 
     await controller.stopPlayback();

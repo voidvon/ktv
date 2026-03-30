@@ -4,6 +4,8 @@ class _SongBookPage extends StatelessWidget {
   const _SongBookPage({
     required this.controller,
     required this.searchController,
+    required this.route,
+    required this.searchQuery,
     required this.selectedLanguage,
     required this.songs,
     required this.hasConfiguredDirectory,
@@ -11,20 +13,27 @@ class _SongBookPage extends StatelessWidget {
     required this.libraryScanErrorMessage,
     required this.queuedSongs,
     required this.onBackPressed,
+    required this.onQueuePressed,
+    required this.onEnterSongBook,
     required this.onLanguageSelected,
     required this.onAppendSearchToken,
     required this.onRemoveSearchCharacter,
     required this.onClearSearch,
-    required this.onPlaySong,
+    required this.onRequestSong,
+    required this.onPrioritizeQueuedSong,
+    required this.onRemoveQueuedSong,
     required this.onSettingsPressed,
     required this.onToggleAudioMode,
     required this.onTogglePlayback,
     required this.onRestartPlayback,
+    required this.onSkipSong,
     this.compact = false,
   });
 
   final PlayerController controller;
   final TextEditingController searchController;
+  final DemoRoute route;
+  final String searchQuery;
   final String selectedLanguage;
   final List<DemoSong> songs;
   final bool hasConfiguredDirectory;
@@ -32,15 +41,20 @@ class _SongBookPage extends StatelessWidget {
   final String? libraryScanErrorMessage;
   final List<DemoSong> queuedSongs;
   final VoidCallback onBackPressed;
+  final VoidCallback onQueuePressed;
+  final VoidCallback onEnterSongBook;
   final ValueChanged<String> onLanguageSelected;
   final ValueChanged<String> onAppendSearchToken;
   final VoidCallback onRemoveSearchCharacter;
   final VoidCallback onClearSearch;
-  final ValueChanged<DemoSong> onPlaySong;
+  final ValueChanged<DemoSong> onRequestSong;
+  final ValueChanged<DemoSong> onPrioritizeQueuedSong;
+  final ValueChanged<DemoSong> onRemoveQueuedSong;
   final VoidCallback onSettingsPressed;
   final VoidCallback onToggleAudioMode;
   final VoidCallback onTogglePlayback;
   final VoidCallback onRestartPlayback;
+  final VoidCallback onSkipSong;
   final bool compact;
 
   @override
@@ -53,6 +67,8 @@ class _SongBookPage extends StatelessWidget {
     final Widget rightColumn = _SongBookRightColumn(
       controller: controller,
       compact: compact,
+      route: route,
+      searchQuery: searchQuery,
       selectedLanguage: selectedLanguage,
       songs: songs,
       hasConfiguredDirectory: hasConfiguredDirectory,
@@ -60,12 +76,17 @@ class _SongBookPage extends StatelessWidget {
       libraryScanErrorMessage: libraryScanErrorMessage,
       queuedSongs: queuedSongs,
       onBackPressed: onBackPressed,
+      onQueuePressed: onQueuePressed,
+      onEnterSongBook: onEnterSongBook,
       onLanguageSelected: onLanguageSelected,
-      onPlaySong: onPlaySong,
+      onRequestSong: onRequestSong,
+      onPrioritizeQueuedSong: onPrioritizeQueuedSong,
+      onRemoveQueuedSong: onRemoveQueuedSong,
       onSettingsPressed: onSettingsPressed,
       onToggleAudioMode: onToggleAudioMode,
       onTogglePlayback: onTogglePlayback,
       onRestartPlayback: onRestartPlayback,
+      onSkipSong: onSkipSong,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -73,6 +94,7 @@ class _SongBookPage extends StatelessWidget {
         _SongBookLeftColumn(
           controller: controller,
           searchController: searchController,
+          route: route,
           compact: compact,
           showLetterKeyboard: showLetterKeyboard,
           onAppendSearchToken: onAppendSearchToken,
@@ -90,6 +112,7 @@ class _SongBookLeftColumn extends StatefulWidget {
   const _SongBookLeftColumn({
     required this.controller,
     required this.searchController,
+    required this.route,
     required this.showLetterKeyboard,
     required this.onAppendSearchToken,
     required this.onRemoveSearchCharacter,
@@ -99,6 +122,7 @@ class _SongBookLeftColumn extends StatefulWidget {
 
   final PlayerController controller;
   final TextEditingController searchController;
+  final DemoRoute route;
   final bool showLetterKeyboard;
   final ValueChanged<String> onAppendSearchToken;
   final VoidCallback onRemoveSearchCharacter;
@@ -131,6 +155,9 @@ class _SongBookLeftColumnState extends State<_SongBookLeftColumn> {
       children: <Widget>[
         _SongBookSearchField(
           controller: widget.searchController,
+          placeholder: widget.route == DemoRoute.queueList
+              ? '搜索已点歌曲 / 歌手'
+              : '输入歌名 / 中文 / 拼音首字母',
           enableSystemKeyboard: !widget.showLetterKeyboard,
           onBackspacePressed: widget.onRemoveSearchCharacter,
           onClearPressed: widget.onClearSearch,
@@ -167,12 +194,14 @@ class _SongPreviewPlaceholder extends StatelessWidget {
 class _SongBookSearchField extends StatelessWidget {
   const _SongBookSearchField({
     required this.controller,
+    required this.placeholder,
     required this.enableSystemKeyboard,
     required this.onBackspacePressed,
     required this.onClearPressed,
   });
 
   final TextEditingController controller;
+  final String placeholder;
   final bool enableSystemKeyboard;
   final VoidCallback onBackspacePressed;
   final VoidCallback onClearPressed;
@@ -201,11 +230,11 @@ class _SongBookSearchField extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 color: Color(0xFFFFF7FF),
               ),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
-                hintText: '输入歌名 / 中文 / 拼音首字母',
-                hintStyle: TextStyle(
+                hintText: placeholder,
+                hintStyle: const TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color: Color(0x99F2DFFF),
@@ -334,6 +363,8 @@ class _KeyboardKey extends StatelessWidget {
 class _SongBookRightColumn extends StatefulWidget {
   const _SongBookRightColumn({
     required this.controller,
+    required this.route,
+    required this.searchQuery,
     required this.selectedLanguage,
     required this.songs,
     required this.hasConfiguredDirectory,
@@ -341,16 +372,23 @@ class _SongBookRightColumn extends StatefulWidget {
     required this.libraryScanErrorMessage,
     required this.queuedSongs,
     required this.onBackPressed,
+    required this.onQueuePressed,
+    required this.onEnterSongBook,
     required this.onLanguageSelected,
-    required this.onPlaySong,
+    required this.onRequestSong,
+    required this.onPrioritizeQueuedSong,
+    required this.onRemoveQueuedSong,
     required this.onSettingsPressed,
     required this.onToggleAudioMode,
     required this.onTogglePlayback,
     required this.onRestartPlayback,
+    required this.onSkipSong,
     this.compact = false,
   });
 
   final PlayerController controller;
+  final DemoRoute route;
+  final String searchQuery;
   final String selectedLanguage;
   final List<DemoSong> songs;
   final bool hasConfiguredDirectory;
@@ -358,12 +396,17 @@ class _SongBookRightColumn extends StatefulWidget {
   final String? libraryScanErrorMessage;
   final List<DemoSong> queuedSongs;
   final VoidCallback onBackPressed;
+  final VoidCallback onQueuePressed;
+  final VoidCallback onEnterSongBook;
   final ValueChanged<String> onLanguageSelected;
-  final ValueChanged<DemoSong> onPlaySong;
+  final ValueChanged<DemoSong> onRequestSong;
+  final ValueChanged<DemoSong> onPrioritizeQueuedSong;
+  final ValueChanged<DemoSong> onRemoveQueuedSong;
   final VoidCallback onSettingsPressed;
   final VoidCallback onToggleAudioMode;
   final VoidCallback onTogglePlayback;
   final VoidCallback onRestartPlayback;
+  final VoidCallback onSkipSong;
   final bool compact;
 
   @override
@@ -372,7 +415,8 @@ class _SongBookRightColumn extends StatefulWidget {
 
 class _SongBookRightColumnState extends State<_SongBookRightColumn> {
   static const double _gridSpacing = 8;
-  static const double _tileHeight = 44;
+  static const double _songTileHeight = 44;
+  static const double _queueTileHeight = 48;
   static const double _paginationSectionHeight = 42;
 
   int _currentPage = 0;
@@ -399,6 +443,7 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
     required double availableHeight,
     required bool isLandscape,
     required int fallbackRowsPerPage,
+    required double tileHeight,
   }) {
     if (isLandscape) {
       return fallbackRowsPerPage;
@@ -408,7 +453,7 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
       availableHeight - _paginationSectionHeight,
     );
     final int fittedRows =
-        ((listHeight + _gridSpacing) / (_tileHeight + _gridSpacing)).floor();
+        ((listHeight + _gridSpacing) / (tileHeight + _gridSpacing)).floor();
     return math.max(1, fittedRows);
   }
 
@@ -423,36 +468,42 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
   Widget build(BuildContext context) {
     final MediaQueryData media = MediaQuery.of(context);
     final bool isLandscape = media.orientation == Orientation.landscape;
+    final bool isQueueRoute = widget.route == DemoRoute.queueList;
     final int crossAxisCount = _resolveCrossAxisCount(media);
     final int fallbackRowsPerPage = _resolveRowsPerPage(
       media,
       isLandscape: isLandscape,
     );
-    ({int currentPage, int totalPages, List<DemoSong> visibleSongs})
-    resolvePageData({required int rowsPerPage}) {
-      final int songsPerPage = crossAxisCount * rowsPerPage;
-      final int maxPage = _computeMaxPage(widget.songs.length, songsPerPage);
+    final double tileHeight = isQueueRoute ? _queueTileHeight : _songTileHeight;
+    final List<_QueuedSongEntry> filteredQueueEntries = isQueueRoute
+        ? _resolveFilteredQueueEntries()
+        : const <_QueuedSongEntry>[];
+
+    ({int currentPage, int totalPages, List<T> visibleItems})
+    resolvePageData<T>(List<T> items, {required int rowsPerPage}) {
+      final int itemsPerPage = crossAxisCount * rowsPerPage;
+      final int maxPage = _computeMaxPage(items.length, itemsPerPage);
       if (_currentPage > maxPage) {
         _currentPage = maxPage;
       } else if (_currentPage < 0) {
         _currentPage = 0;
       }
 
-      final int totalPages = widget.songs.isEmpty
+      final int totalPages = items.isEmpty
           ? 1
-          : (widget.songs.length / songsPerPage).ceil();
+          : (items.length / itemsPerPage).ceil();
       final int currentPage = _currentPage.clamp(0, totalPages - 1);
-      final int startIndex = currentPage * songsPerPage;
-      final int endIndex = widget.songs.isEmpty
+      final int startIndex = currentPage * itemsPerPage;
+      final int endIndex = items.isEmpty
           ? 0
-          : (startIndex + songsPerPage).clamp(0, widget.songs.length);
-      final List<DemoSong> visibleSongs = widget.songs.isEmpty
-          ? const <DemoSong>[]
-          : widget.songs.sublist(startIndex, endIndex);
+          : (startIndex + itemsPerPage).clamp(0, items.length);
+      final List<T> visibleItems = items.isEmpty
+          ? <T>[]
+          : items.sublist(startIndex, endIndex);
       return (
         currentPage: currentPage,
         totalPages: totalPages,
-        visibleSongs: visibleSongs,
+        visibleItems: visibleItems,
       );
     }
 
@@ -477,7 +528,7 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
               .clamp(1, rowsPerPage)
               .toInt();
       final double gridHeight =
-          (_tileHeight * visibleRowCount) +
+          (_songTileHeight * visibleRowCount) +
           (_gridSpacing * (visibleRowCount - 1));
 
       return SizedBox(
@@ -490,7 +541,7 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
             crossAxisCount: crossAxisCount,
             mainAxisSpacing: _gridSpacing,
             crossAxisSpacing: _gridSpacing,
-            mainAxisExtent: _tileHeight,
+            mainAxisExtent: _songTileHeight,
           ),
           itemCount: visibleSongs.length,
           itemBuilder: (BuildContext context, int index) {
@@ -498,14 +549,75 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
             final bool isCurrent =
                 widget.queuedSongs.isNotEmpty &&
                 widget.queuedSongs.first == song;
+            final bool isQueued = widget.queuedSongs.contains(song);
             return _SongTile(
               song: song,
               isCurrent: isCurrent,
-              onTap: () => widget.onPlaySong(song),
+              isQueued: isQueued,
+              onTap: isQueued ? null : () => widget.onRequestSong(song),
             );
           },
         ),
       );
+    }
+
+    Widget buildQueueContent(
+      List<_QueuedSongEntry> visibleEntries,
+      int rowsPerPage,
+    ) {
+      if (widget.queuedSongs.isEmpty) {
+        return const _EmptyContentCard(message: '当前还没有已点歌曲，点歌后会在这里显示。');
+      }
+      if (filteredQueueEntries.isEmpty) {
+        return const _EmptyContentCard(message: '当前关键字下没有匹配的已点歌曲，试试清空搜索关键字。');
+      }
+
+      final int visibleRowCount =
+          ((visibleEntries.length + crossAxisCount - 1) / crossAxisCount)
+              .clamp(1, rowsPerPage)
+              .toInt();
+      final double gridHeight =
+          (_queueTileHeight * visibleRowCount) +
+          (_gridSpacing * (visibleRowCount - 1));
+
+      return SizedBox(
+        width: double.infinity,
+        height: gridHeight,
+        child: GridView.builder(
+          padding: EdgeInsets.zero,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: _gridSpacing,
+            crossAxisSpacing: _gridSpacing,
+            mainAxisExtent: _queueTileHeight,
+          ),
+          itemCount: visibleEntries.length,
+          itemBuilder: (BuildContext context, int index) {
+            final _QueuedSongEntry entry = visibleEntries[index];
+            return _QueuedSongTile(
+              entry: entry,
+              onPinToTop: entry.canPinToTop
+                  ? () => widget.onPrioritizeQueuedSong(entry.song)
+                  : null,
+              onRemove: entry.isCurrent
+                  ? null
+                  : () => widget.onRemoveQueuedSong(entry.song),
+            );
+          },
+        ),
+      );
+    }
+
+    String breadcrumbLabel() {
+      switch (widget.route) {
+        case DemoRoute.home:
+          return '‹ 主页';
+        case DemoRoute.songBook:
+          return '‹ 主页 / 歌名';
+        case DemoRoute.queueList:
+          return '‹ 主页 / 已点';
+      }
     }
 
     return Column(
@@ -515,17 +627,19 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
           controller: widget.controller,
           queueCount: widget.queuedSongs.length,
           compact: widget.compact,
+          onQueuePressed: isQueueRoute ? null : widget.onQueuePressed,
           onSettingsPressed: widget.onSettingsPressed,
           onToggleAudioMode: widget.onToggleAudioMode,
           onTogglePlayback: widget.onTogglePlayback,
           onRestartPlayback: widget.onRestartPlayback,
+          onSkipSong: widget.onSkipSong,
         ),
         const SizedBox(height: 8),
         Row(
           children: <Widget>[
-            const Expanded(
+            Expanded(
               child: Text(
-                '‹ 主页 / 歌名',
+                breadcrumbLabel(),
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -542,61 +656,81 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
           ],
         ),
         const SizedBox(height: 8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: _languageTabs
-                .map((String language) {
-                  final bool selected = language == widget.selectedLanguage;
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      right: language == _languageTabs.last ? 0 : 4,
-                    ),
-                    child: Material(
-                      color: selected
-                          ? const Color(0x14FFFFFF)
-                          : const Color(0x0AFFFFFF),
-                      borderRadius: BorderRadius.circular(10),
-                      child: InkWell(
+        if (!isQueueRoute) ...<Widget>[
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _languageTabs
+                  .map((String language) {
+                    final bool selected = language == widget.selectedLanguage;
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        right: language == _languageTabs.last ? 0 : 4,
+                      ),
+                      child: Material(
+                        color: selected
+                            ? const Color(0x14FFFFFF)
+                            : const Color(0x0AFFFFFF),
                         borderRadius: BorderRadius.circular(10),
-                        onTap: () => widget.onLanguageSelected(language),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 3,
-                          ),
-                          child: Text(
-                            language,
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: selected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: selected
-                                  ? const Color(0xFFFF625E)
-                                  : const Color(0xB8FFF0FF),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () => widget.onLanguageSelected(language),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 3,
+                            ),
+                            child: Text(
+                              language,
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: selected
+                                    ? const Color(0xFFFF625E)
+                                    : const Color(0xB8FFF0FF),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                })
-                .toList(growable: false),
+                    );
+                  })
+                  .toList(growable: false),
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
+        ],
         if (widget.compact) ...<Widget>[
           Builder(
             builder: (BuildContext context) {
+              if (isQueueRoute) {
+                final ({
+                  int currentPage,
+                  int totalPages,
+                  List<_QueuedSongEntry> visibleItems,
+                })
+                pageData = resolvePageData<_QueuedSongEntry>(
+                  filteredQueueEntries,
+                  rowsPerPage: fallbackRowsPerPage,
+                );
+                return buildQueueContent(
+                  pageData.visibleItems,
+                  fallbackRowsPerPage,
+                );
+              }
               final ({
                 int currentPage,
                 int totalPages,
-                List<DemoSong> visibleSongs,
+                List<DemoSong> visibleItems,
               })
-              pageData = resolvePageData(rowsPerPage: fallbackRowsPerPage);
+              pageData = resolvePageData<DemoSong>(
+                widget.songs,
+                rowsPerPage: fallbackRowsPerPage,
+              );
               return buildLibraryContent(
-                pageData.visibleSongs,
+                pageData.visibleItems,
                 fallbackRowsPerPage,
               );
             },
@@ -604,12 +738,15 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
           const SizedBox(height: 12),
           Builder(
             builder: (BuildContext context) {
-              final ({
-                int currentPage,
-                int totalPages,
-                List<DemoSong> visibleSongs,
-              })
-              pageData = resolvePageData(rowsPerPage: fallbackRowsPerPage);
+              final pageData = isQueueRoute
+                  ? resolvePageData<_QueuedSongEntry>(
+                      filteredQueueEntries,
+                      rowsPerPage: fallbackRowsPerPage,
+                    )
+                  : resolvePageData<DemoSong>(
+                      widget.songs,
+                      rowsPerPage: fallbackRowsPerPage,
+                    );
               return _PaginationBar(
                 currentPage: pageData.currentPage + 1,
                 totalPages: pageData.totalPages,
@@ -630,22 +767,37 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
                   availableHeight: constraints.maxHeight,
                   isLandscape: isLandscape,
                   fallbackRowsPerPage: fallbackRowsPerPage,
+                  tileHeight: tileHeight,
                 );
-                final ({
-                  int currentPage,
-                  int totalPages,
-                  List<DemoSong> visibleSongs,
-                })
-                pageData = resolvePageData(rowsPerPage: rowsPerPage);
+                final pageData = isQueueRoute
+                    ? resolvePageData<_QueuedSongEntry>(
+                        filteredQueueEntries,
+                        rowsPerPage: rowsPerPage,
+                      )
+                    : resolvePageData<DemoSong>(
+                        widget.songs,
+                        rowsPerPage: rowsPerPage,
+                      );
                 return Column(
                   children: <Widget>[
                     Expanded(
                       child: Align(
                         alignment: Alignment.topCenter,
-                        child: buildLibraryContent(
-                          pageData.visibleSongs,
-                          rowsPerPage,
-                        ),
+                        child: isQueueRoute
+                            ? buildQueueContent(
+                                resolvePageData<_QueuedSongEntry>(
+                                  filteredQueueEntries,
+                                  rowsPerPage: rowsPerPage,
+                                ).visibleItems,
+                                rowsPerPage,
+                              )
+                            : buildLibraryContent(
+                                resolvePageData<DemoSong>(
+                                  widget.songs,
+                                  rowsPerPage: rowsPerPage,
+                                ).visibleItems,
+                                rowsPerPage,
+                              ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -667,6 +819,25 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
       ],
     );
   }
+
+  List<_QueuedSongEntry> _resolveFilteredQueueEntries() {
+    final String normalizedQuery = widget.searchQuery.trim().toLowerCase();
+    final Iterable<_QueuedSongEntry> allEntries = widget.queuedSongs
+        .asMap()
+        .entries
+        .map((MapEntry<int, DemoSong> entry) {
+          return _QueuedSongEntry(song: entry.value, queueIndex: entry.key);
+        });
+    if (normalizedQuery.isEmpty) {
+      return allEntries.toList(growable: false);
+    }
+    return allEntries
+        .where(
+          (_QueuedSongEntry entry) =>
+              entry.song.searchIndex.contains(normalizedQuery),
+        )
+        .toList(growable: false);
+  }
 }
 
 class _SongBookActionRow extends StatelessWidget {
@@ -674,19 +845,23 @@ class _SongBookActionRow extends StatelessWidget {
     required this.controller,
     required this.queueCount,
     required this.compact,
+    required this.onQueuePressed,
     required this.onSettingsPressed,
     required this.onToggleAudioMode,
     required this.onTogglePlayback,
     required this.onRestartPlayback,
+    required this.onSkipSong,
   });
 
   final PlayerController controller;
   final int queueCount;
   final bool compact;
+  final VoidCallback? onQueuePressed;
   final VoidCallback onSettingsPressed;
   final VoidCallback onToggleAudioMode;
   final VoidCallback onTogglePlayback;
   final VoidCallback onRestartPlayback;
+  final VoidCallback onSkipSong;
 
   @override
   Widget build(BuildContext context) {
@@ -703,6 +878,7 @@ class _SongBookActionRow extends StatelessWidget {
                 _ActionPill(
                   label: '已点$queueCount',
                   icon: Icons.queue_music_rounded,
+                  onPressed: onQueuePressed,
                 ),
                 const SizedBox(width: 4),
                 _ActionPill(
@@ -715,10 +891,12 @@ class _SongBookActionRow extends StatelessWidget {
                   onPressed: controller.hasMedia ? onToggleAudioMode : null,
                 ),
                 const SizedBox(width: 4),
-                const _ActionPill(
+                _ActionPill(
                   label: '切歌',
                   icon: Icons.skip_next_rounded,
-                  enabled: false,
+                  onPressed: controller.hasMedia || queueCount > 0
+                      ? onSkipSong
+                      : null,
                 ),
                 const SizedBox(width: 4),
                 _ActionPill(
@@ -750,21 +928,15 @@ class _SongBookActionRow extends StatelessWidget {
 }
 
 class _ActionPill extends StatelessWidget {
-  const _ActionPill({
-    required this.label,
-    required this.icon,
-    this.onPressed,
-    this.enabled = true,
-  });
+  const _ActionPill({required this.label, required this.icon, this.onPressed});
 
   final String label;
   final IconData icon;
   final VoidCallback? onPressed;
-  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    final bool isEnabled = enabled && onPressed != null;
+    final bool isEnabled = onPressed != null;
     return Material(
       color: isEnabled ? const Color(0x1AFFFFFF) : const Color(0x0DFFFFFF),
       borderRadius: BorderRadius.circular(12),
@@ -803,19 +975,29 @@ class _ActionPill extends StatelessWidget {
 }
 
 class _SongTile extends StatelessWidget {
-  const _SongTile({required this.song, required this.isCurrent, this.onTap});
+  const _SongTile({
+    required this.song,
+    required this.isCurrent,
+    required this.isQueued,
+    this.onTap,
+  });
 
   final DemoSong song;
   final bool isCurrent;
+  final bool isQueued;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final Color backgroundColor = isCurrent
         ? const Color(0x29FFFFFF)
+        : isQueued
+        ? const Color(0x12FFFFFF)
         : const Color(0x1AFFFFFF);
     final Color subtitleColor = isCurrent
         ? const Color(0xCCF3DAFF)
+        : isQueued
+        ? const Color(0x80F3DAFF)
         : const Color(0xB8F3DAFF);
 
     return Material(
@@ -841,16 +1023,22 @@ class _SongTile extends StatelessWidget {
                       song.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         height: 1.15,
-                        color: Color(0xEDFFF7FF),
+                        color: isQueued
+                            ? const Color(0xA6FFF7FF)
+                            : const Color(0xEDFFF7FF),
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${song.artist} · ${song.language}',
+                      isCurrent
+                          ? '${song.artist} · ${song.language} · 当前播放'
+                          : isQueued
+                          ? '${song.artist} · ${song.language} · 已点'
+                          : '${song.artist} · ${song.language}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

@@ -5,18 +5,22 @@ class _HomePage extends StatelessWidget {
     required this.controller,
     required this.queueCount,
     required this.onEnterSongBook,
+    required this.onQueuePressed,
     required this.onSettingsPressed,
     required this.onToggleAudioMode,
     required this.onTogglePlayback,
+    required this.onSkipSong,
     this.compact = false,
   });
 
   final PlayerController controller;
   final int queueCount;
   final VoidCallback onEnterSongBook;
+  final VoidCallback onQueuePressed;
   final VoidCallback onSettingsPressed;
   final VoidCallback onToggleAudioMode;
   final VoidCallback onTogglePlayback;
+  final VoidCallback onSkipSong;
   final bool compact;
 
   @override
@@ -28,10 +32,11 @@ class _HomePage extends StatelessWidget {
           controller: controller,
           queueCount: queueCount,
           compact: compact,
-          onQueuePressed: onEnterSongBook,
+          onQueuePressed: onQueuePressed,
           onSettingsPressed: onSettingsPressed,
           onToggleAudioMode: onToggleAudioMode,
           onTogglePlayback: onTogglePlayback,
+          onSkipSong: onSkipSong,
         ),
         SizedBox(height: compact ? 16 : 18),
         if (compact)
@@ -60,6 +65,7 @@ class _HomeToolbar extends StatelessWidget {
     required this.onSettingsPressed,
     required this.onToggleAudioMode,
     required this.onTogglePlayback,
+    required this.onSkipSong,
   });
 
   final PlayerController controller;
@@ -69,6 +75,7 @@ class _HomeToolbar extends StatelessWidget {
   final VoidCallback onSettingsPressed;
   final VoidCallback onToggleAudioMode;
   final VoidCallback onTogglePlayback;
+  final VoidCallback onSkipSong;
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +91,12 @@ class _HomeToolbar extends StatelessWidget {
                 : '伴唱',
             onPressed: controller.hasMedia ? onToggleAudioMode : null,
           ),
-          const _ToolbarPill(label: '切歌', enabled: false),
+          _ToolbarPill(
+            label: '切歌',
+            onPressed: controller.hasMedia || queueCount > 0
+                ? onSkipSong
+                : null,
+          ),
           _ToolbarPill(
             label: controller.isPlaying ? '暂停' : '播放',
             onPressed: controller.hasMedia ? onTogglePlayback : null,

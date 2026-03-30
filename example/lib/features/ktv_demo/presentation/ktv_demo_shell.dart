@@ -11,6 +11,7 @@ import '../../settings/presentation/settings_page.dart';
 import '../application/ktv_demo_controller.dart';
 
 part 'home_page.dart';
+part 'queue_page.dart';
 part 'songbook_page.dart';
 part 'shared_widgets.dart';
 
@@ -328,7 +329,13 @@ class _KtvDemoShellState extends State<KtvDemoShell>
   }
 
   void _enterSongBook() {
+    _searchController.clear();
     _demoController.enterSongBook();
+  }
+
+  void _enterQueueList() {
+    _searchController.clear();
+    _demoController.enterQueueList();
   }
 
   void _returnHome() {
@@ -368,8 +375,8 @@ class _KtvDemoShellState extends State<KtvDemoShell>
     _searchController.clear();
   }
 
-  Future<void> _playSong(DemoSong song) async {
-    await _demoController.playSong(song);
+  Future<void> _requestSong(DemoSong song) async {
+    await _demoController.requestSong(song);
   }
 
   Widget _buildPreviewSurface() {
@@ -405,9 +412,11 @@ class _KtvDemoShellState extends State<KtvDemoShell>
             compact: compactHomePage,
             queueCount: _demoController.queuedSongs.length,
             onEnterSongBook: _enterSongBook,
+            onQueuePressed: _enterQueueList,
             onSettingsPressed: _openSettingsPage,
             onToggleAudioMode: _toggleAudioMode,
             onTogglePlayback: _togglePlayback,
+            onSkipSong: _skipCurrentSong,
           ),
         ),
       ],
@@ -435,6 +444,7 @@ class _KtvDemoShellState extends State<KtvDemoShell>
               _SongBookLeftColumn(
                 controller: _demoController.playerController,
                 searchController: _searchController,
+                route: _demoController.route,
                 showLetterKeyboard: true,
                 onAppendSearchToken: _appendSearchToken,
                 onRemoveSearchCharacter: _removeSearchCharacter,
@@ -452,14 +462,21 @@ class _KtvDemoShellState extends State<KtvDemoShell>
             hasConfiguredDirectory: _demoController.hasConfiguredDirectory,
             isScanningLibrary: _demoController.isScanningLibrary,
             libraryScanErrorMessage: _demoController.libraryScanErrorMessage,
+            route: _demoController.route,
+            searchQuery: _demoController.searchQuery,
             queuedSongs: _demoController.queuedSongs,
             onBackPressed: _returnHome,
+            onQueuePressed: _enterQueueList,
+            onEnterSongBook: _enterSongBook,
             onLanguageSelected: _selectLanguage,
-            onPlaySong: _playSong,
+            onRequestSong: _requestSong,
+            onPrioritizeQueuedSong: _demoController.prioritizeQueuedSong,
+            onRemoveQueuedSong: _demoController.removeQueuedSong,
             onSettingsPressed: _openSettingsPage,
             onToggleAudioMode: _toggleAudioMode,
             onTogglePlayback: _togglePlayback,
             onRestartPlayback: _restartPlayback,
+            onSkipSong: _skipCurrentSong,
           ),
         ),
       ],
@@ -484,9 +501,11 @@ class _KtvDemoShellState extends State<KtvDemoShell>
             compact: true,
             queueCount: _demoController.queuedSongs.length,
             onEnterSongBook: _enterSongBook,
+            onQueuePressed: _enterQueueList,
             onSettingsPressed: _openSettingsPage,
             onToggleAudioMode: _toggleAudioMode,
             onTogglePlayback: _togglePlayback,
+            onSkipSong: _skipCurrentSong,
           )
         else
           Expanded(
@@ -499,17 +518,24 @@ class _KtvDemoShellState extends State<KtvDemoShell>
               hasConfiguredDirectory: _demoController.hasConfiguredDirectory,
               isScanningLibrary: _demoController.isScanningLibrary,
               libraryScanErrorMessage: _demoController.libraryScanErrorMessage,
+              route: _demoController.route,
+              searchQuery: _demoController.searchQuery,
               queuedSongs: _demoController.queuedSongs,
               onBackPressed: _returnHome,
+              onQueuePressed: _enterQueueList,
+              onEnterSongBook: _enterSongBook,
               onLanguageSelected: _selectLanguage,
               onAppendSearchToken: _appendSearchToken,
               onRemoveSearchCharacter: _removeSearchCharacter,
               onClearSearch: _clearSearch,
-              onPlaySong: _playSong,
+              onRequestSong: _requestSong,
+              onPrioritizeQueuedSong: _demoController.prioritizeQueuedSong,
+              onRemoveQueuedSong: _demoController.removeQueuedSong,
               onSettingsPressed: _openSettingsPage,
               onToggleAudioMode: _toggleAudioMode,
               onTogglePlayback: _togglePlayback,
               onRestartPlayback: _restartPlayback,
+              onSkipSong: _skipCurrentSong,
             ),
           ),
       ],

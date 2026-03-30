@@ -28,6 +28,19 @@ void main() {
     expect(find.text('选择目录'), findsOneWidget);
   });
 
+  testWidgets('opens queued songs page from home toolbar', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const KtvDemoApp());
+
+    await tester.tap(find.text('已点0').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('‹ 主页 / 已点'), findsOneWidget);
+    expect(find.text('当前还没有已点歌曲，点歌后会在这里显示。'), findsOneWidget);
+    expect(find.text('搜索已点歌曲 / 歌手'), findsOneWidget);
+  });
+
   testWidgets('renders compact song book without layout exceptions', (
     WidgetTester tester,
   ) async {

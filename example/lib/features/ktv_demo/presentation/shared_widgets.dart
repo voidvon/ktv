@@ -29,20 +29,27 @@ class _PlayerProgressTrack extends StatelessWidget {
         controller.hasMedia && controller.playbackDuration > Duration.zero;
     return SizedBox(
       height: barHeight,
-      child: SliderTheme(
-        data: SliderTheme.of(context).copyWith(
-          trackHeight: thickness,
-          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 0),
-          overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-          activeTrackColor: const Color(0xFFFF4D8D),
-          inactiveTrackColor: const Color(0x33FFFFFF),
-          overlayColor: const Color(0x29FF4D8D),
-        ),
-        child: Slider(
-          padding: EdgeInsets.zero,
-          value: hasMedia ? controller.playbackProgress : 0,
-          onChanged: hasMedia ? controller.seekToProgress : null,
-        ),
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          if (!constraints.hasBoundedWidth || constraints.maxWidth <= 0) {
+            return const SizedBox.shrink();
+          }
+          return SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: thickness,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 0),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+              activeTrackColor: const Color(0xFFFF4D8D),
+              inactiveTrackColor: const Color(0x33FFFFFF),
+              overlayColor: const Color(0x29FF4D8D),
+            ),
+            child: Slider(
+              padding: EdgeInsets.zero,
+              value: hasMedia ? controller.playbackProgress : 0,
+              onChanged: hasMedia ? controller.seekToProgress : null,
+            ),
+          );
+        },
       ),
     );
   }

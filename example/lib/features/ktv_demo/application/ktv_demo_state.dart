@@ -1,6 +1,6 @@
 import '../../../core/models/demo_song.dart';
 
-enum DemoRoute { home, songBook }
+enum DemoRoute { home, songBook, queueList }
 
 class KtvDemoState {
   const KtvDemoState({
@@ -27,8 +27,9 @@ class KtvDemoState {
 
   bool get hasConfiguredDirectory => scanDirectoryPath != null;
 
+  String get normalizedSearchQuery => searchQuery.trim().toLowerCase();
+
   List<DemoSong> filteredSongs(String allLanguagesLabel) {
-    final String normalizedQuery = searchQuery.trim().toLowerCase();
     return librarySongs
         .where((DemoSong song) {
           final bool languageMatches =
@@ -37,11 +38,22 @@ class KtvDemoState {
           if (!languageMatches) {
             return false;
           }
-          if (normalizedQuery.isEmpty) {
+          if (normalizedSearchQuery.isEmpty) {
             return true;
           }
-          return song.searchIndex.contains(normalizedQuery);
+          return song.searchIndex.contains(normalizedSearchQuery);
         })
+        .toList(growable: false);
+  }
+
+  List<DemoSong> filteredQueuedSongs() {
+    if (normalizedSearchQuery.isEmpty) {
+      return List<DemoSong>.unmodifiable(queuedSongs);
+    }
+    return queuedSongs
+        .where(
+          (DemoSong song) => song.searchIndex.contains(normalizedSearchQuery),
+        )
         .toList(growable: false);
   }
 

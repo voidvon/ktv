@@ -31,6 +31,7 @@ class KtvDemoController extends ChangeNotifier {
 
   DemoRoute get route => _state.route;
   String get selectedLanguage => _state.selectedLanguage;
+  String get searchQuery => _state.searchQuery;
   String? get libraryScanErrorMessage => _state.libraryScanErrorMessage;
   String? get scanDirectoryPath => _state.scanDirectoryPath;
   bool get isScanningLibrary => _state.isScanningLibrary;
@@ -41,6 +42,7 @@ class KtvDemoController extends ChangeNotifier {
       List<DemoSong>.unmodifiable(_state.librarySongs);
 
   List<DemoSong> get filteredSongs => _state.filteredSongs(allLanguagesLabel);
+  List<DemoSong> get filteredQueuedSongs => _state.filteredQueuedSongs();
 
   String get currentTitle => _state.currentTitle;
 
@@ -66,6 +68,13 @@ class KtvDemoController extends ChangeNotifier {
       return;
     }
     _setState(_state.copyWith(route: DemoRoute.songBook));
+  }
+
+  void enterQueueList() {
+    if (_state.route == DemoRoute.queueList) {
+      return;
+    }
+    _setState(_state.copyWith(route: DemoRoute.queueList));
   }
 
   void returnHome() {
@@ -120,13 +129,48 @@ class KtvDemoController extends ChangeNotifier {
     }
   }
 
-  Future<void> playSong(DemoSong song) async {
+  Future<void> requestSong(DemoSong song) async {
+    final List<DemoSong> queuedSongs = List<DemoSong>.of(_state.queuedSongs);
+    final bool hasCurrentSong =
+        queuedSongs.isNotEmpty && playerController.hasMedia;
+
+    if (hasCurrentSong) {
+      if (queuedSongs.contains(song)) {
+        return;
+      }
+      queuedSongs.add(song);
+      _setState(_state.copyWith(queuedSongs: queuedSongs));
+      return;
+    }
+
+    queuedSongs
+      ..remove(song)
+      ..insert(0, song);
     await playerController.openMedia(
       MediaSource(path: song.mediaPath, displayName: song.title),
     );
-    final List<DemoSong> queuedSongs = List<DemoSong>.of(_state.queuedSongs)
-      ..remove(song)
-      ..insert(0, song);
+    _setState(_state.copyWith(queuedSongs: queuedSongs));
+  }
+
+  void prioritizeQueuedSong(DemoSong song) {
+    final List<DemoSong> queuedSongs = List<DemoSong>.of(_state.queuedSongs);
+    final int currentIndex = queuedSongs.indexOf(song);
+    if (currentIndex <= 1) {
+      return;
+    }
+    queuedSongs
+      ..removeAt(currentIndex)
+      ..insert(1, song);
+    _setState(_state.copyWith(queuedSongs: queuedSongs));
+  }
+
+  void removeQueuedSong(DemoSong song) {
+    final List<DemoSong> queuedSongs = List<DemoSong>.of(_state.queuedSongs);
+    final int currentIndex = queuedSongs.indexOf(song);
+    if (currentIndex <= 0) {
+      return;
+    }
+    queuedSongs.removeAt(currentIndex);
     _setState(_state.copyWith(queuedSongs: queuedSongs));
   }
 
