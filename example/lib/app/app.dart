@@ -19,7 +19,7 @@ class KtvDemoApp extends StatelessWidget {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: '金调KTV Demo',
+      title: '我爱KTV',
       theme: base.copyWith(
         scaffoldBackgroundColor: const Color(0xFF070012),
         textTheme: base.textTheme.apply(

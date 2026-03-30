@@ -123,7 +123,7 @@ class _HomeToolbar extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     const Text(
-                      '金调KTV',
+                      '我爱KTV',
                       style: TextStyle(
                         color: Color(0xFFFFD85E),
                         fontSize: 18,
@@ -145,7 +145,7 @@ class _HomeToolbar extends StatelessWidget {
               : Row(
                   children: <Widget>[
                     const Text(
-                      '金调KTV',
+                      '我爱KTV',
                       style: TextStyle(
                         color: Color(0xFFFFD85E),
                         fontSize: 18,

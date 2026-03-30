@@ -8,7 +8,7 @@ void main() {
   ) async {
     await tester.pumpWidget(const KtvDemoApp());
 
-    expect(find.text('金调KTV'), findsOneWidget);
+    expect(find.text('我爱KTV'), findsOneWidget);
     expect(find.text('歌名'), findsOneWidget);
     expect(find.text('设置'), findsAtLeastNWidgets(1));
     expect(find.text('首页预览区'), findsNothing);
