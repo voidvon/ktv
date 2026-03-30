@@ -54,12 +54,20 @@ private final class NativeKtvPlayerBridge: NSObject, FlutterStreamHandler, VLCMe
   private weak var videoView: NSView?
   private var eventSink: FlutterEventSink?
   private var requestedAudioOutputMode = "original"
+  private var currentSingleTrackAudioOutputMode: String?
+  private var isApplyingAudioOutputMode = false
   private var currentSourceMediaPath: String?
   private var currentPlaybackMediaPath: String?
   private var playbackCompleted = false
   private var playbackError: String?
   private var lastKnownPositionMs = 0
   private var lastKnownDurationMs = 0
+
+  private func logAudioRouting(_ message: String) {
+#if DEBUG
+    NSLog("[KTV macOS] %@", message)
+#endif
+  }
 
   init(messenger: FlutterBinaryMessenger) {
     player = VLCMediaPlayer()
@@ -89,29 +97,66 @@ private final class NativeKtvPlayerBridge: NSObject, FlutterStreamHandler, VLCMe
     mode == "accompaniment" ? Int32(vlcAudioChannelLeft) : Int32(vlcAudioChannelRight)
   }
 
+  private func monoChannelLabel(for mode: String) -> String {
+    mode == "accompaniment" ? "left" : "right"
+  }
+
   private func resetSingleTrackRoutingToSourceIfNeeded() {
     guard let sourceMediaPath = currentSourceMediaPath else {
       return
     }
-    if currentPlaybackMediaPath == sourceMediaPath {
+    let playbackPathUnchanged = currentPlaybackMediaPath == sourceMediaPath
+    let playbackModeUnchanged = currentSingleTrackAudioOutputMode == requestedAudioOutputMode
+    if playbackPathUnchanged && playbackModeUnchanged {
       return
     }
     let progress = player.position
     let shouldResume = player.isPlaying
-    reopenPlayer(with: sourceMediaPath, preserve: progress, shouldResume: shouldResume)
+    reopenPlayer(
+      with: sourceMediaPath,
+      preserve: progress,
+      shouldResume: shouldResume,
+      singleTrackMode: requestedAudioOutputMode
+    )
   }
 
   private func applySingleTrackAudioChannelRouting() {
+    let targetChannel = audioChannel(for: requestedAudioOutputMode)
+    let playbackPathUnchanged = currentPlaybackMediaPath == currentSourceMediaPath
+    let playbackModeUnchanged = currentSingleTrackAudioOutputMode == requestedAudioOutputMode
+    if playbackPathUnchanged && playbackModeUnchanged && player.audioChannel == targetChannel {
+      return
+    }
+
     resetSingleTrackRoutingToSourceIfNeeded()
-    player.audioChannel = audioChannel(for: requestedAudioOutputMode)
+    player.audioChannel = Int32(vlcAudioChannelStereo)
+    player.audioChannel = targetChannel
+    currentSingleTrackAudioOutputMode = requestedAudioOutputMode
     currentPlaybackMediaPath = currentSourceMediaPath
     playbackError = nil
+    logAudioRouting(
+      "single-track routed mode=\(requestedAudioOutputMode) channel=\(player.audioChannel)"
+    )
+  }
+
+  private func media(for mediaPath: String, singleTrackMode: String?) -> VLCMedia {
+    let media = VLCMedia(path: mediaPath)
+    if let singleTrackMode {
+      let modeValue = audioChannel(for: singleTrackMode)
+      let monoChannel = monoChannelLabel(for: singleTrackMode)
+      media.addOption(":stereo-mode=\(modeValue)")
+      media.addOption(":audio-filter=mono")
+      media.addOption(":sout-mono-channel=\(monoChannel)")
+      media.addOption(":sout-mono-downmix=false")
+    }
+    return media
   }
 
   private func reopenPlayer(
     with mediaPath: String,
     preserve progress: Float,
-    shouldResume: Bool
+    shouldResume: Bool,
+    singleTrackMode: String?
   ) {
     let oldPlayer = player
     player = buildPlayer()
@@ -119,7 +164,7 @@ private final class NativeKtvPlayerBridge: NSObject, FlutterStreamHandler, VLCMe
     playbackError = nil
     lastKnownPositionMs = 0
     lastKnownDurationMs = 0
-    player.media = VLCMedia(path: mediaPath)
+    player.media = media(for: mediaPath, singleTrackMode: singleTrackMode)
     if let videoView {
       player.drawable = videoView
     }
@@ -134,6 +179,7 @@ private final class NativeKtvPlayerBridge: NSObject, FlutterStreamHandler, VLCMe
     oldPlayer.delegate = nil
     oldPlayer.stop()
     currentPlaybackMediaPath = mediaPath
+    currentSingleTrackAudioOutputMode = nil
   }
 
   func attachVideoView(_ view: NSView) {
@@ -162,7 +208,6 @@ private final class NativeKtvPlayerBridge: NSObject, FlutterStreamHandler, VLCMe
     case .playing:
       playbackCompleted = false
       playbackError = nil
-      applyRequestedAudioOutputModeIfPossible()
     case .ended:
       playbackCompleted = true
       playbackError = nil
@@ -282,21 +327,41 @@ private final class NativeKtvPlayerBridge: NSObject, FlutterStreamHandler, VLCMe
   }
 
   private func applyRequestedAudioOutputModeIfPossible() {
+    if isApplyingAudioOutputMode {
+      return
+    }
+    isApplyingAudioOutputMode = true
+    defer { isApplyingAudioOutputMode = false }
+
     let audioTracks = availableAudioTracks
     let audioTrackCount = audioTracks.count
     guard audioTrackCount > 0 else {
       return
     }
+    logAudioRouting(
+      "apply mode=\(requestedAudioOutputMode) tracks=\(audioTrackCount) applied=\(currentSingleTrackAudioOutputMode ?? "nil")"
+    )
 
     if audioTrackCount > 1 {
       if let trackId = preferredAudioTrackId(for: requestedAudioOutputMode) {
         player.currentAudioTrackIndex = Int32(trackId)
       }
       player.audioChannel = Int32(vlcAudioChannelStereo)
+      currentSingleTrackAudioOutputMode = nil
+      logAudioRouting(
+        "multi-track selected mode=\(requestedAudioOutputMode) track=\(player.currentAudioTrackIndex) channel=\(player.audioChannel)"
+      )
       return
     }
 
-    guard currentSourceMediaPath != nil else {
+    guard let sourceMediaPath = currentSourceMediaPath else {
+      return
+    }
+    let targetChannel = audioChannel(for: requestedAudioOutputMode)
+    if currentPlaybackMediaPath == sourceMediaPath &&
+      currentSingleTrackAudioOutputMode == requestedAudioOutputMode &&
+      player.audioChannel == targetChannel
+    {
       return
     }
     applySingleTrackAudioChannelRouting()
@@ -322,6 +387,7 @@ private final class NativeKtvPlayerBridge: NSObject, FlutterStreamHandler, VLCMe
       if let mode = arguments["audioOutputMode"] as? String {
         requestedAudioOutputMode = mode
       }
+      logAudioRouting("open path=\(path) mode=\(requestedAudioOutputMode)")
 
       guard FileManager.default.fileExists(atPath: path) else {
         result(
@@ -340,8 +406,9 @@ private final class NativeKtvPlayerBridge: NSObject, FlutterStreamHandler, VLCMe
       lastKnownDurationMs = 0
       currentSourceMediaPath = path
       currentPlaybackMediaPath = path
+      currentSingleTrackAudioOutputMode = nil
       player.stop()
-      player.media = VLCMedia(path: path)
+      player.media = media(for: path, singleTrackMode: nil)
       if let videoView {
         player.drawable = videoView
       }
@@ -393,11 +460,13 @@ private final class NativeKtvPlayerBridge: NSObject, FlutterStreamHandler, VLCMe
       }
 
       requestedAudioOutputMode = mode
+      logAudioRouting("setAudioOutputMode mode=\(requestedAudioOutputMode)")
       applyRequestedAudioOutputModeIfPossible()
       result(currentSnapshot())
     case "dispose":
       currentSourceMediaPath = nil
       currentPlaybackMediaPath = nil
+      currentSingleTrackAudioOutputMode = nil
       player.stop()
       player.drawable = nil
       playbackCompleted = false
