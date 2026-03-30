@@ -301,7 +301,7 @@ class _KeyboardKey extends StatelessWidget {
   }
 }
 
-class _SongBookRightColumn extends StatelessWidget {
+class _SongBookRightColumn extends StatefulWidget {
   const _SongBookRightColumn({
     required this.controller,
     required this.selectedLanguage,
@@ -337,52 +337,120 @@ class _SongBookRightColumn extends StatelessWidget {
   final bool compact;
 
   @override
+  State<_SongBookRightColumn> createState() => _SongBookRightColumnState();
+}
+
+class _SongBookRightColumnState extends State<_SongBookRightColumn> {
+  static const int _songsPerPage = 8;
+  static const int _crossAxisCount = 2;
+  static const double _mainAxisSpacing = 6;
+  static const double _crossAxisSpacing = 12;
+  static const double _tileHeight = 36;
+
+  int _currentPage = 0;
+
+  @override
+  void didUpdateWidget(covariant _SongBookRightColumn oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.songs != widget.songs) {
+      final int maxPage = _computeMaxPage(widget.songs.length);
+      if (_currentPage > maxPage) {
+        _currentPage = maxPage;
+      }
+    }
+  }
+
+  int _computeMaxPage(int totalSongs) {
+    if (totalSongs <= 0) {
+      return 0;
+    }
+    return (totalSongs / _songsPerPage).ceil() - 1;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final Widget libraryContent = !hasConfiguredDirectory
-        ? const _EmptyContentCard(message: '请先在设置里选择扫描目录，扫描完成后这里会展示歌曲列表。')
-        : isScanningLibrary
-        ? const _EmptyContentCard(message: '正在扫描目录中的歌曲，请稍候。')
-        : libraryScanErrorMessage != null
-        ? _EmptyContentCard(message: libraryScanErrorMessage!)
-        : songs.isEmpty
-        ? const _EmptyContentCard(
-            message: '当前目录下没有扫描到可播放歌曲，请确认目录中包含 mp4、dat 等媒体文件。',
-          )
-        : GridView.builder(
-            shrinkWrap: compact,
-            physics: compact
-                ? const NeverScrollableScrollPhysics()
-                : const ClampingScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 6,
-              crossAxisSpacing: 12,
-              childAspectRatio: 2.86,
-            ),
-            itemCount: songs.length,
-            itemBuilder: (BuildContext context, int index) {
-              final DemoSong song = songs[index];
-              final bool isCurrent =
-                  queuedSongs.isNotEmpty && queuedSongs.first == song;
-              return _SongTile(
-                song: song,
-                isCurrent: isCurrent,
-                onTap: () => onPlaySong(song),
-              );
-            },
-          );
+    final bool isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    final int totalPages = widget.songs.isEmpty
+        ? 1
+        : (widget.songs.length / _songsPerPage).ceil();
+    final int currentPage = _currentPage.clamp(0, totalPages - 1);
+    final int startIndex = currentPage * _songsPerPage;
+    final int endIndex = widget.songs.isEmpty
+        ? 0
+        : (startIndex + _songsPerPage).clamp(0, widget.songs.length);
+    final List<DemoSong> visibleSongs = widget.songs.isEmpty
+        ? const <DemoSong>[]
+        : widget.songs.sublist(startIndex, endIndex);
+    const int rowsPerPage = _songsPerPage ~/ _crossAxisCount;
+    const double pageGridHeight =
+        (_tileHeight * rowsPerPage) + (_mainAxisSpacing * (rowsPerPage - 1));
+
+    Widget buildLibraryContent({double? availableHeight}) {
+      if (!widget.hasConfiguredDirectory) {
+        return const _EmptyContentCard(message: '请先在设置里选择扫描目录，扫描完成后这里会展示歌曲列表。');
+      }
+      if (widget.isScanningLibrary) {
+        return const _EmptyContentCard(message: '正在扫描目录中的歌曲，请稍候。');
+      }
+      if (widget.libraryScanErrorMessage != null) {
+        return _EmptyContentCard(message: widget.libraryScanErrorMessage!);
+      }
+      if (widget.songs.isEmpty) {
+        return const _EmptyContentCard(
+          message: '当前目录下没有扫描到可播放歌曲，请确认目录中包含 mp4、dat 等媒体文件。',
+        );
+      }
+
+      final double dynamicGridHeight =
+          isLandscape && !widget.compact && availableHeight != null
+          ? availableHeight
+          : pageGridHeight;
+      final double tileHeight =
+          ((dynamicGridHeight - (_mainAxisSpacing * (rowsPerPage - 1))) /
+                  rowsPerPage)
+              .clamp(30.0, 120.0)
+              .toDouble();
+      final double resolvedGridHeight =
+          (tileHeight * rowsPerPage) + (_mainAxisSpacing * (rowsPerPage - 1));
+
+      return SizedBox(
+        height: resolvedGridHeight,
+        child: GridView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: _crossAxisCount,
+            mainAxisSpacing: _mainAxisSpacing,
+            crossAxisSpacing: _crossAxisSpacing,
+            mainAxisExtent: tileHeight,
+          ),
+          itemCount: visibleSongs.length,
+          itemBuilder: (BuildContext context, int index) {
+            final DemoSong song = visibleSongs[index];
+            final bool isCurrent =
+                widget.queuedSongs.isNotEmpty &&
+                widget.queuedSongs.first == song;
+            return _SongTile(
+              song: song,
+              isCurrent: isCurrent,
+              onTap: () => widget.onPlaySong(song),
+            );
+          },
+        ),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         _SongBookActionRow(
-          controller: controller,
-          queueCount: queuedSongs.length,
-          compact: compact,
-          onSettingsPressed: onSettingsPressed,
-          onToggleAudioMode: onToggleAudioMode,
-          onTogglePlayback: onTogglePlayback,
-          onRestartPlayback: onRestartPlayback,
+          controller: widget.controller,
+          queueCount: widget.queuedSongs.length,
+          compact: widget.compact,
+          onSettingsPressed: widget.onSettingsPressed,
+          onToggleAudioMode: widget.onToggleAudioMode,
+          onTogglePlayback: widget.onTogglePlayback,
+          onRestartPlayback: widget.onRestartPlayback,
         ),
         const SizedBox(height: 8),
         Row(
@@ -401,7 +469,7 @@ class _SongBookRightColumn extends StatelessWidget {
             _ActionPill(
               label: '返回',
               icon: Icons.chevron_right_rounded,
-              onPressed: onBackPressed,
+              onPressed: widget.onBackPressed,
             ),
           ],
         ),
@@ -411,7 +479,7 @@ class _SongBookRightColumn extends StatelessWidget {
           child: Row(
             children: _languageTabs
                 .map((String language) {
-                  final bool selected = language == selectedLanguage;
+                  final bool selected = language == widget.selectedLanguage;
                   return Padding(
                     padding: EdgeInsets.only(
                       right: language == _languageTabs.last ? 0 : 4,
@@ -423,7 +491,7 @@ class _SongBookRightColumn extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(10),
-                        onTap: () => onLanguageSelected(language),
+                        onTap: () => widget.onLanguageSelected(language),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
@@ -450,17 +518,44 @@ class _SongBookRightColumn extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        if (compact) ...<Widget>[
-          libraryContent,
+        if (widget.compact) ...<Widget>[
+          buildLibraryContent(),
           const SizedBox(height: 12),
-          const _PaginationBar(),
+          _PaginationBar(
+            currentPage: currentPage + 1,
+            totalPages: totalPages,
+            onPrevious: currentPage > 0
+                ? () => setState(() => _currentPage -= 1)
+                : null,
+            onNext: currentPage < totalPages - 1
+                ? () => setState(() => _currentPage += 1)
+                : null,
+          ),
         ] else
           Expanded(
             child: Column(
               children: <Widget>[
-                Expanded(child: libraryContent),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder:
+                        (BuildContext context, BoxConstraints constraints) {
+                          return buildLibraryContent(
+                            availableHeight: constraints.maxHeight,
+                          );
+                        },
+                  ),
+                ),
                 const SizedBox(height: 12),
-                const _PaginationBar(),
+                _PaginationBar(
+                  currentPage: currentPage + 1,
+                  totalPages: totalPages,
+                  onPrevious: currentPage > 0
+                      ? () => setState(() => _currentPage -= 1)
+                      : null,
+                  onNext: currentPage < totalPages - 1
+                      ? () => setState(() => _currentPage += 1)
+                      : null,
+                ),
               ],
             ),
           ),
@@ -663,17 +758,6 @@ class _SongTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                isCurrent ? '当前播放' : '播放',
-                style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: FontWeight.w700,
-                  color: isCurrent
-                      ? const Color(0xFFFFD85E)
-                      : const Color(0xB8FFF7FF),
-                ),
-              ),
             ],
           ),
         ),
@@ -707,7 +791,17 @@ class _EmptyContentCard extends StatelessWidget {
 }
 
 class _PaginationBar extends StatelessWidget {
-  const _PaginationBar();
+  const _PaginationBar({
+    required this.currentPage,
+    required this.totalPages,
+    this.onPrevious,
+    this.onNext,
+  });
+
+  final int currentPage;
+  final int totalPages;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
 
   @override
   Widget build(BuildContext context) {
@@ -716,17 +810,17 @@ class _PaginationBar extends StatelessWidget {
       child: Wrap(
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: 12,
-        children: const <Widget>[
-          _PaginationButton(label: '上一页'),
+        children: <Widget>[
+          _PaginationButton(label: '上一页', onPressed: onPrevious),
           Text(
-            '1/1',
-            style: TextStyle(
+            '$currentPage/$totalPages',
+            style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w500,
               color: Color(0xCCFFF2FF),
             ),
           ),
-          _PaginationButton(label: '下一页'),
+          _PaginationButton(label: '下一页', onPressed: onNext),
         ],
       ),
     );
@@ -734,24 +828,32 @@ class _PaginationBar extends StatelessWidget {
 }
 
 class _PaginationButton extends StatelessWidget {
-  const _PaginationButton({required this.label});
+  const _PaginationButton({required this.label, this.onPressed});
 
   final String label;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      decoration: BoxDecoration(
-        color: const Color(0x0DFFFFFF),
+    final bool enabled = onPressed != null;
+    return Material(
+      color: enabled ? const Color(0x16FFFFFF) : const Color(0x0DFFFFFF),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
         borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: Color(0x7AFFF2FF),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: enabled
+                  ? const Color(0xCCFFF2FF)
+                  : const Color(0x7AFFF2FF),
+            ),
+          ),
         ),
       ),
     );

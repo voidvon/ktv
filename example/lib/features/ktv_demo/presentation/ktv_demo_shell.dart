@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:ktv2/ktv2.dart';
 
 import '../../../core/models/demo_song.dart';
@@ -76,6 +77,7 @@ class _KtvDemoShellState extends State<KtvDemoShell>
   final KtvDemoController _demoController = KtvDemoController();
   final TextEditingController _searchController = TextEditingController();
   final GlobalKey _previewSurfaceKey = GlobalKey();
+  bool? _statusBarHiddenInLandscape;
 
   @override
   void initState() {
@@ -87,12 +89,33 @@ class _KtvDemoShellState extends State<KtvDemoShell>
 
   @override
   void dispose() {
+    if (_statusBarHiddenInLandscape == true) {
+      unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
+    }
     WidgetsBinding.instance.removeObserver(this);
     _searchController
       ..removeListener(_handleSearchChanged)
       ..dispose();
     _demoController.dispose();
     super.dispose();
+  }
+
+  void _syncSystemStatusBarForOrientation(Orientation orientation) {
+    final bool shouldHideStatusBar = orientation == Orientation.landscape;
+    if (_statusBarHiddenInLandscape == shouldHideStatusBar) {
+      return;
+    }
+    _statusBarHiddenInLandscape = shouldHideStatusBar;
+    if (shouldHideStatusBar) {
+      unawaited(
+        SystemChrome.setEnabledSystemUIMode(
+          SystemUiMode.manual,
+          overlays: <SystemUiOverlay>[SystemUiOverlay.bottom],
+        ),
+      );
+      return;
+    }
+    unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
   }
 
   @override
@@ -357,6 +380,7 @@ class _KtvDemoShellState extends State<KtvDemoShell>
                         (BuildContext context, BoxConstraints constraints) {
                           final Orientation orientation =
                               MediaQuery.orientationOf(context);
+                          _syncSystemStatusBarForOrientation(orientation);
                           final bool useWideLayout =
                               orientation == Orientation.landscape ||
                               constraints.maxWidth >= 860;
