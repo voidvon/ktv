@@ -341,51 +341,66 @@ class _SongBookRightColumn extends StatefulWidget {
 }
 
 class _SongBookRightColumnState extends State<_SongBookRightColumn> {
-  static const int _songsPerPage = 8;
-  static const int _crossAxisCount = 2;
   static const double _mainAxisSpacing = 6;
   static const double _crossAxisSpacing = 12;
   static const double _tileHeight = 36;
 
   int _currentPage = 0;
 
-  @override
-  void didUpdateWidget(covariant _SongBookRightColumn oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.songs != widget.songs) {
-      final int maxPage = _computeMaxPage(widget.songs.length);
-      if (_currentPage > maxPage) {
-        _currentPage = maxPage;
-      }
-    }
+  int _resolveCrossAxisCount(MediaQueryData media) {
+    return media.size.width < 340 ? 1 : 2;
   }
 
-  int _computeMaxPage(int totalSongs) {
+  int _resolveRowsPerPage(MediaQueryData media, {required bool isLandscape}) {
+    if (isLandscape) {
+      return 4;
+    }
+    final double height = media.size.height;
+    if (height >= 760) {
+      return 6;
+    }
+    if (height >= 640) {
+      return 5;
+    }
+    return 4;
+  }
+
+  int _computeMaxPage(int totalSongs, int songsPerPage) {
     if (totalSongs <= 0) {
       return 0;
     }
-    return (totalSongs / _songsPerPage).ceil() - 1;
+    return (totalSongs / songsPerPage).ceil() - 1;
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isLandscape =
-        MediaQuery.orientationOf(context) == Orientation.landscape;
+    final MediaQueryData media = MediaQuery.of(context);
+    final bool isLandscape = media.orientation == Orientation.landscape;
+    final int crossAxisCount = _resolveCrossAxisCount(media);
+    final int rowsPerPage = _resolveRowsPerPage(
+      media,
+      isLandscape: isLandscape,
+    );
+    final int songsPerPage = crossAxisCount * rowsPerPage;
+
+    final int maxPage = _computeMaxPage(widget.songs.length, songsPerPage);
+    if (_currentPage > maxPage) {
+      _currentPage = maxPage;
+    } else if (_currentPage < 0) {
+      _currentPage = 0;
+    }
+
     final int totalPages = widget.songs.isEmpty
         ? 1
-        : (widget.songs.length / _songsPerPage).ceil();
+        : (widget.songs.length / songsPerPage).ceil();
     final int currentPage = _currentPage.clamp(0, totalPages - 1);
-    final int startIndex = currentPage * _songsPerPage;
+    final int startIndex = currentPage * songsPerPage;
     final int endIndex = widget.songs.isEmpty
         ? 0
-        : (startIndex + _songsPerPage).clamp(0, widget.songs.length);
+        : (startIndex + songsPerPage).clamp(0, widget.songs.length);
     final List<DemoSong> visibleSongs = widget.songs.isEmpty
         ? const <DemoSong>[]
         : widget.songs.sublist(startIndex, endIndex);
-    const int rowsPerPage = _songsPerPage ~/ _crossAxisCount;
-    const double pageGridHeight =
-        (_tileHeight * rowsPerPage) + (_mainAxisSpacing * (rowsPerPage - 1));
-
     Widget buildLibraryContent({double? availableHeight}) {
       if (!widget.hasConfiguredDirectory) {
         return const _EmptyContentCard(message: '请先在设置里选择扫描目录，扫描完成后这里会展示歌曲列表。');
@@ -402,24 +417,35 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
         );
       }
 
-      final double dynamicGridHeight =
-          isLandscape && !widget.compact && availableHeight != null
+      final int visibleRowCount =
+          ((visibleSongs.length + crossAxisCount - 1) / crossAxisCount)
+              .clamp(1, rowsPerPage)
+              .toInt();
+      final double baseGridHeight =
+          (_tileHeight * visibleRowCount) +
+          (_mainAxisSpacing * (visibleRowCount - 1));
+
+      final bool useAvailableHeight =
+          !widget.compact && availableHeight != null;
+      final double dynamicGridHeight = useAvailableHeight
           ? availableHeight
-          : pageGridHeight;
-      final double tileHeight =
-          ((dynamicGridHeight - (_mainAxisSpacing * (rowsPerPage - 1))) /
-                  rowsPerPage)
-              .clamp(30.0, 120.0)
-              .toDouble();
+          : baseGridHeight;
+      final double rawTileHeight =
+          (dynamicGridHeight - (_mainAxisSpacing * (visibleRowCount - 1))) /
+          visibleRowCount;
+      final double tileHeight = rawTileHeight < 28 ? 28 : rawTileHeight;
       final double resolvedGridHeight =
-          (tileHeight * rowsPerPage) + (_mainAxisSpacing * (rowsPerPage - 1));
+          useAvailableHeight && rawTileHeight >= 28
+          ? dynamicGridHeight
+          : (tileHeight * visibleRowCount) +
+                (_mainAxisSpacing * (visibleRowCount - 1));
 
       return SizedBox(
         height: resolvedGridHeight,
         child: GridView.builder(
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: _crossAxisCount,
+            crossAxisCount: crossAxisCount,
             mainAxisSpacing: _mainAxisSpacing,
             crossAxisSpacing: _crossAxisSpacing,
             mainAxisExtent: tileHeight,
@@ -720,7 +746,7 @@ class _SongTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(10, 5, 8, 5),
+          padding: const EdgeInsets.fromLTRB(12, 6, 10, 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: const Color(0x1AFFFFFF)),
@@ -737,21 +763,21 @@ class _SongTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 10,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        height: 1,
+                        height: 1.15,
                         color: Color(0xEDFFF7FF),
                       ),
                     ),
-                    const SizedBox(height: 1),
+                    const SizedBox(height: 4),
                     Text(
                       '${song.artist} · ${song.language}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 7,
+                        fontSize: 9,
                         fontWeight: FontWeight.w500,
-                        height: 1,
+                        height: 1.2,
                         color: subtitleColor,
                       ),
                     ),

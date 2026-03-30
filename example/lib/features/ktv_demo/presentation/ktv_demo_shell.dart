@@ -304,6 +304,7 @@ class _KtvDemoShellState extends State<KtvDemoShell>
   }
 
   Widget _buildCompactRouteLayout() {
+    final bool isHome = _demoController.route == DemoRoute.home;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -315,7 +316,7 @@ class _KtvDemoShellState extends State<KtvDemoShell>
           compact: true,
         ),
         const SizedBox(height: 16),
-        if (_demoController.route == DemoRoute.home)
+        if (isHome)
           _HomePage(
             controller: _demoController.playerController,
             compact: true,
@@ -326,26 +327,28 @@ class _KtvDemoShellState extends State<KtvDemoShell>
             onTogglePlayback: _togglePlayback,
           )
         else
-          _SongBookPage(
-            controller: _demoController.playerController,
-            compact: true,
-            searchController: _searchController,
-            selectedLanguage: _demoController.selectedLanguage,
-            songs: _demoController.filteredSongs,
-            hasConfiguredDirectory: _demoController.hasConfiguredDirectory,
-            isScanningLibrary: _demoController.isScanningLibrary,
-            libraryScanErrorMessage: _demoController.libraryScanErrorMessage,
-            queuedSongs: _demoController.queuedSongs,
-            onBackPressed: _returnHome,
-            onLanguageSelected: _selectLanguage,
-            onAppendSearchToken: _appendSearchToken,
-            onRemoveSearchCharacter: _removeSearchCharacter,
-            onClearSearch: _clearSearch,
-            onPlaySong: _playSong,
-            onSettingsPressed: _openSettingsPage,
-            onToggleAudioMode: _toggleAudioMode,
-            onTogglePlayback: _togglePlayback,
-            onRestartPlayback: _restartPlayback,
+          Expanded(
+            child: _SongBookPage(
+              controller: _demoController.playerController,
+              compact: false,
+              searchController: _searchController,
+              selectedLanguage: _demoController.selectedLanguage,
+              songs: _demoController.filteredSongs,
+              hasConfiguredDirectory: _demoController.hasConfiguredDirectory,
+              isScanningLibrary: _demoController.isScanningLibrary,
+              libraryScanErrorMessage: _demoController.libraryScanErrorMessage,
+              queuedSongs: _demoController.queuedSongs,
+              onBackPressed: _returnHome,
+              onLanguageSelected: _selectLanguage,
+              onAppendSearchToken: _appendSearchToken,
+              onRemoveSearchCharacter: _removeSearchCharacter,
+              onClearSearch: _clearSearch,
+              onPlaySong: _playSong,
+              onSettingsPressed: _openSettingsPage,
+              onToggleAudioMode: _toggleAudioMode,
+              onTogglePlayback: _togglePlayback,
+              onRestartPlayback: _restartPlayback,
+            ),
           ),
       ],
     );
@@ -407,40 +410,61 @@ class _KtvDemoShellState extends State<KtvDemoShell>
                             0,
                             constraints.maxHeight - 158,
                           );
-                          final Widget routeShell = Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 980),
-                              child: _GradientShell(
-                                padding: EdgeInsets.zero,
-                                child: useWideLayout
-                                    ? _demoController.route == DemoRoute.home
-                                          ? _buildWideHomeLayout(
-                                              sidePanelWidth: sidePanelWidth,
-                                              columnGap: columnGap,
-                                              compactHomePage:
-                                                  compactWideHomePage,
-                                            )
-                                          : _buildWideSongBookLayout(
-                                              sidePanelWidth: sidePanelWidth,
-                                              columnGap: columnGap,
-                                            )
-                                    : _buildCompactRouteLayout(),
-                              ),
+                          final Widget constrainedShell = ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 980),
+                            child: _GradientShell(
+                              padding: EdgeInsets.zero,
+                              child: useWideLayout
+                                  ? _demoController.route == DemoRoute.home
+                                        ? _buildWideHomeLayout(
+                                            sidePanelWidth: sidePanelWidth,
+                                            columnGap: columnGap,
+                                            compactHomePage:
+                                                compactWideHomePage,
+                                          )
+                                        : _buildWideSongBookLayout(
+                                            sidePanelWidth: sidePanelWidth,
+                                            columnGap: columnGap,
+                                          )
+                                  : _buildCompactRouteLayout(),
                             ),
                           );
+                          final bool shouldUseCompactScroll =
+                              !useWideLayout &&
+                              _demoController.route == DemoRoute.home;
+                          final bool shouldUseCompactFillLayout =
+                              !useWideLayout &&
+                              _demoController.route != DemoRoute.home;
+                          final Widget routeShell = useWideLayout
+                              ? Center(child: constrainedShell)
+                              : Align(
+                                  alignment: Alignment.topCenter,
+                                  child: shouldUseCompactFillLayout
+                                      ? SizedBox(
+                                          width: math.min(
+                                            constraints.maxWidth,
+                                            980,
+                                          ),
+                                          height: constraints.maxHeight,
+                                          child: constrainedShell,
+                                        )
+                                      : constrainedShell,
+                                );
                           return Column(
                             children: <Widget>[
                               Expanded(
                                 child: useWideLayout
                                     ? routeShell
-                                    : SingleChildScrollView(
+                                    : shouldUseCompactScroll
+                                    ? SingleChildScrollView(
                                         child: ConstrainedBox(
                                           constraints: BoxConstraints(
                                             minHeight: minContentHeight,
                                           ),
                                           child: routeShell,
                                         ),
-                                      ),
+                                      )
+                                    : routeShell,
                               ),
                             ],
                           );
