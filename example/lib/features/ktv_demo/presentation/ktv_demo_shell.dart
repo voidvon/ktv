@@ -194,12 +194,16 @@ class _KtvDemoShellState extends State<KtvDemoShell>
     );
   }
 
-  Widget _buildWideHomeLayout() {
+  Widget _buildWideHomeLayout({
+    required double sidePanelWidth,
+    required double columnGap,
+    required bool compactHomePage,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         SizedBox(
-          width: 304,
+          width: sidePanelWidth,
           child: _HomePreviewCard(
             controller: _demoController.playerController,
             previewSurface: _buildPreviewSurface(),
@@ -207,11 +211,11 @@ class _KtvDemoShellState extends State<KtvDemoShell>
             subtitle: _demoController.currentSubtitle,
           ),
         ),
-        const SizedBox(width: 28),
+        SizedBox(width: columnGap),
         Expanded(
           child: _HomePage(
             controller: _demoController.playerController,
-            compact: false,
+            compact: compactHomePage,
             queueCount: _demoController.queuedSongs.length,
             onEnterSongBook: _enterSongBook,
             onSettingsPressed: _openSettingsPage,
@@ -223,12 +227,15 @@ class _KtvDemoShellState extends State<KtvDemoShell>
     );
   }
 
-  Widget _buildWideSongBookLayout() {
+  Widget _buildWideSongBookLayout({
+    required double sidePanelWidth,
+    required double columnGap,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         SizedBox(
-          width: 304,
+          width: sidePanelWidth,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
@@ -250,7 +257,7 @@ class _KtvDemoShellState extends State<KtvDemoShell>
             ],
           ),
         ),
-        const SizedBox(width: 28),
+        SizedBox(width: columnGap),
         Expanded(
           child: _SongBookRightColumn(
             controller: _demoController.playerController,
@@ -348,36 +355,68 @@ class _KtvDemoShellState extends State<KtvDemoShell>
                   child: LayoutBuilder(
                     builder:
                         (BuildContext context, BoxConstraints constraints) {
+                          final Orientation orientation =
+                              MediaQuery.orientationOf(context);
+                          final bool useWideLayout =
+                              orientation == Orientation.landscape ||
+                              constraints.maxWidth >= 860;
+                          final double columnGap = constraints.maxWidth < 760
+                              ? 16
+                              : 28;
+                          final double candidateSidePanelWidth =
+                              (constraints.maxWidth * 0.36)
+                                  .clamp(220.0, 304.0)
+                                  .toDouble();
+                          final double maxAllowedSidePanelWidth = math.max(
+                            180,
+                            constraints.maxWidth - columnGap - 260,
+                          );
+                          final double sidePanelWidth = math.min(
+                            candidateSidePanelWidth,
+                            maxAllowedSidePanelWidth,
+                          );
+                          final double rightPanelWidth =
+                              constraints.maxWidth - sidePanelWidth - columnGap;
+                          final bool compactWideHomePage =
+                              rightPanelWidth < 520;
                           final double minContentHeight = math.max(
                             0,
                             constraints.maxHeight - 158,
                           );
+                          final Widget routeShell = Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 980),
+                              child: _GradientShell(
+                                padding: EdgeInsets.zero,
+                                child: useWideLayout
+                                    ? _demoController.route == DemoRoute.home
+                                          ? _buildWideHomeLayout(
+                                              sidePanelWidth: sidePanelWidth,
+                                              columnGap: columnGap,
+                                              compactHomePage:
+                                                  compactWideHomePage,
+                                            )
+                                          : _buildWideSongBookLayout(
+                                              sidePanelWidth: sidePanelWidth,
+                                              columnGap: columnGap,
+                                            )
+                                    : _buildCompactRouteLayout(),
+                              ),
+                            ),
+                          );
                           return Column(
                             children: <Widget>[
                               Expanded(
-                                child: SingleChildScrollView(
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      minHeight: minContentHeight,
-                                    ),
-                                    child: Center(
-                                      child: ConstrainedBox(
-                                        constraints: const BoxConstraints(
-                                          maxWidth: 980,
-                                        ),
-                                        child: _GradientShell(
-                                          padding: EdgeInsets.zero,
-                                          child: constraints.maxWidth < 860
-                                              ? _buildCompactRouteLayout()
-                                              : _demoController.route ==
-                                                    DemoRoute.home
-                                              ? _buildWideHomeLayout()
-                                              : _buildWideSongBookLayout(),
+                                child: useWideLayout
+                                    ? routeShell
+                                    : SingleChildScrollView(
+                                        child: ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            minHeight: minContentHeight,
+                                          ),
+                                          child: routeShell,
                                         ),
                                       ),
-                                    ),
-                                  ),
-                                ),
                               ),
                             ],
                           );
