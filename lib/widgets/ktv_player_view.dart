@@ -17,7 +17,7 @@ class KtvPlayerView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: controller,
+      animation: controller.videoViewListenable,
       builder: (context, _) {
         final videoView = controller.buildVideoView();
         return ColoredBox(

@@ -26,8 +26,10 @@ abstract class PlatformChannelPlayerController extends PlayerController {
 
   final NativePlayerChannels _channels;
   final PlatformPlayerStateStore _stateStore = PlatformPlayerStateStore();
+  final ChangeNotifier _videoViewNotifier = ChangeNotifier();
   late final StreamSubscription<dynamic> _eventSubscription;
   late final Widget _videoView = buildPlatformVideoView();
+  bool _showsVideoView = false;
 
   String get eventErrorPrefix;
   String get initializingDiagnostics;
@@ -89,13 +91,42 @@ abstract class PlatformChannelPlayerController extends PlayerController {
     if (event is! Map) {
       return;
     }
-    _applySnapshot(Map<Object?, Object?>.from(event));
+    final snapshot = Map<Object?, Object?>.from(event);
+    if (snapshot['eventKind'] == 'progress') {
+      _applyProgressUpdate(snapshot);
+      return;
+    }
+    _applySnapshot(snapshot);
   }
 
   void _applySnapshot(Map<Object?, Object?> snapshot) {
     _stateStore.applySnapshot(NativePlayerSnapshot.fromMap(snapshot));
     _stateStore.setPlaybackDiagnostics(_buildDiagnostics());
+    _notifyVideoViewListenersIfNeeded();
     notifyListeners();
+  }
+
+  void _applyProgressUpdate(Map<Object?, Object?> snapshot) {
+    final didChange = _stateStore.applyProgressUpdate(
+      playbackPosition: Duration(
+        milliseconds: (snapshot['playbackPositionMs'] as num?)?.round() ?? 0,
+      ),
+      playbackDuration: Duration(
+        milliseconds: (snapshot['playbackDurationMs'] as num?)?.round() ?? 0,
+      ),
+    );
+    if (didChange) {
+      notifyListeners();
+    }
+  }
+
+  void _notifyVideoViewListenersIfNeeded() {
+    final showsVideoView = _stateStore.currentMediaPath != null;
+    if (_showsVideoView == showsVideoView) {
+      return;
+    }
+    _showsVideoView = showsVideoView;
+    _videoViewNotifier.notifyListeners();
   }
 
   String? _buildDiagnostics() {
@@ -120,6 +151,7 @@ abstract class PlatformChannelPlayerController extends PlayerController {
       mediaPath: source.path,
       initializingDiagnostics: initializingDiagnostics,
     );
+    _notifyVideoViewListenersIfNeeded();
     notifyListeners();
 
     try {
@@ -142,6 +174,7 @@ abstract class PlatformChannelPlayerController extends PlayerController {
       _stateStore.setPlaying(false);
       _stateStore.setPlaybackError('播放失败：$error');
       _stateStore.setPlaybackDiagnostics(_buildDiagnostics());
+      _notifyVideoViewListenersIfNeeded();
       notifyListeners();
     }
   }
@@ -221,12 +254,16 @@ abstract class PlatformChannelPlayerController extends PlayerController {
   }
 
   @override
+  Listenable get videoViewListenable => _videoViewNotifier;
+
+  @override
   Widget? buildVideoView() => _videoView;
 
   @override
   void dispose() {
     unawaited(_eventSubscription.cancel());
     unawaited(_channels.disposePlayer());
+    _videoViewNotifier.dispose();
     super.dispose();
   }
 }

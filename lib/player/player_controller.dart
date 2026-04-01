@@ -6,6 +6,7 @@ import 'player_state.dart';
 
 abstract class PlayerController extends ChangeNotifier {
   PlayerState get state;
+  Listenable get videoViewListenable => this;
 
   AudioOutputMode get audioOutputMode => state.audioOutputMode;
   bool get hasMedia => currentMediaPath != null;

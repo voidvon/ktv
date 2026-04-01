@@ -35,10 +35,14 @@ class NativeKtvPlayerHost(
         const val singleTrackAudioRoutingRetryDelayMs = 180L
         const val initialAudioRoutingReapplyDelayMs = 420L
         const val maxSingleTrackAudioRoutingRetries = 6
+        const val progressUpdateIntervalMs = 500L
         const val libVlcAudioChannelStereo = 1
         const val libVlcAudioChannelLeft = 3
         const val libVlcAudioChannelRight = 4
         const val nativeSingleTrackRoutingEnabled = true
+        const val eventKindKey = "eventKind"
+        const val eventKindFullSnapshot = "full"
+        const val eventKindProgress = "progress"
 
         val libVlcBridgeLoaded =
             if (!nativeSingleTrackRoutingEnabled) {
@@ -93,6 +97,8 @@ class NativeKtvPlayerHost(
     private var requestedAudioOutputMode = AudioOutputMode.ORIGINAL
     private var selectedAudioTrackTitle: String? = null
     private var selectedAudioChannelCount: Int? = null
+    private var cachedAudioTracks: List<AudioTrackCandidate> = emptyList()
+    private var cachedMediaTrackCounts = MediaTrackCounts(0, 0)
     private var lastKnownPositionMs = 0L
     private var lastKnownDurationMs = 0L
     private var lastKnownVoutCount = 0
@@ -115,8 +121,8 @@ class NativeKtvPlayerHost(
     private val positionUpdateRunnable =
         object : Runnable {
             override fun run() {
-                pushSnapshot()
-                mainHandler.postDelayed(this, 300L)
+                pushProgressUpdate()
+                mainHandler.postDelayed(this, progressUpdateIntervalMs)
             }
         }
 
@@ -202,7 +208,7 @@ class NativeKtvPlayerHost(
 
     override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
         eventSink = events
-        pushSnapshot()
+        pushFullSnapshot()
     }
 
     override fun onCancel(arguments: Any?) {
@@ -215,51 +221,62 @@ class NativeKtvPlayerHost(
         val lengthChanged = event.lengthChanged
         val voutCount = event.voutCount
         mainHandler.post {
+            var shouldPushFullSnapshot = false
             when (eventType) {
                 MediaPlayer.Event.Opening -> {
                     playbackCompleted = false
                     playbackError = null
+                    shouldPushFullSnapshot = true
                 }
                 MediaPlayer.Event.Buffering -> {
                     playbackCompleted = false
+                    shouldPushFullSnapshot = true
                 }
                 MediaPlayer.Event.Playing -> {
                     playbackCompleted = false
                     playbackError = null
-                    updateSelectedAudioTrackInfo()
+                    refreshPlaybackMetadata()
                     applyRequestedAudioOutputModeIfPossible()
                     videoLayout?.let { attachPlayerViews(it, reason = "event:Playing") }
+                    shouldPushFullSnapshot = true
                 }
                 MediaPlayer.Event.Paused -> {
-                    updateSelectedAudioTrackInfo()
+                    refreshPlaybackMetadata()
+                    shouldPushFullSnapshot = true
                 }
                 MediaPlayer.Event.Stopped -> {
                     playbackCompleted = isNearMediaEnd
+                    shouldPushFullSnapshot = true
                 }
                 MediaPlayer.Event.EndReached -> {
                     playbackCompleted = true
                     lastKnownPositionMs = currentDurationMs
+                    shouldPushFullSnapshot = true
                 }
                 MediaPlayer.Event.EncounteredError -> {
                     playbackError = "Android libVLC 无法识别当前文件。"
+                    shouldPushFullSnapshot = true
                 }
                 MediaPlayer.Event.TimeChanged -> {
                     lastKnownPositionMs = timeChanged.coerceAtLeast(0L)
                 }
                 MediaPlayer.Event.LengthChanged -> {
                     lastKnownDurationMs = lengthChanged.coerceAtLeast(0L)
+                    shouldPushFullSnapshot = true
                 }
                 MediaPlayer.Event.Vout -> {
                     lastKnownVoutCount = voutCount
                     videoLayout?.let { attachPlayerViews(it, reason = "event:Vout") }
+                    shouldPushFullSnapshot = true
                 }
                 MediaPlayer.Event.ESAdded,
                 MediaPlayer.Event.ESDeleted,
                 MediaPlayer.Event.ESSelected,
                 MediaPlayer.Event.MediaChanged,
                 -> {
-                    updateSelectedAudioTrackInfo()
+                    refreshPlaybackMetadata()
                     applyRequestedAudioOutputModeIfPossible()
+                    shouldPushFullSnapshot = true
                 }
             }
             if (
@@ -277,7 +294,9 @@ class NativeKtvPlayerHost(
                     "event type=${eventName(eventType)} time=$timeChanged length=$lengthChanged vout=$voutCount error=$playbackError playbackPath=$currentPlaybackPath",
                 )
             }
-            pushSnapshot()
+            if (shouldPushFullSnapshot) {
+                pushFullSnapshot()
+            }
         }
     }
 
@@ -301,6 +320,7 @@ class NativeKtvPlayerHost(
         mediaPlayer = null
         libVlcInstance?.release()
         libVlcInstance = null
+        clearPlaybackMetadata()
     }
 
     private fun createVideoLayout(context: Context): VLCVideoLayout {
@@ -320,7 +340,7 @@ class NativeKtvPlayerHost(
         lastAttachedLayoutWidth = 0
         lastAttachedLayoutHeight = 0
         videoLayout = null
-        pushSnapshot()
+        pushFullSnapshot()
     }
 
     private fun attachVideoLayout(layout: VLCVideoLayout) {
@@ -352,7 +372,7 @@ class NativeKtvPlayerHost(
             pendingAttachStateListener = listener
             layout.addOnAttachStateChangeListener(listener)
         }
-        pushSnapshot()
+        pushFullSnapshot()
     }
 
     private fun installLayoutChangeListener(layout: VLCVideoLayout) {
@@ -419,7 +439,7 @@ class NativeKtvPlayerHost(
                     "attachPlayerViews reason=$reason width=$width height=$height forceReattach=$forceReattach viewsAttached=${vout.areViewsAttached()}",
                 )
                 flushPendingPlaybackRequestIfPossible()
-                pushSnapshot()
+                pushFullSnapshot()
             } catch (error: Throwable) {
                 handlePlaybackFailure(error, "Android libVLC 视图初始化失败。")
             }
@@ -462,8 +482,7 @@ class NativeKtvPlayerHost(
         appliedSingleTrackAudioOutputMode = null
         resetSingleTrackAudioRoutingRetry()
         clearPendingInitialAudioRoutingReapply()
-        selectedAudioTrackTitle = null
-        selectedAudioChannelCount = null
+        clearPlaybackMetadata()
         Log.i(
             tag,
             "open sourcePath=$path playbackPath=$currentPlaybackPath mode=$mode",
@@ -505,8 +524,7 @@ class NativeKtvPlayerHost(
         appliedSingleTrackAudioOutputMode = null
         resetSingleTrackAudioRoutingRetry()
         clearPendingInitialAudioRoutingReapply()
-        selectedAudioTrackTitle = null
-        selectedAudioChannelCount = null
+        clearPlaybackMetadata()
 
         val media = buildMedia(path)
         try {
@@ -516,6 +534,7 @@ class NativeKtvPlayerHost(
         }
 
         currentPlaybackPath = path
+        refreshPlaybackMetadata()
         player.play()
         scheduleInitialAudioRoutingReapply(path)
         if (preservePositionMs > 0L) {
@@ -525,7 +544,6 @@ class NativeKtvPlayerHost(
             player.pause()
         }
         videoLayout?.let { attachPlayerViews(it, reason = "openPlaybackMedia") }
-        updateSelectedAudioTrackInfo()
         Log.i(
             tag,
             "openPlaybackMedia path=$path shouldResume=$shouldResume positionMs=$preservePositionMs",
@@ -546,24 +564,30 @@ class NativeKtvPlayerHost(
 
     private fun snapshot(): Map<String, Any?> {
         val player = playerOrNull
-        updateSelectedAudioTrackInfo()
-        val mediaTrackCounts = resolvedMediaTrackCounts()
-        val audioTracks = availableAudioTracks()
         return mapOf(
+            eventKindKey to eventKindFullSnapshot,
             "isPlaying" to (player?.isPlaying ?: false),
             "isPlaybackCompleted" to playbackCompleted,
             "hasVideoOutput" to (player != null && lastKnownVoutCount > 0),
             "playbackPositionMs" to currentPositionMs,
             "playbackDurationMs" to currentDurationMs,
-            "videoTrackCount" to mediaTrackCounts.video,
-            "audioTrackCount" to maxOf(mediaTrackCounts.audio, resolvedAudioTrackCount(audioTracks)),
+            "videoTrackCount" to cachedMediaTrackCounts.video,
+            "audioTrackCount" to resolvedAudioTrackCount(cachedAudioTracks),
             "playbackError" to playbackError,
             "selectedAudioTrackTitle" to selectedAudioTrackTitle,
             "selectedAudioChannelCount" to selectedAudioChannelCount,
         )
     }
 
-    private fun pushSnapshot() {
+    private fun progressUpdate(): Map<String, Any?> {
+        return mapOf(
+            eventKindKey to eventKindProgress,
+            "playbackPositionMs" to currentPositionMs,
+            "playbackDurationMs" to currentDurationMs,
+        )
+    }
+
+    private fun pushFullSnapshot() {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             eventSink?.success(snapshot())
         } else {
@@ -571,9 +595,39 @@ class NativeKtvPlayerHost(
         }
     }
 
-    private fun updateSelectedAudioTrackInfo() {
+    private fun pushProgressUpdate() {
+        val sink = eventSink ?: return
+        val player = playerOrNull ?: return
+        if (!player.isPlaying) {
+            return
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            sink.success(progressUpdate())
+        } else {
+            mainHandler.post { eventSink?.success(progressUpdate()) }
+        }
+    }
+
+    private fun clearPlaybackMetadata() {
+        cachedAudioTracks = emptyList()
+        cachedMediaTrackCounts = MediaTrackCounts(0, 0)
+        selectedAudioTrackTitle = null
+        selectedAudioChannelCount = null
+    }
+
+    private fun refreshPlaybackMetadata() {
         val player = playerOrNull
-        val audioTracks = availableAudioTracks()
+        if (player == null) {
+            clearPlaybackMetadata()
+            return
+        }
+        cachedAudioTracks = resolveAvailableAudioTracks(player)
+        cachedMediaTrackCounts = resolveMediaTrackCounts(player)
+        updateSelectedAudioTrackInfo(cachedAudioTracks)
+    }
+
+    private fun updateSelectedAudioTrackInfo(audioTracks: List<AudioTrackCandidate> = cachedAudioTracks) {
+        val player = playerOrNull
         if (audioTracks.isEmpty()) {
             selectedAudioChannelCount = null
             selectedAudioTrackTitle =
@@ -599,7 +653,18 @@ class NativeKtvPlayerHost(
     }
 
     private fun availableAudioTracks(): List<AudioTrackCandidate> {
-        val player = playerOrNull ?: return emptyList()
+        return if (cachedAudioTracks.isNotEmpty()) {
+            cachedAudioTracks
+        } else {
+            playerOrNull?.let(::resolveAvailableAudioTracks)?.also {
+                if (it.isNotEmpty()) {
+                    cachedAudioTracks = it
+                }
+            } ?: emptyList()
+        }
+    }
+
+    private fun resolveAvailableAudioTracks(player: MediaPlayer): List<AudioTrackCandidate> {
         val trackDescriptions = player.getAudioTracks()
         if (trackDescriptions != null) {
             val candidates =
@@ -637,8 +702,7 @@ class NativeKtvPlayerHost(
         return candidates
     }
 
-    private fun resolvedMediaTrackCounts(): MediaTrackCounts {
-        val player = playerOrNull ?: return MediaTrackCounts(0, 0)
+    private fun resolveMediaTrackCounts(player: MediaPlayer): MediaTrackCounts {
         val media = player.getMedia() ?: return MediaTrackCounts(0, 0)
         var videoTracks = 0
         var audioTracks = 0
@@ -979,7 +1043,7 @@ class NativeKtvPlayerHost(
             }
         playbackError = message
         Log.e(tag, fallbackMessage, error)
-        pushSnapshot()
+        pushFullSnapshot()
         return message
     }
 

@@ -253,52 +253,47 @@ class HomePreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (BuildContext context, Widget? child) {
-        final BorderRadius borderRadius = BorderRadius.all(
-          Radius.circular(compact ? 12 : 14),
-        );
-        return Container(
-          decoration: BoxDecoration(
-            borderRadius: borderRadius,
-            border: const Border.fromBorderSide(
-              BorderSide(color: Color(0x1FFFFFFF)),
-            ),
-            boxShadow: const <BoxShadow>[
-              BoxShadow(
-                color: Color(0x87090012),
-                blurRadius: 24,
-                offset: Offset(0, 10),
+    final BorderRadius borderRadius = BorderRadius.all(
+      Radius.circular(compact ? 12 : 14),
+    );
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        border: const Border.fromBorderSide(
+          BorderSide(color: Color(0x1FFFFFFF)),
+        ),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x87090012),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Stack(
+            fit: StackFit.expand,
+            children: <Widget>[
+              Positioned.fill(key: previewAnchorKey, child: previewSurface),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: PlayerProgressTrack(
+                    controller: controller,
+                    thickness: 6,
+                    barHeight: 6,
+                  ),
+                ),
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: borderRadius,
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Stack(
-                fit: StackFit.expand,
-                children: <Widget>[
-                  Positioned.fill(key: previewAnchorKey, child: previewSurface),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: IgnorePointer(
-                      child: PlayerProgressTrack(
-                        controller: controller,
-                        thickness: 6,
-                        barHeight: 6,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

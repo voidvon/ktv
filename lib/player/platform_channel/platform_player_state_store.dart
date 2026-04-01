@@ -83,6 +83,19 @@ class PlatformPlayerStateStore {
     _playbackError = snapshot.playbackError;
   }
 
+  bool applyProgressUpdate({
+    required Duration playbackPosition,
+    required Duration playbackDuration,
+  }) {
+    if (_playbackPosition == playbackPosition &&
+        _playbackDuration == playbackDuration) {
+      return false;
+    }
+    _playbackPosition = playbackPosition;
+    _playbackDuration = playbackDuration;
+    return true;
+  }
+
   void applyLocalSeekPreview(double normalizedProgress) {
     _isPlaybackCompleted = false;
     _playbackPosition = Duration(
