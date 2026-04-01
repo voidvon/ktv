@@ -418,8 +418,24 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
   static const double _songTileHeight = 44;
   static const double _queueTileHeight = 48;
   static const double _paginationSectionHeight = 42;
+  static const double _pageViewportFraction = 0.92;
+  static const double _pageGap = 12;
 
   int _currentPage = 0;
+  late final PageController _pageController;
+  int? _pendingPageJump;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: _pageViewportFraction);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   int _resolveCrossAxisCount(MediaQueryData media) {
     return media.size.width < 340 ? 1 : 2;
@@ -464,6 +480,135 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
     return (totalSongs / songsPerPage).ceil() - 1;
   }
 
+  double _computeGridHeight({
+    required int rowsPerPage,
+    required double tileHeight,
+  }) {
+    return (tileHeight * rowsPerPage) + (_gridSpacing * (rowsPerPage - 1));
+  }
+
+  List<List<T>> _paginateItems<T>(List<T> items, {required int itemsPerPage}) {
+    if (items.isEmpty) {
+      return <List<T>>[<T>[]];
+    }
+    final List<List<T>> pages = <List<T>>[];
+    for (int start = 0; start < items.length; start += itemsPerPage) {
+      final int end = math.min(start + itemsPerPage, items.length);
+      pages.add(items.sublist(start, end));
+    }
+    return pages;
+  }
+
+  int _normalizeCurrentPage(int totalPages) {
+    final int normalizedPage = _currentPage.clamp(0, totalPages - 1);
+    if (_currentPage != normalizedPage) {
+      _currentPage = normalizedPage;
+    }
+    _schedulePageJump(normalizedPage);
+    return normalizedPage;
+  }
+
+  void _schedulePageJump(int targetPage) {
+    if (_pageController.hasClients) {
+      final double fallbackPage = _currentPage.toDouble();
+      final int controllerPage = (_pageController.page ?? fallbackPage).round();
+      if (controllerPage == targetPage) {
+        _pendingPageJump = null;
+        return;
+      }
+    }
+    if (_pendingPageJump == targetPage) {
+      return;
+    }
+    _pendingPageJump = targetPage;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      final int? pendingPage = _pendingPageJump;
+      if (pendingPage == null) {
+        return;
+      }
+      _pendingPageJump = null;
+      if (!_pageController.hasClients) {
+        return;
+      }
+      final double fallbackPage = _currentPage.toDouble();
+      final int controllerPage = (_pageController.page ?? fallbackPage).round();
+      if (controllerPage != pendingPage) {
+        _pageController.jumpToPage(pendingPage);
+      }
+    });
+  }
+
+  Future<void> _animateToPage(int page) async {
+    if (page == _currentPage) {
+      return;
+    }
+    if (!_pageController.hasClients) {
+      setState(() => _currentPage = page);
+      return;
+    }
+    await _pageController.animateToPage(
+      page,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  Widget _buildAnimatedPagedContent<T>({
+    required List<List<T>> pages,
+    required int rowsPerPage,
+    required double tileHeight,
+    required Widget Function(List<T> pageItems) pageBuilder,
+  }) {
+    return SizedBox(
+      height: _computeGridHeight(
+        rowsPerPage: rowsPerPage,
+        tileHeight: tileHeight,
+      ),
+      child: PageView.builder(
+        controller: _pageController,
+        physics: const BouncingScrollPhysics(parent: PageScrollPhysics()),
+        itemCount: pages.length,
+        onPageChanged: (int page) {
+          if (page == _currentPage) {
+            return;
+          }
+          setState(() => _currentPage = page);
+        },
+        itemBuilder: (BuildContext context, int index) {
+          return AnimatedBuilder(
+            animation: _pageController,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: _pageGap / 2),
+              child: pageBuilder(pages[index]),
+            ),
+            builder: (BuildContext context, Widget? child) {
+              double page = _currentPage.toDouble();
+              if (_pageController.hasClients) {
+                page = _pageController.page ?? page;
+              }
+              final double distance = (page - index).abs().clamp(0.0, 1.0);
+              final double opacity = math.max(0.9, 1 - (distance * 0.12));
+              final double scale = 1 - (distance * 0.02);
+              return ClipRect(
+                child: Opacity(
+                  opacity: opacity,
+                  child: Transform.scale(
+                    scale: scale,
+                    alignment: Alignment.center,
+                    child: child,
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final MediaQueryData media = MediaQuery.of(context);
@@ -479,58 +624,11 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
         ? _resolveFilteredQueueEntries()
         : const <_QueuedSongEntry>[];
 
-    ({int currentPage, int totalPages, List<T> visibleItems})
-    resolvePageData<T>(List<T> items, {required int rowsPerPage}) {
-      final int itemsPerPage = crossAxisCount * rowsPerPage;
-      final int maxPage = _computeMaxPage(items.length, itemsPerPage);
-      if (_currentPage > maxPage) {
-        _currentPage = maxPage;
-      } else if (_currentPage < 0) {
-        _currentPage = 0;
-      }
-
-      final int totalPages = items.isEmpty
-          ? 1
-          : (items.length / itemsPerPage).ceil();
-      final int currentPage = _currentPage.clamp(0, totalPages - 1);
-      final int startIndex = currentPage * itemsPerPage;
-      final int endIndex = items.isEmpty
-          ? 0
-          : (startIndex + itemsPerPage).clamp(0, items.length);
-      final List<T> visibleItems = items.isEmpty
-          ? <T>[]
-          : items.sublist(startIndex, endIndex);
-      return (
-        currentPage: currentPage,
-        totalPages: totalPages,
-        visibleItems: visibleItems,
+    Widget buildLibraryGrid(List<DemoSong> visibleSongs, int rowsPerPage) {
+      final double gridHeight = _computeGridHeight(
+        rowsPerPage: rowsPerPage,
+        tileHeight: _songTileHeight,
       );
-    }
-
-    Widget buildLibraryContent(List<DemoSong> visibleSongs, int rowsPerPage) {
-      if (!widget.hasConfiguredDirectory) {
-        return const _EmptyContentCard(message: '请先在设置里选择扫描目录，扫描完成后这里会展示歌曲列表。');
-      }
-      if (widget.isScanningLibrary) {
-        return const _EmptyContentCard(message: '正在扫描目录中的歌曲，请稍候。');
-      }
-      if (widget.libraryScanErrorMessage != null) {
-        return _EmptyContentCard(message: widget.libraryScanErrorMessage!);
-      }
-      if (widget.songs.isEmpty) {
-        return const _EmptyContentCard(
-          message: '当前目录下没有扫描到可播放歌曲，请确认目录中包含 mp4、dat 等媒体文件。',
-        );
-      }
-
-      final int visibleRowCount =
-          ((visibleSongs.length + crossAxisCount - 1) / crossAxisCount)
-              .clamp(1, rowsPerPage)
-              .toInt();
-      final double gridHeight =
-          (_songTileHeight * visibleRowCount) +
-          (_gridSpacing * (visibleRowCount - 1));
-
       return SizedBox(
         width: double.infinity,
         height: gridHeight,
@@ -561,25 +659,43 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
       );
     }
 
-    Widget buildQueueContent(
+    Widget buildLibraryContent(int rowsPerPage) {
+      if (!widget.hasConfiguredDirectory) {
+        return const _EmptyContentCard(message: '请先在设置里选择扫描目录，扫描完成后这里会展示歌曲列表。');
+      }
+      if (widget.isScanningLibrary) {
+        return const _EmptyContentCard(message: '正在扫描目录中的歌曲，请稍候。');
+      }
+      if (widget.libraryScanErrorMessage != null) {
+        return _EmptyContentCard(message: widget.libraryScanErrorMessage!);
+      }
+      if (widget.songs.isEmpty) {
+        return const _EmptyContentCard(
+          message: '当前目录下没有扫描到可播放歌曲，请确认目录中包含 mp4、dat 等媒体文件。',
+        );
+      }
+      final List<List<DemoSong>> pages = _paginateItems<DemoSong>(
+        widget.songs,
+        itemsPerPage: crossAxisCount * rowsPerPage,
+      );
+      _normalizeCurrentPage(pages.length);
+      return _buildAnimatedPagedContent<DemoSong>(
+        pages: pages,
+        rowsPerPage: rowsPerPage,
+        tileHeight: _songTileHeight,
+        pageBuilder: (List<DemoSong> pageItems) =>
+            buildLibraryGrid(pageItems, rowsPerPage),
+      );
+    }
+
+    Widget buildQueueGrid(
       List<_QueuedSongEntry> visibleEntries,
       int rowsPerPage,
     ) {
-      if (widget.queuedSongs.isEmpty) {
-        return const _EmptyContentCard(message: '当前还没有已点歌曲，点歌后会在这里显示。');
-      }
-      if (filteredQueueEntries.isEmpty) {
-        return const _EmptyContentCard(message: '当前关键字下没有匹配的已点歌曲，试试清空搜索关键字。');
-      }
-
-      final int visibleRowCount =
-          ((visibleEntries.length + crossAxisCount - 1) / crossAxisCount)
-              .clamp(1, rowsPerPage)
-              .toInt();
-      final double gridHeight =
-          (_queueTileHeight * visibleRowCount) +
-          (_gridSpacing * (visibleRowCount - 1));
-
+      final double gridHeight = _computeGridHeight(
+        rowsPerPage: rowsPerPage,
+        tileHeight: _queueTileHeight,
+      );
       return SizedBox(
         width: double.infinity,
         height: gridHeight,
@@ -606,6 +722,42 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
             );
           },
         ),
+      );
+    }
+
+    Widget buildQueueContent(int rowsPerPage) {
+      if (widget.queuedSongs.isEmpty) {
+        return const _EmptyContentCard(message: '当前还没有已点歌曲，点歌后会在这里显示。');
+      }
+      if (filteredQueueEntries.isEmpty) {
+        return const _EmptyContentCard(message: '当前关键字下没有匹配的已点歌曲，试试清空搜索关键字。');
+      }
+      final List<List<_QueuedSongEntry>> pages =
+          _paginateItems<_QueuedSongEntry>(
+            filteredQueueEntries,
+            itemsPerPage: crossAxisCount * rowsPerPage,
+          );
+      _normalizeCurrentPage(pages.length);
+      return _buildAnimatedPagedContent<_QueuedSongEntry>(
+        pages: pages,
+        rowsPerPage: rowsPerPage,
+        tileHeight: _queueTileHeight,
+        pageBuilder: (List<_QueuedSongEntry> pageItems) =>
+            buildQueueGrid(pageItems, rowsPerPage),
+      );
+    }
+
+    ({int currentPage, int totalPages}) resolvePageData<T>(
+      List<T> items, {
+      required int rowsPerPage,
+    }) {
+      final int itemsPerPage = crossAxisCount * rowsPerPage;
+      final int totalPages = items.isEmpty
+          ? 1
+          : _computeMaxPage(items.length, itemsPerPage) + 1;
+      return (
+        currentPage: _normalizeCurrentPage(totalPages),
+        totalPages: totalPages,
       );
     }
 
@@ -705,34 +857,9 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
         if (widget.compact) ...<Widget>[
           Builder(
             builder: (BuildContext context) {
-              if (isQueueRoute) {
-                final ({
-                  int currentPage,
-                  int totalPages,
-                  List<_QueuedSongEntry> visibleItems,
-                })
-                pageData = resolvePageData<_QueuedSongEntry>(
-                  filteredQueueEntries,
-                  rowsPerPage: fallbackRowsPerPage,
-                );
-                return buildQueueContent(
-                  pageData.visibleItems,
-                  fallbackRowsPerPage,
-                );
-              }
-              final ({
-                int currentPage,
-                int totalPages,
-                List<DemoSong> visibleItems,
-              })
-              pageData = resolvePageData<DemoSong>(
-                widget.songs,
-                rowsPerPage: fallbackRowsPerPage,
-              );
-              return buildLibraryContent(
-                pageData.visibleItems,
-                fallbackRowsPerPage,
-              );
+              return isQueueRoute
+                  ? buildQueueContent(fallbackRowsPerPage)
+                  : buildLibraryContent(fallbackRowsPerPage);
             },
           ),
           const SizedBox(height: 12),
@@ -751,11 +878,12 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
                 currentPage: pageData.currentPage + 1,
                 totalPages: pageData.totalPages,
                 onPrevious: pageData.currentPage > 0
-                    ? () => setState(() => _currentPage -= 1)
+                    ? () => _animateToPage(pageData.currentPage - 1)
                     : null,
                 onNext: pageData.currentPage < pageData.totalPages - 1
-                    ? () => setState(() => _currentPage += 1)
+                    ? () => _animateToPage(pageData.currentPage + 1)
                     : null,
+                hint: pageData.totalPages > 1 ? '左右滑动翻页' : null,
               );
             },
           ),
@@ -784,20 +912,8 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
                       child: Align(
                         alignment: Alignment.topCenter,
                         child: isQueueRoute
-                            ? buildQueueContent(
-                                resolvePageData<_QueuedSongEntry>(
-                                  filteredQueueEntries,
-                                  rowsPerPage: rowsPerPage,
-                                ).visibleItems,
-                                rowsPerPage,
-                              )
-                            : buildLibraryContent(
-                                resolvePageData<DemoSong>(
-                                  widget.songs,
-                                  rowsPerPage: rowsPerPage,
-                                ).visibleItems,
-                                rowsPerPage,
-                              ),
+                            ? buildQueueContent(rowsPerPage)
+                            : buildLibraryContent(rowsPerPage),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -805,11 +921,12 @@ class _SongBookRightColumnState extends State<_SongBookRightColumn> {
                       currentPage: pageData.currentPage + 1,
                       totalPages: pageData.totalPages,
                       onPrevious: pageData.currentPage > 0
-                          ? () => setState(() => _currentPage -= 1)
+                          ? () => _animateToPage(pageData.currentPage - 1)
                           : null,
                       onNext: pageData.currentPage < pageData.totalPages - 1
-                          ? () => setState(() => _currentPage += 1)
+                          ? () => _animateToPage(pageData.currentPage + 1)
                           : null,
+                      hint: pageData.totalPages > 1 ? '左右滑动翻页' : null,
                     ),
                   ],
                 );
@@ -1089,12 +1206,14 @@ class _PaginationBar extends StatelessWidget {
     required this.totalPages,
     this.onPrevious,
     this.onNext,
+    this.hint,
   });
 
   final int currentPage;
   final int totalPages;
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
+  final String? hint;
 
   @override
   Widget build(BuildContext context) {
@@ -1113,6 +1232,15 @@ class _PaginationBar extends StatelessWidget {
               color: Color(0xCCFFF2FF),
             ),
           ),
+          if (hint != null)
+            Text(
+              hint!,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: Color(0x80FFF2FF),
+              ),
+            ),
           _PaginationButton(label: '下一页', onPressed: onNext),
         ],
       ),
