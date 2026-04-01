@@ -139,6 +139,27 @@ void main() {
     expect(playerController.isPlaying, isFalse);
     expect(playerController.playbackPosition, Duration.zero);
   });
+
+  test('skipCurrentSong keeps selected audio mode for next song', () async {
+    final FakePlayerController playerController = FakePlayerController();
+    final KtvDemoController controller = KtvDemoController(
+      mediaLibraryRepository: FakeDemoMediaLibraryRepository(),
+      playerController: playerController,
+    );
+    final DemoSong current = _song(title: '第一首', artist: '歌手甲');
+    final DemoSong next = _song(title: '第二首', artist: '歌手乙');
+
+    await controller.requestSong(current);
+    await controller.requestSong(next);
+    controller.toggleAudioMode();
+
+    expect(playerController.audioOutputMode, AudioOutputMode.accompaniment);
+
+    await controller.skipCurrentSong();
+
+    expect(playerController.lastOpenedSource?.displayName, '第二首');
+    expect(playerController.audioOutputMode, AudioOutputMode.accompaniment);
+  });
 }
 
 DemoSong _song({
@@ -224,6 +245,7 @@ class FakePlayerController extends PlayerController {
   Future<void> openMedia(MediaSource source) async {
     lastOpenedSource = source;
     _state = PlayerState(
+      audioOutputMode: _state.audioOutputMode,
       currentMediaPath: source.path,
       isPlaying: true,
       playbackDuration: const Duration(minutes: 4),

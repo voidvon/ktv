@@ -62,7 +62,7 @@ void main() {
         .setMockMethodCallHandler(eventChannel, null);
   });
 
-  test('openMedia resets audio mode to original before opening', () async {
+  test('openMedia keeps current audio mode before opening', () async {
     final controller = _TestPlatformChannelPlayerController();
 
     await controller.applyAudioOutputMode(AudioOutputMode.accompaniment);
@@ -72,12 +72,13 @@ void main() {
       const MediaSource(path: '/tmp/demo.mp4', displayName: 'demo'),
     );
 
-    expect(controller.audioOutputMode, AudioOutputMode.original);
-    expect(methodCalls, isNotEmpty);
-    expect(methodCalls.last.method, 'open');
+    expect(controller.audioOutputMode, AudioOutputMode.accompaniment);
+    final MethodCall openCall = methodCalls.firstWhere(
+      (MethodCall call) => call.method == 'open',
+    );
     expect(
-      methodCalls.last.arguments,
-      containsPair('audioOutputMode', AudioOutputMode.original.name),
+      openCall.arguments,
+      containsPair('audioOutputMode', AudioOutputMode.accompaniment.name),
     );
 
     controller.dispose();

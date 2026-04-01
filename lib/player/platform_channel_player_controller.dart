@@ -171,7 +171,6 @@ abstract class PlatformChannelPlayerController extends PlayerController {
   @override
   Future<void> openMedia(MediaSource source) async {
     _currentMediaPath = source.path;
-    _audioOutputMode = AudioOutputMode.original;
     _isPreparingPlayback = true;
     _isPlaybackCompleted = false;
     _isPlaying = false;
