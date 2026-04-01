@@ -88,6 +88,7 @@ class _PreviewViewportHost extends StatefulWidget {
     required this.isFullscreen,
     required this.onEnterFullscreen,
     required this.onBackToSongBook,
+    required this.onToggleAudioMode,
     required this.onTogglePlayback,
     required this.onRestartPlayback,
     required this.onSkipSong,
@@ -99,6 +100,7 @@ class _PreviewViewportHost extends StatefulWidget {
   final bool isFullscreen;
   final VoidCallback onEnterFullscreen;
   final VoidCallback onBackToSongBook;
+  final VoidCallback onToggleAudioMode;
   final VoidCallback onTogglePlayback;
   final VoidCallback onRestartPlayback;
   final VoidCallback onSkipSong;
@@ -256,6 +258,17 @@ class _PreviewViewportHostState extends State<_PreviewViewportHost> {
                                             ),
                                             const SizedBox(width: 8),
                                             _FullscreenToolbarButton(
+                                              label: _audioModeToggleLabel(
+                                                widget.controller,
+                                              ),
+                                              icon: Icons.mic_rounded,
+                                              onPressed:
+                                                  widget.controller.hasMedia
+                                                  ? widget.onToggleAudioMode
+                                                  : null,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            _FullscreenToolbarButton(
                                               label: widget.controller.isPlaying
                                                   ? '暂停'
                                                   : '播放',
@@ -384,36 +397,56 @@ class _FullscreenToolbarButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isEnabled = onPressed != null;
-    return Material(
-      color: isEnabled ? const Color(0x2BFFFFFF) : const Color(0x1AFFFFFF),
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(
-                icon,
-                size: 16,
-                color: isEnabled
-                    ? const Color(0xEAFFFFFF)
-                    : const Color(0x80FFFFFF),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isEnabled
-                      ? const Color(0xEAFFFFFF)
-                      : const Color(0x80FFFFFF),
+    final BorderRadius borderRadius = BorderRadius.circular(14);
+    final Color foregroundColor = isEnabled
+        ? const Color(0xFFF6F7FF)
+        : const Color(0xA6FFFFFF);
+    const List<Shadow> foregroundShadows = <Shadow>[
+      Shadow(color: Color(0xCC000000), blurRadius: 10, offset: Offset(0, 1)),
+    ];
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: isEnabled ? const Color(0xC21A0E2E) : const Color(0x991A0E2E),
+        borderRadius: borderRadius,
+        border: Border.all(
+          color: isEnabled ? const Color(0x52FFFFFF) : const Color(0x2EFFFFFF),
+        ),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x73000000),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: borderRadius,
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  icon,
+                  size: 16,
+                  color: foregroundColor,
+                  shadows: foregroundShadows,
                 ),
-              ),
-            ],
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: foregroundColor,
+                    shadows: foregroundShadows,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

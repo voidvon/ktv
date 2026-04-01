@@ -75,6 +75,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('返回点歌'), findsOneWidget);
+    expect(find.text('伴唱'), findsAtLeastNWidgets(1));
     expect(find.text('播放'), findsAtLeastNWidgets(1));
     expect(find.text('重唱'), findsAtLeastNWidgets(1));
     expect(find.text('切歌'), findsAtLeastNWidgets(1));

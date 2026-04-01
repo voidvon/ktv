@@ -86,9 +86,7 @@ class _HomeToolbar extends StatelessWidget {
           const _ToolbarPill(label: '搜索', enabled: false),
           _ToolbarPill(label: '已点$queueCount', onPressed: onQueuePressed),
           _ToolbarPill(
-            label: controller.audioOutputMode == AudioOutputMode.accompaniment
-                ? '原唱'
-                : '伴唱',
+            label: _audioModeToggleLabel(controller),
             onPressed: controller.hasMedia ? onToggleAudioMode : null,
           ),
           _ToolbarPill(

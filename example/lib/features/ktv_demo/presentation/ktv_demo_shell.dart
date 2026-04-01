@@ -33,6 +33,12 @@ const MethodChannel _orientationChannel = MethodChannel(
   'ktv2_example/orientation',
 );
 
+String _audioModeToggleLabel(PlayerController controller) {
+  return controller.audioOutputMode == AudioOutputMode.accompaniment
+      ? '原唱'
+      : '伴唱';
+}
+
 const List<List<String>> _letterKeyboardRows = <List<String>>[
   <String>['A', 'B', 'C', 'D', 'E', 'F', 'G'],
   <String>['H', 'I', 'J', 'K', 'L', 'M', 'N'],
@@ -682,6 +688,7 @@ class _KtvDemoShellState extends State<KtvDemoShell>
                       isFullscreen: _isPreviewFullscreen,
                       onEnterFullscreen: _enterPreviewFullscreen,
                       onBackToSongBook: _handleBackToSongBookFromFullscreen,
+                      onToggleAudioMode: _toggleAudioMode,
                       onTogglePlayback: _togglePlayback,
                       onRestartPlayback: _restartPlayback,
                       onSkipSong: _skipCurrentSong,
