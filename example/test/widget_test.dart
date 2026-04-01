@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ktv2/ktv2.dart';
+import 'package:ktv2_example/features/ktv_demo/presentation/shared_widgets.dart';
 import 'package:ktv2_example/main.dart';
 
 void main() {
@@ -105,4 +107,129 @@ void main() {
 
     expect(find.text('返回点歌'), findsNothing);
   });
+
+  testWidgets('tapping non-fullscreen progress bar does not enter fullscreen', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const KtvDemoApp());
+    await tester.pump();
+
+    final Finder slider = find.byType(Slider).first;
+    final Rect sliderRect = tester.getRect(slider);
+
+    await tester.tapAt(Offset(sliderRect.center.dx, sliderRect.bottom - 8));
+    await tester.pumpAndSettle();
+
+    expect(find.text('返回点歌'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('preview-tap-target')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'player progress track rebuilds when controller progress changes',
+    (WidgetTester tester) async {
+      final _TestPlayerController controller = _TestPlayerController();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 240,
+              child: PlayerProgressTrack(
+                controller: controller,
+                thickness: 6,
+                barHeight: 28,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      Slider slider = tester.widget<Slider>(find.byType(Slider));
+      expect(slider.value, 0);
+
+      controller.setProgress(
+        position: const Duration(seconds: 30),
+        duration: const Duration(minutes: 2),
+        mediaPath: '/tmp/demo.mp4',
+      );
+      await tester.pump();
+
+      slider = tester.widget<Slider>(find.byType(Slider));
+      expect(slider.value, closeTo(0.25, 0.001));
+    },
+  );
+
+  testWidgets('player progress track forwards seek changes', (
+    WidgetTester tester,
+  ) async {
+    final _TestPlayerController controller = _TestPlayerController();
+    controller.setProgress(
+      position: Duration.zero,
+      duration: const Duration(minutes: 2),
+      mediaPath: '/tmp/demo.mp4',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 240,
+            child: PlayerProgressTrack(
+              controller: controller,
+              thickness: 6,
+              barHeight: 28,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final Slider slider = tester.widget<Slider>(find.byType(Slider));
+    expect(slider.onChanged, isNotNull);
+
+    slider.onChanged!(0.5);
+
+    expect(controller.lastSeekProgress, 0.5);
+  });
+}
+
+class _TestPlayerController extends PlayerController {
+  PlayerState _state = const PlayerState();
+  double? lastSeekProgress;
+
+  @override
+  PlayerState get state => _state;
+
+  void setProgress({
+    required Duration position,
+    required Duration duration,
+    required String mediaPath,
+  }) {
+    _state = PlayerState(
+      currentMediaPath: mediaPath,
+      playbackPosition: position,
+      playbackDuration: duration,
+    );
+    notifyListeners();
+  }
+
+  @override
+  Future<void> applyAudioOutputMode(AudioOutputMode mode) async {}
+
+  @override
+  Widget? buildVideoView() => null;
+
+  @override
+  Future<void> openMedia(MediaSource source) async {}
+
+  @override
+  Future<void> seekToProgress(double progress) async {
+    lastSeekProgress = progress;
+  }
+
+  @override
+  Future<void> togglePlayback() async {}
 }

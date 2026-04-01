@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:ktv2/ktv2.dart';
 
@@ -24,40 +26,51 @@ class PlayerProgressTrack extends StatelessWidget {
     required this.controller,
     required this.thickness,
     required this.barHeight,
+    this.trackShape,
   });
 
   final PlayerController controller;
   final double thickness;
   final double barHeight;
+  final SliderTrackShape? trackShape;
 
   @override
   Widget build(BuildContext context) {
-    final bool hasMedia =
-        controller.hasMedia && controller.playbackDuration > Duration.zero;
-    return SizedBox(
-      height: barHeight,
-      child: LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints constraints) {
-          if (!constraints.hasBoundedWidth || constraints.maxWidth <= 0) {
-            return const SizedBox.shrink();
-          }
-          return SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: thickness,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 0),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-              activeTrackColor: const Color(0xFFFF4D8D),
-              inactiveTrackColor: const Color(0x33FFFFFF),
-              overlayColor: const Color(0x29FF4D8D),
-            ),
-            child: Slider(
-              padding: EdgeInsets.zero,
-              value: hasMedia ? controller.playbackProgress : 0,
-              onChanged: hasMedia ? controller.seekToProgress : null,
-            ),
-          );
-        },
-      ),
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (BuildContext context, Widget? child) {
+        final bool hasMedia =
+            controller.hasMedia && controller.playbackDuration > Duration.zero;
+        return SizedBox(
+          height: barHeight,
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              if (!constraints.hasBoundedWidth || constraints.maxWidth <= 0) {
+                return const SizedBox.shrink();
+              }
+              return SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: thickness,
+                  trackShape: trackShape,
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 0,
+                  ),
+                  overlayShape: const RoundSliderOverlayShape(
+                    overlayRadius: 12,
+                  ),
+                  activeTrackColor: const Color(0xFFFF4D8D),
+                  inactiveTrackColor: const Color(0x33FFFFFF),
+                  overlayColor: const Color(0x29FF4D8D),
+                ),
+                child: Slider(
+                  value: hasMedia ? controller.playbackProgress : 0,
+                  onChanged: hasMedia ? controller.seekToProgress : null,
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -118,6 +131,8 @@ class PreviewViewportHost extends StatefulWidget {
 }
 
 class _PreviewViewportHostState extends State<PreviewViewportHost> {
+  static const double _nonFullscreenProgressControlHeight = 28;
+
   bool _showControls = false;
   bool _canToggleControls = false;
 
@@ -167,6 +182,7 @@ class _PreviewViewportHostState extends State<PreviewViewportHost> {
             widget.previewSurface,
             if (!widget.isFullscreen) ...<Widget>[
               Positioned.fill(
+                bottom: _nonFullscreenProgressControlHeight,
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -202,7 +218,8 @@ class _PreviewViewportHostState extends State<PreviewViewportHost> {
                 child: PlayerProgressTrack(
                   controller: widget.controller,
                   thickness: 6,
-                  barHeight: 6,
+                  barHeight: _nonFullscreenProgressControlHeight,
+                  trackShape: const _BottomAlignedSliderTrackShape(),
                 ),
               ),
             ] else ...<Widget>[
@@ -506,5 +523,36 @@ class _GlowOrb extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _BottomAlignedSliderTrackShape extends RoundedRectSliderTrackShape {
+  const _BottomAlignedSliderTrackShape();
+
+  @override
+  Rect getPreferredRect({
+    required RenderBox parentBox,
+    Offset offset = Offset.zero,
+    required SliderThemeData sliderTheme,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+  }) {
+    final double trackHeight = sliderTheme.trackHeight ?? 0;
+    final double thumbWidth =
+        sliderTheme.thumbShape?.getPreferredSize(isEnabled, isDiscrete).width ??
+        0;
+    final double overlayWidth =
+        sliderTheme.overlayShape
+            ?.getPreferredSize(isEnabled, isDiscrete)
+            .width ??
+        0;
+    final double horizontalInset = math.max(overlayWidth / 2, thumbWidth / 2);
+    final double trackLeft = offset.dx + horizontalInset;
+    final double trackWidth = math.max(
+      0,
+      parentBox.size.width - (horizontalInset * 2),
+    );
+    final double trackTop = offset.dy + parentBox.size.height - trackHeight;
+    return Rect.fromLTWH(trackLeft, trackTop, trackWidth, trackHeight);
   }
 }
