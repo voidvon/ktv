@@ -2,23 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:lpinyin/lpinyin.dart';
+import 'package:ktv2_example/core/media/demo_supported_video_formats.dart';
 
 import 'android_storage_data_source.dart';
 
 class DemoMediaLibraryDataSource {
-  static const List<String> supportedExtensions = <String>[
-    'mp4',
-    'mkv',
-    'avi',
-    'mov',
-    'dat',
-    'rmvb',
-    'rm',
-    'mpg',
-    'mpeg',
-    'vob',
-  ];
-
   final DemoAndroidStorageDataSource _androidStorageDataSource =
       DemoAndroidStorageDataSource();
 
@@ -70,8 +58,8 @@ class DemoMediaLibraryDataSource {
         }
 
         final String fileName = _extractFileName(entity.path);
-        final String extension = _extractExtension(fileName);
-        if (!supportedExtensions.contains(extension)) {
+        final String extension = demoExtractVideoExtension(fileName);
+        if (!demoSupportedVideoExtensionSet.contains(extension)) {
           continue;
         }
 
@@ -102,14 +90,6 @@ class DemoMediaLibraryDataSource {
   String _extractFileName(String path) {
     final String normalizedPath = path.replaceAll('\\', '/');
     return normalizedPath.split('/').last;
-  }
-
-  String _extractExtension(String fileName) {
-    final int dotIndex = fileName.lastIndexOf('.');
-    if (dotIndex == -1 || dotIndex == fileName.length - 1) {
-      return '';
-    }
-    return fileName.substring(dotIndex + 1).toLowerCase();
   }
 
   _ParsedName _parseFileName(String fileName) {

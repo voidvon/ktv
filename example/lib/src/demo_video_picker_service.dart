@@ -2,6 +2,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:ktv2/ktv2.dart';
+import 'package:ktv2_example/core/media/demo_supported_video_formats.dart';
 
 class DemoVideoPickerService {
   static const MethodChannel _channel = MethodChannel(
@@ -32,20 +33,9 @@ class DemoVideoPickerService {
   }
 
   Future<MediaSource?> _pickVideoOnDesktop() async {
-    const typeGroup = XTypeGroup(
+    final XTypeGroup typeGroup = XTypeGroup(
       label: 'video',
-      extensions: <String>[
-        'mp4',
-        'mkv',
-        'avi',
-        'mov',
-        'dat',
-        'rmvb',
-        'rm',
-        'mpg',
-        'mpeg',
-        'vob',
-      ],
+      extensions: demoSupportedVideoExtensions,
     );
 
     final file = await openFile(acceptedTypeGroups: <XTypeGroup>[typeGroup]);

@@ -59,6 +59,26 @@ void main() {
     expect(find.text('请先在设置里选择扫描目录，扫描完成后这里会展示歌曲列表。'), findsOneWidget);
   });
 
+  testWidgets('renders landscape song book without layout exceptions', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(932, 430);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(const KtvDemoApp());
+
+    await tester.tap(find.text('歌名'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('‹ 主页 / 歌名'), findsOneWidget);
+    expect(find.text('请先在设置里选择扫描目录，扫描完成后这里会展示歌曲列表。'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('opens fullscreen preview and toggles overlay controls on tap', (
     WidgetTester tester,
   ) async {
