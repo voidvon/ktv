@@ -29,7 +29,12 @@ class NavigationDestination {
         if (selectedArtist != null) {
           return selectedArtist!;
         }
-        return songBookMode == SongBookMode.artists ? '歌星' : '歌名';
+        return switch (songBookMode) {
+          SongBookMode.artists => '歌星',
+          SongBookMode.favorites => '收藏',
+          SongBookMode.frequent => '常唱',
+          SongBookMode.songs => '本地',
+        };
       case KtvRoute.queueList:
         return '已点';
     }

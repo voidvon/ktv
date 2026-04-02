@@ -6,6 +6,7 @@ import '../../../core/models/artist_page.dart';
 import '../../../core/models/song.dart';
 import '../../../core/models/song_page.dart';
 import '../../media_library/data/media_library_repository.dart';
+import '../../song_profile/data/song_profile_repository.dart';
 import 'ktv_state.dart';
 
 typedef KtvStateReader = KtvState Function();
@@ -14,14 +15,17 @@ typedef KtvStateWriter = void Function(KtvState nextState);
 class LibrarySession {
   LibrarySession({
     required MediaLibraryRepository repository,
+    required SongProfileRepository songProfileRepository,
     required KtvStateReader readState,
     required KtvStateWriter writeState,
     required this.allLanguagesLabel,
   }) : _repository = repository,
+       _songProfileRepository = songProfileRepository,
        _readState = readState,
        _writeState = writeState;
 
   final MediaLibraryRepository _repository;
+  final SongProfileRepository _songProfileRepository;
   final KtvStateReader _readState;
   final KtvStateWriter _writeState;
   final String allLanguagesLabel;
@@ -78,6 +82,7 @@ class LibrarySession {
         _readState().copyWith(
           libraryPageSongs: const <Song>[],
           libraryPageArtists: const <Artist>[],
+          libraryFavoriteSongPaths: const <String>[],
           libraryTotalCount: 0,
           libraryPageIndex: 0,
           libraryScanErrorMessage: '扫描目录失败：$error',
@@ -151,6 +156,7 @@ class LibrarySession {
         state.copyWith(
           libraryPageSongs: const <Song>[],
           libraryPageArtists: const <Artist>[],
+          libraryFavoriteSongPaths: const <String>[],
           libraryTotalCount: 0,
           libraryPageIndex: 0,
           isLoadingLibraryPage: false,
@@ -210,6 +216,7 @@ class LibrarySession {
           _readState().copyWith(
             libraryPageSongs: const <Song>[],
             libraryPageArtists: page.artists,
+            libraryFavoriteSongPaths: const <String>[],
             libraryTotalCount: page.totalCount,
             libraryPageIndex: page.pageIndex,
             libraryPageSize: page.pageSize,
@@ -222,14 +229,32 @@ class LibrarySession {
         return;
       }
 
-      final SongPage page = await _repository.querySongs(
-        directory: directory,
-        language: language,
-        artist: currentState.selectedArtist,
-        searchQuery: currentState.searchQuery,
-        pageIndex: targetPageIndex,
-        pageSize: targetPageSize,
-      );
+      final SongPage page = await switch (currentState.songBookMode) {
+        SongBookMode.favorites => _songProfileRepository.queryFavoriteSongs(
+          directory: directory,
+          language: language,
+          artist: currentState.selectedArtist,
+          searchQuery: currentState.searchQuery,
+          pageIndex: targetPageIndex,
+          pageSize: targetPageSize,
+        ),
+        SongBookMode.frequent => _songProfileRepository.queryFrequentSongs(
+          directory: directory,
+          language: language,
+          artist: currentState.selectedArtist,
+          searchQuery: currentState.searchQuery,
+          pageIndex: targetPageIndex,
+          pageSize: targetPageSize,
+        ),
+        SongBookMode.songs || SongBookMode.artists => _repository.querySongs(
+          directory: directory,
+          language: language,
+          artist: currentState.selectedArtist,
+          searchQuery: currentState.searchQuery,
+          pageIndex: targetPageIndex,
+          pageSize: targetPageSize,
+        ),
+      };
       if (generation != _libraryQueryGeneration) {
         return;
       }
@@ -244,10 +269,17 @@ class LibrarySession {
         return;
       }
 
+      final Set<String> favoriteMediaPaths = await _songProfileRepository
+          .loadFavoriteMediaPaths(page.songs);
+      if (generation != _libraryQueryGeneration) {
+        return;
+      }
+
       _writeState(
         _readState().copyWith(
           libraryPageSongs: page.songs,
           libraryPageArtists: const <Artist>[],
+          libraryFavoriteSongPaths: favoriteMediaPaths.toList(growable: false),
           libraryTotalCount: page.totalCount,
           libraryPageIndex: page.pageIndex,
           libraryPageSize: page.pageSize,
@@ -265,6 +297,7 @@ class LibrarySession {
         _readState().copyWith(
           libraryPageSongs: const <Song>[],
           libraryPageArtists: const <Artist>[],
+          libraryFavoriteSongPaths: const <String>[],
           libraryTotalCount: 0,
           isLoadingLibraryPage: false,
           libraryScanErrorMessage: '加载歌曲列表失败：$error',

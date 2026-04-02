@@ -5,6 +5,7 @@ import 'package:ktv2/ktv2.dart';
 import '../../../core/models/artist.dart';
 import '../../../core/models/song.dart';
 import '../../media_library/data/media_library_repository.dart';
+import '../../song_profile/data/song_profile_repository.dart';
 import 'library_session.dart';
 import 'navigation_history.dart';
 import 'playback_queue_manager.dart';
@@ -15,21 +16,26 @@ export 'ktv_state.dart' show KtvRoute, SongBookMode, KtvState;
 class KtvController extends ChangeNotifier {
   KtvController({
     MediaLibraryRepository? mediaLibraryRepository,
+    SongProfileRepository? songProfileRepository,
     PlayerController? playerController,
   }) : _mediaLibraryRepository =
            mediaLibraryRepository ?? MediaLibraryRepository(),
+       _songProfileRepository =
+           songProfileRepository ?? SongProfileRepository(),
        playerController = playerController ?? createPlayerController();
 
   static const String allLanguagesLabel = '全部';
   static const Duration _searchRefreshDebounce = Duration(milliseconds: 180);
 
   final MediaLibraryRepository _mediaLibraryRepository;
+  final SongProfileRepository _songProfileRepository;
   final PlayerController playerController;
   late final PlaybackQueueManager _playbackQueueManager = PlaybackQueueManager(
     playerController: playerController,
   );
   late final LibrarySession _librarySession = LibrarySession(
     repository: _mediaLibraryRepository,
+    songProfileRepository: _songProfileRepository,
     readState: () => _state,
     writeState: _setState,
     allLanguagesLabel: allLanguagesLabel,
@@ -59,6 +65,8 @@ class KtvController extends ChangeNotifier {
       List<Song>.unmodifiable(_state.libraryPageSongs);
   List<Artist> get libraryArtists =>
       List<Artist>.unmodifiable(_state.libraryPageArtists);
+  List<String> get favoriteSongPaths =>
+      List<String>.unmodifiable(_state.libraryFavoriteSongPaths);
   List<Song> get filteredSongs => librarySongs;
   int get libraryTotalCount => _state.libraryTotalCount;
   int get libraryPageIndex => _state.libraryPageIndex;
@@ -94,6 +102,14 @@ class KtvController extends ChangeNotifier {
     }
     _applyNavigationState(_navigationHistory.current);
     unawaited(_librarySession.reloadLibraryPage(pageIndex: 0));
+  }
+
+  void enterFavoritesBook() {
+    enterSongBook(mode: SongBookMode.favorites);
+  }
+
+  void enterFrequentBook() {
+    enterSongBook(mode: SongBookMode.frequent);
   }
 
   void enterQueueList() {
@@ -169,11 +185,18 @@ class KtvController extends ChangeNotifier {
   }
 
   Future<void> requestSong(Song song) async {
+    final bool startsPlaybackImmediately =
+        !(_state.queuedSongs.isNotEmpty && playerController.hasMedia);
+    await _recordSongRequested(song);
     final List<Song> nextQueue = await _playbackQueueManager.requestSong(
       _state.queuedSongs,
       song,
     );
+    if (startsPlaybackImmediately) {
+      await _recordSongStarted(song);
+    }
     _setState(_state.copyWith(queuedSongs: nextQueue));
+    await _reloadSongProfileDrivenPageIfNeeded();
   }
 
   void prioritizeQueuedSong(Song song) {
@@ -214,7 +237,41 @@ class KtvController extends ChangeNotifier {
     final List<Song> nextQueue = await _playbackQueueManager.skipCurrentSong(
       _state.queuedSongs,
     );
+    if (nextQueue.isNotEmpty) {
+      await _recordSongStarted(nextQueue.first);
+    }
     _setState(_state.copyWith(queuedSongs: nextQueue));
+    await _reloadSongProfileDrivenPageIfNeeded();
+  }
+
+  Future<void> toggleFavorite(Song song) async {
+    final String? directory = _state.scanDirectoryPath;
+    if (directory == null) {
+      return;
+    }
+
+    final bool isFavorite = await _songProfileRepository.toggleFavorite(
+      song: song,
+      directoryPath: directory,
+    );
+    final Set<String> nextFavoritePaths = _state.libraryFavoriteSongPaths
+        .toSet();
+    if (isFavorite) {
+      nextFavoritePaths.add(song.mediaPath);
+    } else {
+      nextFavoritePaths.remove(song.mediaPath);
+    }
+    _setState(
+      _state.copyWith(
+        libraryFavoriteSongPaths: nextFavoritePaths.toList(growable: false),
+      ),
+    );
+
+    if (_state.songBookMode == SongBookMode.favorites) {
+      await _librarySession.reloadLibraryPage(
+        pageIndex: _state.libraryPageIndex,
+      );
+    }
   }
 
   Future<void> stopPlayback() {
@@ -238,6 +295,36 @@ class KtvController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _recordSongRequested(Song song) async {
+    final String? directory = _state.scanDirectoryPath;
+    if (directory == null) {
+      return;
+    }
+    await _songProfileRepository.recordSongRequested(
+      song: song,
+      directoryPath: directory,
+    );
+  }
+
+  Future<void> _recordSongStarted(Song song) async {
+    final String? directory = _state.scanDirectoryPath;
+    if (directory == null) {
+      return;
+    }
+    await _songProfileRepository.recordSongStarted(
+      song: song,
+      directoryPath: directory,
+    );
+  }
+
+  Future<void> _reloadSongProfileDrivenPageIfNeeded() async {
+    if (_state.route != KtvRoute.songBook ||
+        _state.songBookMode != SongBookMode.frequent) {
+      return;
+    }
+    await _librarySession.reloadLibraryPage(pageIndex: _state.libraryPageIndex);
+  }
+
   void _applyNavigationState(NavigationDestination target) {
     _setState(
       _state.copyWith(
@@ -246,6 +333,7 @@ class KtvController extends ChangeNotifier {
         selectedArtist: target.selectedArtist,
         searchQuery: '',
         libraryPageIndex: 0,
+        libraryFavoriteSongPaths: const <String>[],
       ),
     );
   }
@@ -253,6 +341,7 @@ class KtvController extends ChangeNotifier {
   @override
   void dispose() {
     _pendingSearchRefresh?.cancel();
+    unawaited(_songProfileRepository.close());
     playerController.dispose();
     super.dispose();
   }

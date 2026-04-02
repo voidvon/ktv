@@ -16,8 +16,6 @@ const List<_HomeShortcut> _homeShortcuts = <_HomeShortcut>[
     label: '歌名',
     icon: Icons.music_note_rounded,
     colors: <Color>[Color(0xFFFFD36A), Color(0xFFFFB245), Color(0xFFFF9566)],
-    enabled: true,
-    action: _HomeShortcutAction.songs,
   ),
   _HomeShortcut(
     label: '歌星',
@@ -30,16 +28,22 @@ const List<_HomeShortcut> _homeShortcuts = <_HomeShortcut>[
     label: '本地',
     icon: Icons.library_music_rounded,
     colors: <Color>[Color(0xFF65D8FF), Color(0xFF2E9DFF)],
+    enabled: true,
+    action: _HomeShortcutAction.local,
   ),
   _HomeShortcut(
     label: '收藏',
     icon: Icons.favorite_border_rounded,
     colors: <Color>[Color(0xFFF2AAFF), Color(0xFFC46BFF)],
+    enabled: true,
+    action: _HomeShortcutAction.favorites,
   ),
   _HomeShortcut(
     label: '常唱',
     icon: Icons.mic_external_on_rounded,
     colors: <Color>[Color(0xFFFFB8A8), Color(0xFFFF8B78)],
+    enabled: true,
+    action: _HomeShortcutAction.frequent,
   ),
 ];
 
@@ -49,6 +53,8 @@ class HomePage extends StatelessWidget {
     required this.controller,
     required this.queueCount,
     required this.onEnterSongBook,
+    required this.onEnterFavoritesBook,
+    required this.onEnterFrequentBook,
     required this.onEnterArtistBook,
     required this.onQueuePressed,
     required this.onSettingsPressed,
@@ -61,6 +67,8 @@ class HomePage extends StatelessWidget {
   final PlayerController controller;
   final int queueCount;
   final VoidCallback onEnterSongBook;
+  final VoidCallback onEnterFavoritesBook;
+  final VoidCallback onEnterFrequentBook;
   final VoidCallback onEnterArtistBook;
   final VoidCallback onQueuePressed;
   final VoidCallback onSettingsPressed;
@@ -81,6 +89,8 @@ class HomePage extends StatelessWidget {
             constraints.maxHeight < (shouldUseCompactLayout ? 360 : 300);
         final Widget shortcutGrid = _HomeShortcutGrid(
           onEnterSongBook: onEnterSongBook,
+          onEnterFavoritesBook: onEnterFavoritesBook,
+          onEnterFrequentBook: onEnterFrequentBook,
           onEnterArtistBook: onEnterArtistBook,
           compact: shouldUseCompactLayout,
         );
@@ -144,6 +154,8 @@ class LandscapeHomePage extends StatelessWidget {
     required this.queueCount,
     required this.previewAnchorKey,
     required this.onEnterSongBook,
+    required this.onEnterFavoritesBook,
+    required this.onEnterFrequentBook,
     required this.onEnterArtistBook,
     required this.onQueuePressed,
     required this.onSettingsPressed,
@@ -156,6 +168,8 @@ class LandscapeHomePage extends StatelessWidget {
   final int queueCount;
   final GlobalKey previewAnchorKey;
   final VoidCallback onEnterSongBook;
+  final VoidCallback onEnterFavoritesBook;
+  final VoidCallback onEnterFrequentBook;
   final VoidCallback onEnterArtistBook;
   final VoidCallback onQueuePressed;
   final VoidCallback onSettingsPressed;
@@ -169,8 +183,11 @@ class LandscapeHomePage extends StatelessWidget {
     }
     return switch (shortcut.action) {
       _HomeShortcutAction.songs => onEnterSongBook,
+      _HomeShortcutAction.local => onEnterSongBook,
+      _HomeShortcutAction.favorites => onEnterFavoritesBook,
+      _HomeShortcutAction.frequent => onEnterFrequentBook,
       _HomeShortcutAction.artists => onEnterArtistBook,
-      null => onEnterSongBook,
+      null => null,
     };
   }
 
@@ -181,11 +198,15 @@ class LandscapeHomePage extends StatelessWidget {
         label: '常唱',
         icon: Icons.mic_external_on_rounded,
         colors: <Color>[Color(0xFFFFB8A8), Color(0xFFFF8B78)],
+        enabled: true,
+        action: _HomeShortcutAction.frequent,
       ),
       _HomeShortcut(
         label: '收藏',
         icon: Icons.favorite_border_rounded,
         colors: <Color>[Color(0xFFF2AAFF), Color(0xFFC46BFF)],
+        enabled: true,
+        action: _HomeShortcutAction.favorites,
       ),
       _HomeShortcut(
         label: '分类',
@@ -213,8 +234,6 @@ class LandscapeHomePage extends StatelessWidget {
           Color(0xFFFFB245),
           Color(0xFFFF9566),
         ],
-        enabled: true,
-        action: _HomeShortcutAction.songs,
       ),
       _HomeShortcut(
         label: '歌星',
@@ -231,6 +250,8 @@ class LandscapeHomePage extends StatelessWidget {
         label: '本地',
         icon: Icons.library_music_rounded,
         colors: <Color>[Color(0xFF65D8FF), Color(0xFF2E9DFF)],
+        enabled: true,
+        action: _HomeShortcutAction.local,
       ),
     ];
 
@@ -635,11 +656,15 @@ class HomePreviewPlaceholder extends StatelessWidget {
 class _HomeShortcutGrid extends StatelessWidget {
   const _HomeShortcutGrid({
     required this.onEnterSongBook,
+    required this.onEnterFavoritesBook,
+    required this.onEnterFrequentBook,
     required this.onEnterArtistBook,
     this.compact = false,
   });
 
   final VoidCallback onEnterSongBook;
+  final VoidCallback onEnterFavoritesBook;
+  final VoidCallback onEnterFrequentBook;
   final VoidCallback onEnterArtistBook;
   final bool compact;
 
@@ -662,8 +687,11 @@ class _HomeShortcutGrid extends StatelessWidget {
           onTap: shortcut.enabled
               ? switch (shortcut.action) {
                   _HomeShortcutAction.songs => onEnterSongBook,
+                  _HomeShortcutAction.local => onEnterSongBook,
+                  _HomeShortcutAction.favorites => onEnterFavoritesBook,
+                  _HomeShortcutAction.frequent => onEnterFrequentBook,
                   _HomeShortcutAction.artists => onEnterArtistBook,
-                  null => onEnterSongBook,
+                  null => null,
                 }
               : null,
         );
@@ -746,4 +774,4 @@ class _HomeShortcut {
   final _HomeShortcutAction? action;
 }
 
-enum _HomeShortcutAction { songs, artists }
+enum _HomeShortcutAction { songs, local, favorites, frequent, artists }

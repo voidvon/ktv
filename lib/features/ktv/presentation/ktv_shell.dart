@@ -131,6 +131,16 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
     _controller.enterSongBook(mode: SongBookMode.songs);
   }
 
+  void _enterFavoritesBook() {
+    _searchCoordinator.clear();
+    _controller.enterSongBook(mode: SongBookMode.favorites);
+  }
+
+  void _enterFrequentBook() {
+    _searchCoordinator.clear();
+    _controller.enterSongBook(mode: SongBookMode.frequent);
+  }
+
   void _enterArtistBook() {
     _searchCoordinator.clear();
     _controller.enterSongBook(mode: SongBookMode.artists);
@@ -179,6 +189,10 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
     await _controller.requestSong(song);
   }
 
+  Future<void> _toggleFavorite(Song song) async {
+    await _controller.toggleFavorite(song);
+  }
+
   SongBookViewModel _buildSongBookViewModel() {
     return SongBookViewModel(
       navigation: SongBookNavigationViewModel(
@@ -192,6 +206,7 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
         selectedLanguage: _controller.selectedLanguage,
         songs: _controller.filteredSongs,
         artists: _controller.libraryArtists,
+        favoriteSongPaths: _controller.favoriteSongPaths,
         totalCount: _controller.libraryTotalCount,
         pageIndex: _controller.libraryPageIndex,
         totalPages: _controller.libraryTotalPages,
@@ -220,6 +235,7 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
         onClearSearch: _clearSearch,
         onRequestLibraryPage: _requestLibraryPage,
         onRequestSong: _requestSong,
+        onToggleFavorite: _toggleFavorite,
       ),
       playback: SongBookPlaybackCallbacks(
         onPrioritizeQueuedSong: _controller.prioritizeQueuedSong,
@@ -252,6 +268,8 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
       queueCount: _controller.queuedSongs.length,
       previewAnchorKey: _previewCoordinator.previewAnchorKey,
       onEnterSongBook: _enterSongBook,
+      onEnterFavoritesBook: _enterFavoritesBook,
+      onEnterFrequentBook: _enterFrequentBook,
       onEnterArtistBook: _enterArtistBook,
       onQueuePressed: _enterQueueList,
       onSettingsPressed: _openSettingsPage,
@@ -327,6 +345,8 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
             compact: true,
             queueCount: _controller.queuedSongs.length,
             onEnterSongBook: _enterSongBook,
+            onEnterFavoritesBook: _enterFavoritesBook,
+            onEnterFrequentBook: _enterFrequentBook,
             onEnterArtistBook: _enterArtistBook,
             onQueuePressed: _enterQueueList,
             onSettingsPressed: _openSettingsPage,

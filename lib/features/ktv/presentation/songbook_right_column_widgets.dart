@@ -154,12 +154,16 @@ class SongTile extends StatelessWidget {
     required this.song,
     required this.isCurrent,
     required this.isQueued,
+    required this.isFavorite,
+    this.onToggleFavorite,
     this.onTap,
   });
 
   final Song song;
   final bool isCurrent;
   final bool isQueued;
+  final bool isFavorite;
+  final VoidCallback? onToggleFavorite;
   final VoidCallback? onTap;
 
   @override
@@ -224,6 +228,28 @@ class SongTile extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Material(
+                color: const Color(0x12FFFFFF),
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: onToggleFavorite,
+                  child: SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: Icon(
+                      isFavorite
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      size: 16,
+                      color: isFavorite
+                          ? const Color(0xFFFF7AA2)
+                          : const Color(0xB8F3DAFF),
+                    ),
+                  ),
                 ),
               ),
             ],

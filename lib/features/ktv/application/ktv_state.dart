@@ -3,7 +3,7 @@ import '../../../core/models/artist.dart';
 
 enum KtvRoute { home, songBook, queueList }
 
-enum SongBookMode { songs, artists }
+enum SongBookMode { songs, artists, favorites, frequent }
 
 class LibraryState {
   const LibraryState({
@@ -13,6 +13,7 @@ class LibraryState {
     this.isLoadingLibraryPage = false,
     this.pageSongs = const <Song>[],
     this.pageArtists = const <Artist>[],
+    this.favoriteSongPaths = const <String>[],
     this.totalCount = 0,
     this.pageIndex = 0,
     this.pageSize = 8,
@@ -27,6 +28,7 @@ class LibraryState {
   final bool isLoadingLibraryPage;
   final List<Song> pageSongs;
   final List<Artist> pageArtists;
+  final List<String> favoriteSongPaths;
   final int totalCount;
   final int pageIndex;
   final int pageSize;
@@ -48,6 +50,7 @@ class LibraryState {
     bool? isLoadingLibraryPage,
     List<Song>? pageSongs,
     List<Artist>? pageArtists,
+    List<String>? favoriteSongPaths,
     int? totalCount,
     int? pageIndex,
     int? pageSize,
@@ -62,6 +65,7 @@ class LibraryState {
       isLoadingLibraryPage: isLoadingLibraryPage ?? this.isLoadingLibraryPage,
       pageSongs: pageSongs ?? this.pageSongs,
       pageArtists: pageArtists ?? this.pageArtists,
+      favoriteSongPaths: favoriteSongPaths ?? this.favoriteSongPaths,
       totalCount: totalCount ?? this.totalCount,
       pageIndex: pageIndex ?? this.pageIndex,
       pageSize: pageSize ?? this.pageSize,
@@ -109,6 +113,7 @@ class KtvState {
   List<Song> get queuedSongs => playback.queuedSongs;
   List<Song> get libraryPageSongs => library.pageSongs;
   List<Artist> get libraryPageArtists => library.pageArtists;
+  List<String> get libraryFavoriteSongPaths => library.favoriteSongPaths;
   int get libraryTotalCount => library.totalCount;
   int get libraryPageIndex => library.pageIndex;
   int get libraryPageSize => library.pageSize;
@@ -161,6 +166,7 @@ class KtvState {
     List<Song>? queuedSongs,
     List<Song>? libraryPageSongs,
     List<Artist>? libraryPageArtists,
+    List<String>? libraryFavoriteSongPaths,
     int? libraryTotalCount,
     int? libraryPageIndex,
     int? libraryPageSize,
@@ -172,6 +178,7 @@ class KtvState {
       isLoadingLibraryPage: isLoadingLibraryPage,
       pageSongs: libraryPageSongs,
       pageArtists: libraryPageArtists,
+      favoriteSongPaths: libraryFavoriteSongPaths,
       totalCount: libraryTotalCount,
       pageIndex: libraryPageIndex,
       pageSize: libraryPageSize,

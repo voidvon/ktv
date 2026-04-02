@@ -318,10 +318,15 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
     final MediaQueryData media = MediaQuery.of(context);
     final bool isLandscape = media.orientation == Orientation.landscape;
     final bool isQueueRoute = _navigation.route == KtvRoute.queueList;
+    final bool isFavoritesMode =
+        _navigation.songBookMode == SongBookMode.favorites;
+    final bool isFrequentMode =
+        _navigation.songBookMode == SongBookMode.frequent;
     final bool isArtistOverview =
         !isQueueRoute &&
         _navigation.songBookMode == SongBookMode.artists &&
         _navigation.selectedArtist == null;
+    final Set<String> favoriteMediaPaths = _library.favoriteSongPaths.toSet();
     final int crossAxisCount = isArtistOverview
         ? _resolveArtistCrossAxisCount(media, isLandscape: isLandscape)
         : _resolveCrossAxisCount(media);
@@ -367,10 +372,13 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
                 _playback.queuedSongs.isNotEmpty &&
                 _playback.queuedSongs.first == song;
             final bool isQueued = _playback.queuedSongs.contains(song);
+            final bool isFavorite = favoriteMediaPaths.contains(song.mediaPath);
             return SongTile(
               song: song,
               isCurrent: isCurrent,
               isQueued: isQueued,
+              isFavorite: isFavorite,
+              onToggleFavorite: () => _libraryCallbacks.onToggleFavorite(song),
               onTap: isQueued
                   ? null
                   : () => _libraryCallbacks.onRequestSong(song),
@@ -449,7 +457,11 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
       }
       if (_library.songs.isEmpty) {
         return EmptyContentCard(
-          message: _navigation.selectedArtist == null
+          message: isFavoritesMode
+              ? '当前目录下还没有收藏歌曲，先去本地列表点亮爱心。'
+              : isFrequentMode
+              ? '当前目录下还没有常唱记录，开始播放几首歌后会显示在这里。'
+              : _navigation.selectedArtist == null
               ? '当前目录下没有扫描到可播放视频文件，请确认目录中包含常见视频格式媒体文件。'
               : '当前歌手下没有匹配的歌曲，试试切换语言或清空搜索关键字。',
         );
