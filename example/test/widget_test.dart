@@ -155,9 +155,90 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('‹ 主页 / 歌星'), findsOneWidget);
+    expect(find.text('1/1'), findsOneWidget);
     expect(find.text('周杰伦'), findsAtLeastNWidgets(1));
     expect(find.text('刘若英'), findsAtLeastNWidgets(1));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('landscape song book uses visible capacity to show page count', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 700,
+            height: 520,
+            child: SongBookRightColumn(
+              controller: _TestPlayerController(),
+              route: DemoRoute.songBook,
+              songBookMode: DemoSongBookMode.songs,
+              searchQuery: '',
+              selectedLanguage: '全部',
+              selectedArtist: null,
+              songs: const <DemoSong>[
+                DemoSong(
+                  title: '青花瓷',
+                  artist: '周杰伦',
+                  languages: <String>['国语'],
+                  searchIndex: 'qinghuaci zhoujielun',
+                  mediaPath: '/tmp/1.mp4',
+                ),
+                DemoSong(
+                  title: '夜曲',
+                  artist: '周杰伦',
+                  languages: <String>['国语'],
+                  searchIndex: 'yequ zhoujielun',
+                  mediaPath: '/tmp/2.mp4',
+                ),
+                DemoSong(
+                  title: '后来',
+                  artist: '刘若英',
+                  languages: <String>['国语'],
+                  searchIndex: 'houlai liuruoying',
+                  mediaPath: '/tmp/3.mp4',
+                ),
+                DemoSong(
+                  title: '海阔天空',
+                  artist: 'Beyond',
+                  languages: <String>['粤语'],
+                  searchIndex: 'haikuotiankong beyond',
+                  mediaPath: '/tmp/4.mp4',
+                ),
+              ],
+              artists: const <DemoArtist>[],
+              libraryTotalCount: 4,
+              libraryPageIndex: 0,
+              libraryTotalPages: 2,
+              libraryPageSize: 2,
+              hasConfiguredDirectory: true,
+              isScanningLibrary: false,
+              isLoadingLibraryPage: false,
+              libraryScanErrorMessage: null,
+              queuedSongs: const <DemoSong>[],
+              onBackPressed: () {},
+              onQueuePressed: () {},
+              onEnterSongBook: () {},
+              onLanguageSelected: (_) {},
+              onRequestLibraryPage: (_, _) {},
+              onRequestSong: (_) {},
+              onSelectArtist: (_) {},
+              onPrioritizeQueuedSong: (_) {},
+              onRemoveQueuedSong: (_) {},
+              onSettingsPressed: () {},
+              onToggleAudioMode: () {},
+              onTogglePlayback: () {},
+              onRestartPlayback: () {},
+              onSkipSong: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('1/1'), findsOneWidget);
   });
 
   testWidgets('opens fullscreen preview and toggles overlay controls on tap', (

@@ -544,6 +544,16 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
     return media.size.width < 340 ? 1 : 2;
   }
 
+  int _resolveArtistCrossAxisCount(
+    MediaQueryData media, {
+    required bool isLandscape,
+  }) {
+    if (isLandscape) {
+      return 4;
+    }
+    return media.size.width < 360 ? 2 : 3;
+  }
+
   int _resolveRowsPerPage(
     MediaQueryData media, {
     required bool isLandscape,
@@ -777,7 +787,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
         widget.songBookMode == DemoSongBookMode.artists &&
         widget.selectedArtist == null;
     final int crossAxisCount = isArtistOverview
-        ? 3
+        ? _resolveArtistCrossAxisCount(media, isLandscape: isLandscape)
         : _resolveCrossAxisCount(media);
     final int fallbackRowsPerPage = _resolveRowsPerPage(
       media,
@@ -1105,9 +1115,13 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
             builder: (BuildContext context) {
               final int libraryItemsPerPage =
                   crossAxisCount * fallbackRowsPerPage;
+              final int resolvedLibraryTotalPages = _computeVisibleTotalPages(
+                widget.libraryTotalCount,
+                libraryItemsPerPage,
+              );
               final int normalizedLibraryPage = widget.libraryPageIndex.clamp(
                 0,
-                math.max(0, widget.libraryTotalPages - 1),
+                math.max(0, resolvedLibraryTotalPages - 1),
               );
               final pageData = isQueueRoute
                   ? resolvePageData<QueuedSongEntry>(
@@ -1116,7 +1130,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
                     )
                   : (
                       currentPage: normalizedLibraryPage,
-                      totalPages: math.max(1, widget.libraryTotalPages),
+                      totalPages: resolvedLibraryTotalPages,
                     );
               return _PaginationBar(
                 currentPage: pageData.currentPage + 1,
@@ -1158,9 +1172,13 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
                       fallbackTileHeight: tileHeight,
                     );
                 final int libraryItemsPerPage = crossAxisCount * rowsPerPage;
+                final int resolvedLibraryTotalPages = _computeVisibleTotalPages(
+                  widget.libraryTotalCount,
+                  libraryItemsPerPage,
+                );
                 final int normalizedLibraryPage = widget.libraryPageIndex.clamp(
                   0,
-                  math.max(0, widget.libraryTotalPages - 1),
+                  math.max(0, resolvedLibraryTotalPages - 1),
                 );
                 final pageData = isQueueRoute
                     ? resolvePageData<QueuedSongEntry>(
@@ -1169,7 +1187,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
                       )
                     : (
                         currentPage: normalizedLibraryPage,
-                        totalPages: math.max(1, widget.libraryTotalPages),
+                        totalPages: resolvedLibraryTotalPages,
                       );
                 return Column(
                   children: <Widget>[
