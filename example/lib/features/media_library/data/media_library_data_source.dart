@@ -134,10 +134,14 @@ class DemoLibrarySong {
   final String fileName;
   final String extension;
 
-  String get language => '其它';
+  List<String> get languages => const <String>['其它'];
+
+  List<String> get tags => const <String>[];
 
   String get searchIndex {
-    final String raw = '$title $artist $fileName $extension'.toLowerCase();
+    final String raw =
+        '$title $artist ${languages.join(' ')} ${tags.join(' ')} $fileName $extension'
+            .toLowerCase();
     final String titleInitials = _buildPinyinInitials(title);
     final String artistInitials = _buildPinyinInitials(artist);
     return '$raw $titleInitials $artistInitials'.trim();

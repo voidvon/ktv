@@ -58,7 +58,8 @@ class DemoMediaLibraryRepository {
           (DemoLibrarySong song) => DemoSong(
             title: song.title,
             artist: song.artist,
-            language: song.language,
+            languages: song.languages,
+            tags: song.tags,
             searchIndex: song.searchIndex,
             mediaPath: song.mediaPath,
           ),
@@ -95,17 +96,18 @@ class DemoMediaLibraryRepository {
     final List<DemoSong> cachedSongs =
         _cachedSongsByDirectory[directory] ??
         await _scanAndCacheDirectory(directory);
-    final List<DemoSong> filteredSongs =
-        cachedSongs.where((DemoSong song) {
+    final List<DemoSong> filteredSongs = cachedSongs
+        .where((DemoSong song) {
           if (normalizedLanguage.isNotEmpty &&
-              song.language != normalizedLanguage) {
+              !song.languages.contains(normalizedLanguage)) {
             return false;
           }
           if (normalizedQuery.isEmpty) {
             return true;
           }
           return song.searchIndex.contains(normalizedQuery);
-        }).toList(growable: false);
+        })
+        .toList(growable: false);
     final int start = normalizedPageIndex * normalizedPageSize;
     final int end = (start + normalizedPageSize).clamp(0, filteredSongs.length);
     final List<DemoSong> pageSongs = start >= filteredSongs.length

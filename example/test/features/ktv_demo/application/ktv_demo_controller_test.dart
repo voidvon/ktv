@@ -174,7 +174,7 @@ DemoSong _song({
   return DemoSong(
     title: title,
     artist: artist,
-    language: language,
+    languages: <String>[language],
     searchIndex: '$title $artist'.toLowerCase(),
     mediaPath: mediaPath ?? '/tmp/$title.mp4',
   );
@@ -235,15 +235,18 @@ class FakeDemoMediaLibraryRepository extends DemoMediaLibraryRepository {
     }
     final String normalizedQuery = searchQuery.trim().toLowerCase();
     final String normalizedLanguage = (language ?? '').trim();
-    final List<DemoSong> filteredSongs = result.where((DemoSong song) {
-      if (normalizedLanguage.isNotEmpty && song.language != normalizedLanguage) {
-        return false;
-      }
-      if (normalizedQuery.isEmpty) {
-        return true;
-      }
-      return song.searchIndex.contains(normalizedQuery);
-    }).toList(growable: false);
+    final List<DemoSong> filteredSongs = result
+        .where((DemoSong song) {
+          if (normalizedLanguage.isNotEmpty &&
+              song.language != normalizedLanguage) {
+            return false;
+          }
+          if (normalizedQuery.isEmpty) {
+            return true;
+          }
+          return song.searchIndex.contains(normalizedQuery);
+        })
+        .toList(growable: false);
     final int start = pageIndex * pageSize;
     final int end = (start + pageSize).clamp(0, filteredSongs.length);
     return DemoSongPage(

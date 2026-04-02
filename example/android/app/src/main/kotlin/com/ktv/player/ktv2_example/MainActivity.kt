@@ -19,6 +19,104 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.text.Normalizer
+
+private const val unrecognizedArtistValue = "未识别歌手"
+private const val otherLanguageValue = "其它"
+
+private val languageKeywordMappings =
+    mapOf(
+        "国语" to "国语",
+        "國語" to "国语",
+        "普通话" to "国语",
+        "普通話" to "国语",
+        "华语" to "国语",
+        "華語" to "国语",
+        "粤语" to "粤语",
+        "粵語" to "粤语",
+        "广东话" to "粤语",
+        "廣東話" to "粤语",
+        "白话" to "粤语",
+        "白話" to "粤语",
+        "闽南语" to "闽南语",
+        "閩南語" to "闽南语",
+        "闽南话" to "闽南语",
+        "閩南話" to "闽南语",
+        "台语" to "闽南语",
+        "台語" to "闽南语",
+        "福建话" to "闽南语",
+        "福建話" to "闽南语",
+        "英语" to "英语",
+        "英語" to "英语",
+        "英文" to "英语",
+        "日语" to "日语",
+        "日語" to "日语",
+        "日文" to "日语",
+        "韩语" to "韩语",
+        "韓語" to "韩语",
+        "韩文" to "韩语",
+        "韓文" to "韩语",
+        "客语" to "客语",
+        "客語" to "客语",
+        "客家话" to "客语",
+        "客家話" to "客语",
+    ).mapKeys { Normalizer.normalize(it.key.trim(), Normalizer.Form.NFKC).lowercase() }
+
+private val tagKeywordMappings =
+    mapOf(
+        "流行" to "流行",
+        "流行音乐" to "流行",
+        "流行音樂" to "流行",
+        "流行歌曲" to "流行",
+        "经典" to "经典",
+        "經典" to "经典",
+        "经典老歌" to "经典",
+        "經典老歌" to "经典",
+        "怀旧" to "经典",
+        "懷舊" to "经典",
+        "摇滚" to "摇滚",
+        "搖滾" to "摇滚",
+        "摇滚乐" to "摇滚",
+        "搖滾樂" to "摇滚",
+        "民谣" to "民谣",
+        "民謠" to "民谣",
+        "校园民谣" to "民谣",
+        "校園民謠" to "民谣",
+        "舞曲" to "舞曲",
+        "劲爆" to "舞曲",
+        "勁爆" to "舞曲",
+        "嗨歌" to "舞曲",
+        "dj" to "DJ",
+        "电音" to "DJ",
+        "電音" to "DJ",
+        "情歌" to "情歌",
+        "抒情" to "情歌",
+        "儿歌" to "儿歌",
+        "兒歌" to "儿歌",
+        "童谣" to "儿歌",
+        "童謠" to "儿歌",
+        "戏曲" to "戏曲",
+        "戲曲" to "戏曲",
+        "黄梅戏" to "戏曲",
+        "黃梅戲" to "戏曲",
+        "京剧" to "戏曲",
+        "京劇" to "戏曲",
+        "越剧" to "戏曲",
+        "越劇" to "戏曲",
+        "对唱" to "对唱",
+        "對唱" to "对唱",
+        "合唱" to "合唱",
+        "现场版" to "现场版",
+        "現場版" to "现场版",
+        "live" to "Live",
+        "演唱会" to "演唱会",
+        "演唱會" to "演唱会",
+        "mv" to "MV",
+        "伴奏版" to "伴奏版",
+        "原版" to "原版",
+        "重制版" to "重制版",
+        "重製版" to "重制版",
+    ).mapKeys { Normalizer.normalize(it.key.trim(), Normalizer.Form.NFKC).lowercase() }
 
 class MainActivity : FlutterActivity() {
     private companion object {
@@ -74,6 +172,7 @@ class MainActivity : FlutterActivity() {
     private val hanLatinTransliterator: Transliterator? by lazy {
         runCatching { Transliterator.getInstance("Han-Latin; Latin-ASCII") }.getOrNull()
     }
+    private val artistHyphenWhitelist: Set<String> by lazy { loadArtistHyphenWhitelist() }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -445,79 +544,166 @@ class MainActivity : FlutterActivity() {
         val normalizedPageSize = pageSize.coerceAtLeast(1)
         val normalizedLanguage = language.trim()
         val normalizedSearchQuery = normalizeSearchText(searchQuery)
-        val selection = StringBuilder("${SongIndexDatabaseHelper.columnDirectoryUri} = ?")
+        val selection = StringBuilder("s.${SongIndexDatabaseHelper.columnDirectoryUri} = ?")
         val selectionArgs = mutableListOf(rootUri)
         if (normalizedLanguage.isNotEmpty()) {
-            selection.append(" AND ${SongIndexDatabaseHelper.columnLanguage} = ?")
+            selection.append(
+                """
+                AND EXISTS (
+                    SELECT 1
+                    FROM ${SongIndexDatabaseHelper.songLanguagesTable} sl_filter
+                    WHERE sl_filter.${SongIndexDatabaseHelper.columnSongId} = s.${SongIndexDatabaseHelper.columnId}
+                      AND sl_filter.${SongIndexDatabaseHelper.columnLanguage} = ?
+                )
+                """.trimIndent(),
+            )
             selectionArgs += normalizedLanguage
         }
         if (normalizedSearchQuery.isNotEmpty()) {
             selection.append(
                 """
                 AND (
-                    ${SongIndexDatabaseHelper.columnTitleNorm} LIKE ?
-                    OR ${SongIndexDatabaseHelper.columnArtistNorm} LIKE ?
-                    OR ${SongIndexDatabaseHelper.columnTitleInitials} LIKE ?
-                    OR ${SongIndexDatabaseHelper.columnArtistInitials} LIKE ?
+                    s.${SongIndexDatabaseHelper.columnTitleNorm} LIKE ?
+                    OR s.${SongIndexDatabaseHelper.columnTitleInitials} LIKE ?
+                    OR s.${SongIndexDatabaseHelper.columnArtistInitials} LIKE ?
+                    OR EXISTS (
+                        SELECT 1
+                        FROM ${SongIndexDatabaseHelper.songArtistsTable} sa
+                        WHERE sa.${SongIndexDatabaseHelper.columnSongId} = s.${SongIndexDatabaseHelper.columnId}
+                          AND sa.${SongIndexDatabaseHelper.columnArtistName} LIKE ?
+                    )
+                    OR s.${SongIndexDatabaseHelper.columnSearchIndex} LIKE ?
                 )
                 """.trimIndent(),
             )
             val prefixQuery = "$normalizedSearchQuery%"
+            val containsQuery = "%$normalizedSearchQuery%"
             selectionArgs += prefixQuery
             selectionArgs += prefixQuery
             selectionArgs += prefixQuery
             selectionArgs += prefixQuery
+            selectionArgs += containsQuery
         }
 
         val database = songIndexDatabase.readableDatabase
         val totalCount =
             DatabaseUtils.longForQuery(
                 database,
-                "SELECT COUNT(1) FROM ${SongIndexDatabaseHelper.songsTable} WHERE $selection",
+                "SELECT COUNT(1) FROM ${SongIndexDatabaseHelper.songsTable} s WHERE $selection",
                 selectionArgs.toTypedArray(),
             ).toInt()
         val offset = normalizedPageIndex * normalizedPageSize
         val songs = mutableListOf<Map<String, Any?>>()
+        val songIds = mutableListOf<Long>()
+        val languageMap = linkedMapOf<Long, MutableList<String>>()
+        val tagMap = linkedMapOf<Long, MutableList<String>>()
 
-        database
-            .query(
-                SongIndexDatabaseHelper.songsTable,
-                arrayOf(
-                    SongIndexDatabaseHelper.columnTitle,
-                    SongIndexDatabaseHelper.columnArtist,
-                    SongIndexDatabaseHelper.columnLanguage,
-                    SongIndexDatabaseHelper.columnMediaPath,
-                    SongIndexDatabaseHelper.columnSearchIndex,
-                ),
-                selection.toString(),
-                selectionArgs.toTypedArray(),
-                null,
-                null,
-                "${SongIndexDatabaseHelper.columnTitleNorm} ASC, ${SongIndexDatabaseHelper.columnArtistNorm} ASC",
-                "$offset, $normalizedPageSize",
+        database.rawQuery(
+            """
+            SELECT
+                s.${SongIndexDatabaseHelper.columnId},
+                s.${SongIndexDatabaseHelper.columnTitle},
+                s.${SongIndexDatabaseHelper.columnArtistDisplayName},
+                s.${SongIndexDatabaseHelper.columnMediaPath},
+                s.${SongIndexDatabaseHelper.columnSearchIndex}
+            FROM ${SongIndexDatabaseHelper.songsTable} s
+            WHERE $selection
+            ORDER BY
+                s.${SongIndexDatabaseHelper.columnTitleNorm} ASC,
+                s.${SongIndexDatabaseHelper.columnArtistDisplayName} ASC
+            LIMIT ? OFFSET ?
+            """.trimIndent(),
+            (selectionArgs + normalizedPageSize.toString() + offset.toString()).toTypedArray(),
+        ).use { cursor ->
+            val idIndex = cursor.getColumnIndexOrThrow(SongIndexDatabaseHelper.columnId)
+            val titleIndex = cursor.getColumnIndexOrThrow(SongIndexDatabaseHelper.columnTitle)
+            val artistIndex =
+                cursor.getColumnIndexOrThrow(SongIndexDatabaseHelper.columnArtistDisplayName)
+            val mediaPathIndex =
+                cursor.getColumnIndexOrThrow(SongIndexDatabaseHelper.columnMediaPath)
+            val searchIndexIndex =
+                cursor.getColumnIndexOrThrow(SongIndexDatabaseHelper.columnSearchIndex)
+            while (cursor.moveToNext()) {
+                val songId = cursor.getLong(idIndex)
+                songIds += songId
+                songs +=
+                    linkedMapOf(
+                        "songId" to songId,
+                        "title" to cursor.getString(titleIndex),
+                        "artist" to cursor.getString(artistIndex),
+                        "mediaPath" to cursor.getString(mediaPathIndex),
+                        "searchIndex" to cursor.getString(searchIndexIndex),
+                    )
+            }
+        }
+
+        if (songIds.isNotEmpty()) {
+            val placeholders = List(songIds.size) { "?" }.joinToString(", ")
+            database.rawQuery(
+                """
+                SELECT
+                    ${SongIndexDatabaseHelper.columnSongId},
+                    ${SongIndexDatabaseHelper.columnLanguage}
+                FROM ${SongIndexDatabaseHelper.songLanguagesTable}
+                WHERE ${SongIndexDatabaseHelper.columnSongId} IN ($placeholders)
+                ORDER BY rowid ASC
+                """.trimIndent(),
+                songIds.map(Long::toString).toTypedArray(),
             ).use { cursor ->
-                val titleIndex = cursor.getColumnIndexOrThrow(SongIndexDatabaseHelper.columnTitle)
-                val artistIndex = cursor.getColumnIndexOrThrow(SongIndexDatabaseHelper.columnArtist)
+                val songIdIndex = cursor.getColumnIndexOrThrow(SongIndexDatabaseHelper.columnSongId)
                 val languageIndex =
                     cursor.getColumnIndexOrThrow(SongIndexDatabaseHelper.columnLanguage)
-                val mediaPathIndex =
-                    cursor.getColumnIndexOrThrow(SongIndexDatabaseHelper.columnMediaPath)
-                val searchIndexIndex =
-                    cursor.getColumnIndexOrThrow(SongIndexDatabaseHelper.columnSearchIndex)
                 while (cursor.moveToNext()) {
-                    songs +=
-                        mapOf(
-                            "title" to cursor.getString(titleIndex),
-                            "artist" to cursor.getString(artistIndex),
-                            "language" to cursor.getString(languageIndex),
-                            "mediaPath" to cursor.getString(mediaPathIndex),
-                            "searchIndex" to cursor.getString(searchIndexIndex),
-                        )
+                    val songId = cursor.getLong(songIdIndex)
+                    val value = cursor.getString(languageIndex)
+                    val languages = languageMap.getOrPut(songId) { mutableListOf() }
+                    if (!languages.contains(value)) {
+                        languages += value
+                    }
                 }
+            }
+            database.rawQuery(
+                """
+                SELECT
+                    ${SongIndexDatabaseHelper.columnSongId},
+                    ${SongIndexDatabaseHelper.columnTag}
+                FROM ${SongIndexDatabaseHelper.songTagsTable}
+                WHERE ${SongIndexDatabaseHelper.columnSongId} IN ($placeholders)
+                ORDER BY rowid ASC
+                """.trimIndent(),
+                songIds.map(Long::toString).toTypedArray(),
+            ).use { cursor ->
+                val songIdIndex = cursor.getColumnIndexOrThrow(SongIndexDatabaseHelper.columnSongId)
+                val tagIndex = cursor.getColumnIndexOrThrow(SongIndexDatabaseHelper.columnTag)
+                while (cursor.moveToNext()) {
+                    val songId = cursor.getLong(songIdIndex)
+                    val value = cursor.getString(tagIndex)
+                    val tags = tagMap.getOrPut(songId) { mutableListOf() }
+                    if (!tags.contains(value)) {
+                        tags += value
+                    }
+                }
+            }
+        }
+
+        val normalizedSongs =
+            songs.map { song ->
+                val songId = song["songId"] as Long
+                val languages = languageMap[songId].orEmpty()
+                val tags = tagMap[songId].orEmpty()
+                mapOf(
+                    "title" to song.getValue("title"),
+                    "artist" to song.getValue("artist"),
+                    "language" to languages.joinToString("/").ifBlank { otherLanguageValue },
+                    "languages" to languages,
+                    "tags" to tags,
+                    "mediaPath" to song.getValue("mediaPath"),
+                    "searchIndex" to song.getValue("searchIndex"),
+                )
             }
 
         return mapOf(
-            "songs" to songs,
+            "songs" to normalizedSongs,
             "totalCount" to totalCount,
             "pageIndex" to normalizedPageIndex,
             "pageSize" to normalizedPageSize,
@@ -556,8 +742,8 @@ class MainActivity : FlutterActivity() {
             val parsedName = parseFileName(fileName)
             items.add(
                 mapOf(
-                    "title" to parsedName.first,
-                    "artist" to parsedName.second,
+                    "title" to parsedName.title,
+                    "artist" to parsedName.artistDisplayName,
                     "filePath" to file.uri.toString(),
                     "fileName" to fileName,
                     "extension" to extension,
@@ -605,14 +791,24 @@ class MainActivity : FlutterActivity() {
             }
 
             val parsedName = parseFileName(fileName)
-            val title = parsedName.first
-            val artist = parsedName.second
+            val title = parsedName.title
+            val artistDisplayName = parsedName.artistDisplayName
             val titleNorm = normalizeSearchText(title)
-            val artistNorm = normalizeSearchText(artist)
+            val artistNorm = normalizeSearchText(artistDisplayName)
             val titleLatin = buildLatinSearchText(title)
-            val artistLatin = buildLatinSearchText(artist)
+            val artistLatin = buildLatinSearchText(artistDisplayName)
             val titleInitials = buildInitials(titleLatin)
             val artistInitials = buildInitials(artistLatin)
+            val artistSearchTokens =
+                parsedName.artistNames.flatMap { artistName ->
+                    val nameNorm = normalizeSearchText(artistName)
+                    val nameLatin = buildLatinSearchText(artistName)
+                    listOf(
+                        nameNorm,
+                        nameLatin,
+                        buildInitials(nameLatin),
+                    )
+                }
             val searchIndex =
                 listOf(
                     titleNorm,
@@ -623,7 +819,10 @@ class MainActivity : FlutterActivity() {
                     artistLatin,
                     titleInitials,
                     artistInitials,
-                ).filter { it.isNotBlank() }
+                ).plus(parsedName.languages.map(::normalizeSearchText))
+                    .plus(parsedName.tags.map(::normalizeSearchText))
+                    .plus(artistSearchTokens)
+                    .filter { it.isNotBlank() }
                     .joinToString(" ")
 
             val values =
@@ -632,20 +831,26 @@ class MainActivity : FlutterActivity() {
                     put(SongIndexDatabaseHelper.columnMediaPath, file.uri.toString())
                     put(SongIndexDatabaseHelper.columnFileName, fileName)
                     put(SongIndexDatabaseHelper.columnTitle, title)
-                    put(SongIndexDatabaseHelper.columnArtist, artist)
-                    put(SongIndexDatabaseHelper.columnLanguage, "其它")
+                    put(SongIndexDatabaseHelper.columnArtistDisplayName, artistDisplayName)
                     put(SongIndexDatabaseHelper.columnSearchIndex, searchIndex)
                     put(SongIndexDatabaseHelper.columnTitleNorm, titleNorm)
-                    put(SongIndexDatabaseHelper.columnArtistNorm, artistNorm)
                     put(SongIndexDatabaseHelper.columnTitleInitials, titleInitials)
                     put(SongIndexDatabaseHelper.columnArtistInitials, artistInitials)
                     put(SongIndexDatabaseHelper.columnIndexedAt, indexedAt)
                 }
-            database.insertWithOnConflict(
-                SongIndexDatabaseHelper.songsTable,
-                null,
-                values,
-                SQLiteDatabase.CONFLICT_REPLACE,
+            val songId =
+                database.insertWithOnConflict(
+                    SongIndexDatabaseHelper.songsTable,
+                    null,
+                    values,
+                    SQLiteDatabase.CONFLICT_REPLACE,
+                )
+            insertSongRelations(
+                database = database,
+                songId = songId,
+                artists = parsedName.artistNames,
+                languages = parsedName.languages,
+                tags = parsedName.tags,
             )
             onIndexed()
         }
@@ -659,34 +864,38 @@ class MainActivity : FlutterActivity() {
         return fileName.substring(dotIndex + 1).lowercase()
     }
 
-    private fun parseFileName(fileName: String): Pair<String, String> {
-        val dotIndex = fileName.lastIndexOf('.')
-        val baseName =
-            if (dotIndex == -1) {
-                fileName
-            } else {
-                fileName.substring(0, dotIndex)
-            }
-
-        val separators = listOf(" - ", " — ", " – ", "_", "-")
-        for (separator in separators) {
-            val separatorIndex = baseName.indexOf(separator)
-            if (separatorIndex <= 0 || separatorIndex >= baseName.length - separator.length) {
-                continue
-            }
-
-            val artist = baseName.substring(0, separatorIndex).trim()
-            val title = baseName.substring(separatorIndex + separator.length).trim()
-            if (artist.isNotEmpty() && title.isNotEmpty()) {
-                return title to artist
-            }
+    private fun parseFileName(fileName: String): ParsedSongMetadata {
+        val baseName = removeExtension(fileName)
+        val normalizedBaseName = normalizeFileNameForParsing(baseName)
+        val segments = normalizedBaseName.split('-').map { it.trim() }
+        if (segments.isEmpty()) {
+            return createFallbackMetadata(fileName, baseName)
         }
 
-        return baseName.trim() to "未识别歌手"
+        for (artistSegmentCount in segments.size downTo 1) {
+            val artistCandidate = segments.take(artistSegmentCount).joinToString("-").trim()
+            if (artistCandidate.isBlank()) {
+                continue
+            }
+            if (!artistHyphenWhitelist.contains(normalizeArtistWhitelistValue(artistCandidate))) {
+                continue
+            }
+            parseWithArtistSegmentCount(
+                segments = segments,
+                artistSegmentCount = artistSegmentCount,
+            )?.let { return it }
+        }
+
+        parseWithArtistSegmentCount(
+            segments = segments,
+            artistSegmentCount = 1,
+        )?.let { return it }
+
+        return createFallbackMetadata(fileName, baseName)
     }
 
     private fun normalizeSearchText(text: String): String {
-        return text.trim().lowercase()
+        return Normalizer.normalize(text.trim(), Normalizer.Form.NFKC).lowercase()
     }
 
     private fun buildLatinSearchText(source: String): String {
@@ -725,28 +934,263 @@ class MainActivity : FlutterActivity() {
         }
         return null
     }
+
+    private fun insertSongRelations(
+        database: SQLiteDatabase,
+        songId: Long,
+        artists: List<String>,
+        languages: List<String>,
+        tags: List<String>,
+    ) {
+        insertRelationValues(
+            database = database,
+            table = SongIndexDatabaseHelper.songArtistsTable,
+            valueColumn = SongIndexDatabaseHelper.columnArtistName,
+            songId = songId,
+            values = artists,
+        )
+        insertRelationValues(
+            database = database,
+            table = SongIndexDatabaseHelper.songLanguagesTable,
+            valueColumn = SongIndexDatabaseHelper.columnLanguage,
+            songId = songId,
+            values = languages,
+        )
+        insertRelationValues(
+            database = database,
+            table = SongIndexDatabaseHelper.songTagsTable,
+            valueColumn = SongIndexDatabaseHelper.columnTag,
+            songId = songId,
+            values = tags,
+        )
+    }
+
+    private fun insertRelationValues(
+        database: SQLiteDatabase,
+        table: String,
+        valueColumn: String,
+        songId: Long,
+        values: List<String>,
+    ) {
+        values.forEach { value ->
+            database.insertWithOnConflict(
+                table,
+                null,
+                ContentValues().apply {
+                    put(SongIndexDatabaseHelper.columnSongId, songId)
+                    put(valueColumn, value)
+                },
+                SQLiteDatabase.CONFLICT_IGNORE,
+            )
+        }
+    }
+
+    private fun parseWithArtistSegmentCount(
+        segments: List<String>,
+        artistSegmentCount: Int,
+    ): ParsedSongMetadata? {
+        if (artistSegmentCount <= 0 || artistSegmentCount > segments.size) {
+            return null
+        }
+
+        val artistDisplayName = segments.take(artistSegmentCount).joinToString("-").trim()
+        val artistNames =
+            artistDisplayName.split('&')
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+        if (artistDisplayName.isBlank() || artistNames.isEmpty()) {
+            return null
+        }
+
+        var rightIndex = segments.lastIndex
+        val languagesReversed = mutableListOf<String>()
+        val tagsReversed = mutableListOf<String>()
+        while (rightIndex >= artistSegmentCount) {
+            val segment = segments[rightIndex].trim()
+            if (segment.isEmpty()) {
+                rightIndex -= 1
+                continue
+            }
+
+            val cleanedSegment = cleanTrailingNoise(segment)
+            if (cleanedSegment.isBlank()) {
+                rightIndex -= 1
+                continue
+            }
+
+            val normalizedKeyword = normalizeKeyword(cleanedSegment)
+            val languageMatch = languageKeywordMappings[normalizedKeyword]
+            if (languageMatch != null) {
+                if (!languagesReversed.contains(languageMatch)) {
+                    languagesReversed += languageMatch
+                }
+                rightIndex -= 1
+                continue
+            }
+
+            val tagMatch = tagKeywordMappings[normalizedKeyword]
+            if (tagMatch != null) {
+                if (!tagsReversed.contains(tagMatch)) {
+                    tagsReversed += tagMatch
+                }
+                rightIndex -= 1
+                continue
+            }
+            break
+        }
+
+        val titleSegments =
+            segments.subList(artistSegmentCount, rightIndex + 1)
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+        val title = titleSegments.joinToString("-").trim()
+        if (title.isEmpty()) {
+            return null
+        }
+
+        val languages =
+            languagesReversed.asReversed().ifEmpty {
+                listOf(otherLanguageValue)
+            }
+        return ParsedSongMetadata(
+            title = title,
+            artistDisplayName = artistDisplayName,
+            artistNames = artistNames,
+            languages = languages,
+            tags = tagsReversed.asReversed(),
+        )
+    }
+
+    private fun createFallbackMetadata(
+        fileName: String,
+        baseName: String,
+    ): ParsedSongMetadata {
+        val fallbackTitle =
+            baseName.trim().ifBlank {
+                fileName.trim().ifBlank { "未知歌曲" }
+            }
+        return ParsedSongMetadata(
+            title = fallbackTitle,
+            artistDisplayName = unrecognizedArtistValue,
+            artistNames = listOf(unrecognizedArtistValue),
+            languages = listOf(otherLanguageValue),
+            tags = emptyList(),
+        )
+    }
+
+    private fun removeExtension(fileName: String): String {
+        val dotIndex = fileName.lastIndexOf('.')
+        return if (dotIndex == -1) {
+            fileName
+        } else {
+            fileName.substring(0, dotIndex)
+        }
+    }
+
+    private fun normalizeFileNameForParsing(baseName: String): String {
+        return baseName.trim()
+            .replace(Regex("\\s*[—–]\\s*"), "-")
+            .replace(Regex("\\s+-\\s+"), "-")
+    }
+
+    private fun normalizeArtistWhitelistValue(value: String): String {
+        return normalizeFileNameForParsing(value).trim().lowercase()
+    }
+
+    private fun loadArtistHyphenWhitelist(): Set<String> {
+        return runCatching {
+            assets.open("sqlite_hyphen_whitelist.yaml").bufferedReader().useLines { lines ->
+                val artistNames = linkedSetOf<String>()
+                var inArtistNames = false
+                lines.forEach { rawLine ->
+                    val trimmedLine = rawLine.trim()
+                    if (trimmedLine.isEmpty() || trimmedLine.startsWith("#")) {
+                        return@forEach
+                    }
+                    if (!rawLine.startsWith(" ") && trimmedLine.endsWith(":")) {
+                        inArtistNames = trimmedLine == "artist_names:"
+                        return@forEach
+                    }
+                    if (inArtistNames && trimmedLine.startsWith("- ")) {
+                        val artistName = trimmedLine.removePrefix("- ").trim()
+                        if (artistName.isNotEmpty()) {
+                            artistNames += normalizeArtistWhitelistValue(artistName)
+                        }
+                    }
+                }
+                artistNames
+            }
+        }.getOrDefault(emptySet())
+    }
+
+    private fun cleanTrailingNoise(segment: String): String {
+        var cleaned = segment.trim()
+        val suffixPatterns =
+            listOf(
+                Regex("(?i)[ _-]*副本\\s*\\(\\d+\\)$"),
+                Regex("(?i)[ _-]*副本$"),
+                Regex("(?i)[ _-]*copy\\s*\\(\\d+\\)$"),
+                Regex("(?i)[ _-]*copy$"),
+                Regex("\\s*\\(\\d+\\)$"),
+            )
+        while (cleaned.isNotEmpty()) {
+            val updated =
+                suffixPatterns.fold(cleaned) { current, pattern ->
+                    current.replace(pattern, "")
+                }.trim()
+            if (updated == cleaned) {
+                break
+            }
+            cleaned = updated
+        }
+        return cleaned
+    }
+
+    private fun normalizeKeyword(keyword: String): String {
+        return normalizeSearchText(keyword)
+            .replace(Regex("\\s+"), " ")
+            .trim('-', '_', ' ', '.', '。', ',', '，', '(', ')', '（', '）')
+    }
 }
+
+private data class ParsedSongMetadata(
+    val title: String,
+    val artistDisplayName: String,
+    val artistNames: List<String>,
+    val languages: List<String>,
+    val tags: List<String>,
+)
 
 private class SongIndexDatabaseHelper(
     context: Activity,
 ) : SQLiteOpenHelper(context, databaseName, null, databaseVersion) {
     companion object {
         const val databaseName = "ktv_song_index.db"
-        const val databaseVersion = 2
+        const val databaseVersion = 3
         const val songsTable = "songs"
+        const val songArtistsTable = "song_artists"
+        const val songLanguagesTable = "song_languages"
+        const val songTagsTable = "song_tags"
         const val columnId = "_id"
+        const val columnSongId = "song_id"
         const val columnDirectoryUri = "directory_uri"
         const val columnMediaPath = "media_path"
         const val columnFileName = "file_name"
         const val columnTitle = "title"
-        const val columnArtist = "artist"
+        const val columnArtistDisplayName = "artist_display_name"
+        const val columnArtistName = "artist_name"
         const val columnLanguage = "language"
+        const val columnTag = "tag"
         const val columnSearchIndex = "search_index"
         const val columnTitleNorm = "title_norm"
-        const val columnArtistNorm = "artist_norm"
         const val columnTitleInitials = "title_initials"
         const val columnArtistInitials = "artist_initials"
         const val columnIndexedAt = "indexed_at"
+    }
+
+    override fun onConfigure(db: SQLiteDatabase) {
+        super.onConfigure(db)
+        db.setForeignKeyConstraintsEnabled(true)
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -758,11 +1202,9 @@ private class SongIndexDatabaseHelper(
                 $columnMediaPath TEXT NOT NULL UNIQUE,
                 $columnFileName TEXT NOT NULL,
                 $columnTitle TEXT NOT NULL,
-                $columnArtist TEXT NOT NULL,
-                $columnLanguage TEXT NOT NULL,
+                $columnArtistDisplayName TEXT NOT NULL,
                 $columnSearchIndex TEXT NOT NULL,
                 $columnTitleNorm TEXT NOT NULL,
-                $columnArtistNorm TEXT NOT NULL,
                 $columnTitleInitials TEXT NOT NULL,
                 $columnArtistInitials TEXT NOT NULL,
                 $columnIndexedAt INTEGER NOT NULL
@@ -770,16 +1212,52 @@ private class SongIndexDatabaseHelper(
             """.trimIndent(),
         )
         db.execSQL(
-            "CREATE INDEX songs_directory_sort_idx ON $songsTable($columnDirectoryUri, $columnTitleNorm, $columnArtistNorm)",
+            """
+            CREATE TABLE $songArtistsTable (
+                $columnSongId INTEGER NOT NULL,
+                $columnArtistName TEXT NOT NULL,
+                PRIMARY KEY ($columnSongId, $columnArtistName),
+                FOREIGN KEY ($columnSongId) REFERENCES $songsTable($columnId) ON DELETE CASCADE
+            )
+            """.trimIndent(),
         )
         db.execSQL(
-            "CREATE INDEX songs_directory_language_idx ON $songsTable($columnDirectoryUri, $columnLanguage)",
+            """
+            CREATE TABLE $songLanguagesTable (
+                $columnSongId INTEGER NOT NULL,
+                $columnLanguage TEXT NOT NULL,
+                PRIMARY KEY ($columnSongId, $columnLanguage),
+                FOREIGN KEY ($columnSongId) REFERENCES $songsTable($columnId) ON DELETE CASCADE
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE $songTagsTable (
+                $columnSongId INTEGER NOT NULL,
+                $columnTag TEXT NOT NULL,
+                PRIMARY KEY ($columnSongId, $columnTag),
+                FOREIGN KEY ($columnSongId) REFERENCES $songsTable($columnId) ON DELETE CASCADE
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            "CREATE INDEX songs_directory_sort_idx ON $songsTable($columnDirectoryUri, $columnTitleNorm, $columnArtistDisplayName)",
         )
         db.execSQL(
             "CREATE INDEX songs_directory_title_initials_idx ON $songsTable($columnDirectoryUri, $columnTitleInitials)",
         )
         db.execSQL(
             "CREATE INDEX songs_directory_artist_initials_idx ON $songsTable($columnDirectoryUri, $columnArtistInitials)",
+        )
+        db.execSQL(
+            "CREATE INDEX idx_song_languages_language_song ON $songLanguagesTable($columnLanguage, $columnSongId)",
+        )
+        db.execSQL(
+            "CREATE INDEX idx_song_tags_tag_song ON $songTagsTable($columnTag, $columnSongId)",
+        )
+        db.execSQL(
+            "CREATE INDEX idx_song_artists_artist_song ON $songArtistsTable($columnArtistName, $columnSongId)",
         )
     }
 
@@ -788,6 +1266,9 @@ private class SongIndexDatabaseHelper(
         oldVersion: Int,
         newVersion: Int,
     ) {
+        db.execSQL("DROP TABLE IF EXISTS $songTagsTable")
+        db.execSQL("DROP TABLE IF EXISTS $songLanguagesTable")
+        db.execSQL("DROP TABLE IF EXISTS $songArtistsTable")
         db.execSQL("DROP TABLE IF EXISTS $songsTable")
         onCreate(db)
     }

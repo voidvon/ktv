@@ -119,8 +119,8 @@ class DemoAndroidStorageDataSource {
     String language = '',
     String searchQuery = '',
   }) async {
-    final Map<dynamic, dynamic>? result =
-        await _channel.invokeMethod<Map<dynamic, dynamic>>(
+    final Map<dynamic, dynamic>? result = await _channel
+        .invokeMethod<Map<dynamic, dynamic>>(
           'queryIndexedSongs',
           <String, Object?>{
             'rootUri': rootUri,
@@ -140,10 +140,15 @@ class DemoAndroidStorageDataSource {
         .whereType<Map>()
         .map((Map item) {
           final Map<Object?, Object?> map = Map<Object?, Object?>.from(item);
+          final List<String> languages = _parseStringList(map['languages']);
+          final List<String> tags = _parseStringList(map['tags']);
           return DemoSong(
             title: (map['title'] as String?) ?? '未知歌曲',
             artist: (map['artist'] as String?) ?? '未识别歌手',
-            language: (map['language'] as String?) ?? '其它',
+            languages: languages.isEmpty
+                ? <String>[(map['language'] as String?) ?? '其它']
+                : languages,
+            tags: tags,
             searchIndex: (map['searchIndex'] as String?) ?? '',
             mediaPath: (map['mediaPath'] as String?) ?? '',
           );
@@ -155,6 +160,17 @@ class DemoAndroidStorageDataSource {
       pageIndex: (pageMap['pageIndex'] as num?)?.toInt() ?? pageIndex,
       pageSize: (pageMap['pageSize'] as num?)?.toInt() ?? pageSize,
     );
+  }
+
+  List<String> _parseStringList(Object? value) {
+    if (value is! List) {
+      return const <String>[];
+    }
+    return value
+        .whereType<Object?>()
+        .map((Object? item) => item?.toString().trim() ?? '')
+        .where((String item) => item.isNotEmpty)
+        .toList(growable: false);
   }
 }
 
