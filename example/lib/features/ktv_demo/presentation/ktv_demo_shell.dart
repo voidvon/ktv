@@ -333,6 +333,50 @@ class _KtvDemoShellState extends State<KtvDemoShell>
     await _demoController.requestSong(song);
   }
 
+  SongBookViewModel _buildSongBookViewModel() {
+    return SongBookViewModel(
+      route: _demoController.route,
+      songBookMode: _demoController.songBookMode,
+      searchQuery: _demoController.searchQuery,
+      selectedLanguage: _demoController.selectedLanguage,
+      selectedArtist: _demoController.selectedArtist,
+      songs: _demoController.filteredSongs,
+      artists: _demoController.libraryArtists,
+      libraryTotalCount: _demoController.libraryTotalCount,
+      libraryPageIndex: _demoController.libraryPageIndex,
+      libraryTotalPages: _demoController.libraryTotalPages,
+      libraryPageSize: _demoController.libraryPageSize,
+      hasConfiguredDirectory: _demoController.hasConfiguredDirectory,
+      isScanningLibrary: _demoController.isScanningLibrary,
+      isLoadingLibraryPage: _demoController.isLoadingLibraryPage,
+      libraryScanErrorMessage: _demoController.libraryScanErrorMessage,
+      queuedSongs: _demoController.queuedSongs,
+      breadcrumbLabel: _demoController.breadcrumbLabel,
+    );
+  }
+
+  SongBookCallbacks _buildSongBookCallbacks() {
+    return SongBookCallbacks(
+      onBackPressed: _returnHome,
+      onQueuePressed: _enterQueueList,
+      onEnterSongBook: _enterSongBook,
+      onLanguageSelected: _selectLanguage,
+      onAppendSearchToken: _appendSearchToken,
+      onRemoveSearchCharacter: _removeSearchCharacter,
+      onClearSearch: _clearSearch,
+      onRequestLibraryPage: _requestLibraryPage,
+      onRequestSong: _requestSong,
+      onSelectArtist: _demoController.selectArtist,
+      onPrioritizeQueuedSong: _demoController.prioritizeQueuedSong,
+      onRemoveQueuedSong: _demoController.removeQueuedSong,
+      onSettingsPressed: _openSettingsPage,
+      onToggleAudioMode: _toggleAudioMode,
+      onTogglePlayback: _togglePlayback,
+      onRestartPlayback: _restartPlayback,
+      onSkipSong: _skipCurrentSong,
+    );
+  }
+
   Widget _buildPreviewSurface() {
     return _sharedPreviewSurface;
   }
@@ -363,6 +407,8 @@ class _KtvDemoShellState extends State<KtvDemoShell>
   }
 
   Widget _buildWideSongBookLayout({
+    required SongBookViewModel viewModel,
+    required SongBookCallbacks callbacks,
     required double sidePanelWidth,
     required double columnGap,
   }) {
@@ -398,37 +444,8 @@ class _KtvDemoShellState extends State<KtvDemoShell>
         Expanded(
           child: SongBookRightColumn(
             controller: _demoController.playerController,
-            selectedLanguage: _demoController.selectedLanguage,
-            songBookMode: _demoController.songBookMode,
-            selectedArtist: _demoController.selectedArtist,
-            songs: _demoController.filteredSongs,
-            artists: _demoController.libraryArtists,
-            libraryTotalCount: _demoController.libraryTotalCount,
-            libraryPageIndex: _demoController.libraryPageIndex,
-            libraryTotalPages: _demoController.libraryTotalPages,
-            libraryPageSize: _demoController.libraryPageSize,
-            hasConfiguredDirectory: _demoController.hasConfiguredDirectory,
-            isScanningLibrary: _demoController.isScanningLibrary,
-            isLoadingLibraryPage: _demoController.isLoadingLibraryPage,
-            libraryScanErrorMessage: _demoController.libraryScanErrorMessage,
-            route: _demoController.route,
-            searchQuery: _demoController.searchQuery,
-            queuedSongs: _demoController.queuedSongs,
-            breadcrumbLabel: _demoController.breadcrumbLabel,
-            onBackPressed: _returnHome,
-            onQueuePressed: _enterQueueList,
-            onEnterSongBook: _enterSongBook,
-            onLanguageSelected: _selectLanguage,
-            onRequestLibraryPage: _requestLibraryPage,
-            onRequestSong: _requestSong,
-            onSelectArtist: _demoController.selectArtist,
-            onPrioritizeQueuedSong: _demoController.prioritizeQueuedSong,
-            onRemoveQueuedSong: _demoController.removeQueuedSong,
-            onSettingsPressed: _openSettingsPage,
-            onToggleAudioMode: _toggleAudioMode,
-            onTogglePlayback: _togglePlayback,
-            onRestartPlayback: _restartPlayback,
-            onSkipSong: _skipCurrentSong,
+            viewModel: viewModel,
+            callbacks: callbacks,
           ),
         ),
       ],
@@ -436,6 +453,8 @@ class _KtvDemoShellState extends State<KtvDemoShell>
   }
 
   Widget _buildCompactRouteLayout() {
+    final SongBookViewModel viewModel = _buildSongBookViewModel();
+    final SongBookCallbacks callbacks = _buildSongBookCallbacks();
     final bool isHome = _demoController.route == DemoRoute.home;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -466,40 +485,8 @@ class _KtvDemoShellState extends State<KtvDemoShell>
               controller: _demoController.playerController,
               compact: false,
               searchController: _searchController,
-              songBookMode: _demoController.songBookMode,
-              selectedLanguage: _demoController.selectedLanguage,
-              selectedArtist: _demoController.selectedArtist,
-              songs: _demoController.filteredSongs,
-              artists: _demoController.libraryArtists,
-              libraryTotalCount: _demoController.libraryTotalCount,
-              libraryPageIndex: _demoController.libraryPageIndex,
-              libraryTotalPages: _demoController.libraryTotalPages,
-              libraryPageSize: _demoController.libraryPageSize,
-              hasConfiguredDirectory: _demoController.hasConfiguredDirectory,
-              isScanningLibrary: _demoController.isScanningLibrary,
-              isLoadingLibraryPage: _demoController.isLoadingLibraryPage,
-              libraryScanErrorMessage: _demoController.libraryScanErrorMessage,
-              route: _demoController.route,
-              searchQuery: _demoController.searchQuery,
-              queuedSongs: _demoController.queuedSongs,
-              breadcrumbLabel: _demoController.breadcrumbLabel,
-              onBackPressed: _returnHome,
-              onQueuePressed: _enterQueueList,
-              onEnterSongBook: _enterSongBook,
-              onLanguageSelected: _selectLanguage,
-              onAppendSearchToken: _appendSearchToken,
-              onRemoveSearchCharacter: _removeSearchCharacter,
-              onClearSearch: _clearSearch,
-              onRequestLibraryPage: _requestLibraryPage,
-              onRequestSong: _requestSong,
-              onSelectArtist: _demoController.selectArtist,
-              onPrioritizeQueuedSong: _demoController.prioritizeQueuedSong,
-              onRemoveQueuedSong: _demoController.removeQueuedSong,
-              onSettingsPressed: _openSettingsPage,
-              onToggleAudioMode: _toggleAudioMode,
-              onTogglePlayback: _togglePlayback,
-              onRestartPlayback: _restartPlayback,
-              onSkipSong: _skipCurrentSong,
+              viewModel: viewModel,
+              callbacks: callbacks,
             ),
           ),
       ],
@@ -511,6 +498,8 @@ class _KtvDemoShellState extends State<KtvDemoShell>
     return AnimatedBuilder(
       animation: _demoController,
       builder: (BuildContext context, Widget? child) {
+        final SongBookViewModel songBookViewModel = _buildSongBookViewModel();
+        final SongBookCallbacks songBookCallbacks = _buildSongBookCallbacks();
         _schedulePreviewViewportSync();
         return PopScope<void>(
           canPop: !_isPreviewFullscreen && !_demoController.canNavigateBack,
@@ -591,6 +580,8 @@ class _KtvDemoShellState extends State<KtvDemoShell>
                                                   compactWideHomePage,
                                             )
                                           : _buildWideSongBookLayout(
+                                              viewModel: songBookViewModel,
+                                              callbacks: songBookCallbacks,
                                               sidePanelWidth: sidePanelWidth,
                                               columnGap: columnGap,
                                             )

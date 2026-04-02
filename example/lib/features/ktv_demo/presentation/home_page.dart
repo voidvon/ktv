@@ -240,6 +240,9 @@ class LandscapeHomePage extends StatelessWidget {
         final double centerColumnWidth = (constraints.maxWidth * 0.21)
             .clamp(188.0, 224.0)
             .toDouble();
+        final double reservedBottomSpace = (constraints.maxHeight * 0.1)
+            .clamp(20.0, 56.0)
+            .toDouble();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -257,36 +260,37 @@ class LandscapeHomePage extends StatelessWidget {
             SizedBox(height: gap),
             Expanded(
               child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: (constraints.maxHeight * 0.14).clamp(40.0, 88.0),
-                ),
+                padding: EdgeInsets.only(bottom: reservedBottomSpace),
                 child: LayoutBuilder(
                   builder:
                       (
                         BuildContext context,
                         BoxConstraints contentConstraints,
                       ) {
-                        final double reservedBottomSpace =
-                            (constraints.maxHeight * 0.14).clamp(40.0, 88.0);
                         final double usableContentHeight = math.max(
                           240,
                           contentConstraints.maxHeight - reservedBottomSpace,
                         );
                         final double maxRowHeightByHeight = math.max(
-                          52,
-                          (usableContentHeight - gap * 3) / 4,
+                          48,
+                          (usableContentHeight - gap * 3 - 2) / 4,
                         );
                         final double maxRowHeightByWidth = math.max(
-                          52,
+                          48,
                           (((constraints.maxWidth - centerColumnWidth - gap) *
                                       9 /
                                       16) -
                                   gap * 2) /
                               3,
                         );
-                        final double rowHeight = math.min(
-                          96,
-                          math.min(maxRowHeightByHeight, maxRowHeightByWidth),
+                        final double rowHeight = math.max(
+                          48,
+                          math.min(
+                            96,
+                            math
+                                .min(maxRowHeightByHeight, maxRowHeightByWidth)
+                                .floorToDouble(),
+                          ),
                         );
                         final double previewColumnWidth =
                             (rowHeight * 3 + gap * 2) * (16 / 9);
@@ -305,11 +309,13 @@ class LandscapeHomePage extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
                                     children: <Widget>[
-                                      HomePreviewCard(
-                                        controller: controller,
-                                        previewSurface:
-                                            const HomePreviewPlaceholder(),
-                                        previewAnchorKey: previewAnchorKey,
+                                      Expanded(
+                                        child: HomePreviewCard(
+                                          controller: controller,
+                                          previewSurface:
+                                              const HomePreviewPlaceholder(),
+                                          previewAnchorKey: previewAnchorKey,
+                                        ),
                                       ),
                                       SizedBox(height: gap),
                                       SizedBox(
