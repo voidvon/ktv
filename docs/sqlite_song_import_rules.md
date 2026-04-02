@@ -981,7 +981,7 @@ ORDER BY s.title_norm ASC;
 
 当前 Android 示例中的 SQLite 入库实现位于：
 
-- `example/android/app/src/main/kotlin/com/ktv/player/ktv2_example/MainActivity.kt`
+- `android/app/src/main/kotlin/com/ktv/player/ktv2_example/MainActivity.kt`
 
 当前实现的特点是：
 

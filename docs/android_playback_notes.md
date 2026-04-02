@@ -4,11 +4,11 @@
 
 ## 1. 当前播放器结构
 
-- 示例 UI 入口：`example/lib/main.dart`
-- Android 播放控制器：`lib/player/android_native_player_controller.dart`
-- Dart 与原生通信：`lib/player/platform_channel_player_controller.dart`
-- Android 示例文件选择：`example/android/app/src/main/kotlin/com/ktv/player/ktv2_example/MainActivity.kt`
-- Android 原生播放器宿主：`android/src/main/kotlin/com/ktv/player/ktv2/NativeKtvPlayerHost.kt`
+- 示例 UI 入口：`lib/main.dart`
+- Android 播放控制器：`packages/ktv2/lib/player/android_native_player_controller.dart`
+- Dart 与原生通信：`packages/ktv2/lib/player/platform_channel_player_controller.dart`
+- Android 示例文件选择：`android/app/src/main/kotlin/com/ktv/player/ktv2_example/MainActivity.kt`
+- Android 原生播放器宿主：`packages/ktv2/android/src/main/kotlin/com/ktv/player/ktv2/NativeKtvPlayerHost.kt`
 - 播放内核：`org.videolan.android:libvlc-all`
 
 当前模式是：
@@ -30,7 +30,7 @@ Android 文件选择器返回的通常是 `content://...`。
 
 当前做法是：
 
-- 先在 example 的 `MainActivity.kt` 中申请持久化读权限
+- 先在主应用的 `MainActivity.kt` 中申请持久化读权限
 - 再在 package 的 `NativeKtvPlayerHost.kt` 里把 `content://` 拷到 `cache/playback_sources/`
 - 真正播放时走缓存文件路径
 
@@ -60,8 +60,8 @@ Android 文件选择器返回的通常是 `content://...`。
 
 相关文件：
 
-- `android/src/main/c/native_vlc_bridge.c`
-- `android/src/main/c/CMakeLists.txt`
+- `packages/ktv2/android/src/main/c/native_vlc_bridge.c`
+- `packages/ktv2/android/src/main/c/CMakeLists.txt`
 
 如果 JNI 库加载失败，单音轨原唱/伴唱能力会退化。
 
@@ -103,7 +103,7 @@ Android 文件选择器返回的通常是 `content://...`。
 - 文件本身能播
 - 音频链路是通的
 - Flutter 主区域里已经能创建出原生 `SurfaceView`
-- `SurfaceFlinger` 里能看到 `SurfaceView[com.ktv.player.ktv2/...MainActivity]`
+- `SurfaceFlinger` 里能看到 `SurfaceView[com.ktv.player.ktv2_example/...MainActivity]`
 
 说明：
 
@@ -144,7 +144,7 @@ Android 文件选择器返回的通常是 `content://...`。
 - `video output`
 - `vout`
 - `android_window`
-- `SurfaceView[com.ktv.player.ktv2`
+- `SurfaceView[com.ktv.player.ktv2_example`
 - `EncounteredError`
 
 ## 6. 推荐排查命令
@@ -166,7 +166,7 @@ Android 文件选择器返回的通常是 `content://...`。
 先拿 pid：
 
 ```bash
-~/Library/Android/sdk/platform-tools/adb shell pidof com.ktv.player.ktv2
+~/Library/Android/sdk/platform-tools/adb shell pidof com.ktv.player.ktv2_example
 ```
 
 再抓：
@@ -178,7 +178,7 @@ Android 文件选择器返回的通常是 `content://...`。
 ### 6.4 看系统里有没有真的生成视频层
 
 ```bash
-~/Library/Android/sdk/platform-tools/adb shell dumpsys SurfaceFlinger --list | rg "com.ktv.player.ktv2|SurfaceView|FlutterView|flutter"
+~/Library/Android/sdk/platform-tools/adb shell dumpsys SurfaceFlinger --list | rg "com.ktv.player.ktv2_example|SurfaceView|FlutterView|flutter"
 ```
 
 如果这里根本没有 app 的 `SurfaceView`，说明原生视频层都没创建出来。
@@ -186,7 +186,7 @@ Android 文件选择器返回的通常是 `content://...`。
 ### 6.5 看退出信息
 
 ```bash
-~/Library/Android/sdk/platform-tools/adb shell dumpsys activity exit-info com.ktv.player.ktv2
+~/Library/Android/sdk/platform-tools/adb shell dumpsys activity exit-info com.ktv.player.ktv2_example
 ```
 
 ## 7. 处理“有声无画”的推荐顺序

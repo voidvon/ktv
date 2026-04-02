@@ -1,76 +1,36 @@
-# ktv2
+# ktv
 
-从原项目中抽离出来的最小 KTV 播放器/组件，只保留：
+本仓库就是当前 KTV 主应用，播放器能力拆在内部 package `packages/ktv2/`。
 
-- 本地视频播放
-- 完整原唱 / 伴唱切换
-- Android libVLC 播放链路
-- macOS 原生播放器桥接
+## 目录结构
 
-现在仓库提供更纯粹的 Flutter package API，外部项目可直接通过 `path` 或 `git` 依赖引入。文件选择和示例控制 UI 已移到 `example/`。
-
-## 作为组件引入
-
-`pubspec.yaml`
-
-```yaml
-dependencies:
-  ktv2:
-    path: ../ktv2
-```
-
-页面中接入：
-
-```dart
-import 'package:flutter/material.dart';
-import 'package:ktv2/ktv2.dart';
-
-class DemoPage extends StatefulWidget {
-  const DemoPage({super.key});
-
-  @override
-  State<DemoPage> createState() => _DemoPageState();
-}
-
-class _DemoPageState extends State<DemoPage> {
-  final PlayerController controller = createPlayerController();
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        KtvPlayerView(controller: controller),
-      ],
-    );
-  }
-}
-```
-
-公开 API 入口为 `package:ktv2/ktv2.dart`，当前导出：
-
-- `PlayerController` / `createPlayerController()`
-- `MediaSource`
-- `KtvPlayerView`
-- `PlayerState`
-- `AudioOutputMode`
-
-## 说明文档
-
-- Android 播放链路与排错记录：
-  [docs/android_playback_notes.md](docs/android_playback_notes.md)
+- `lib/`: 主应用页面、媒体库、设置与交互逻辑
+- `android/` / `macos/`: 主应用宿主平台工程
+- `packages/ktv2/`: 播放器 Flutter plugin/package，提供跨平台播放与声道切换能力
+- `docs/`: Android 播放链路、导歌规则和排错资料
 
 ## 常用命令
 
 ```bash
+flutter pub get
 flutter analyze
 flutter test
-cd example && flutter run -d macos
-cd example && flutter run -d android
+flutter run -d macos
+flutter run -d android
+
+cd packages/ktv2 && flutter pub get
+cd packages/ktv2 && flutter analyze
+cd packages/ktv2 && flutter test
 ```
+
+## 说明
+
+主应用通过本地路径依赖播放器包：
+
+```yaml
+dependencies:
+  ktv2:
+    path: packages/ktv2
+```
+
+播放器包文档见 `packages/ktv2/README.md`。
