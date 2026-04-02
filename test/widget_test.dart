@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ktv2/ktv2.dart';
-import 'package:ktv2_example/core/models/demo_artist.dart';
-import 'package:ktv2_example/core/models/demo_song.dart';
-import 'package:ktv2_example/features/ktv_demo/application/ktv_demo_controller.dart';
-import 'package:ktv2_example/features/ktv_demo/presentation/songbook_contracts.dart';
-import 'package:ktv2_example/features/ktv_demo/presentation/songbook_page.dart';
-import 'package:ktv2_example/features/ktv_demo/presentation/shared_widgets.dart';
+import 'package:ktv2_example/core/models/artist.dart';
+import 'package:ktv2_example/core/models/song.dart';
+import 'package:ktv2_example/features/ktv/application/ktv_controller.dart';
+import 'package:ktv2_example/features/ktv/presentation/songbook_contracts.dart';
+import 'package:ktv2_example/features/ktv/presentation/songbook_page.dart';
+import 'package:ktv2_example/features/ktv/presentation/shared_widgets.dart';
 import 'package:ktv2_example/main.dart';
 
 void main() {
   testWidgets('shows home shell before media library is selected', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const KtvDemoApp());
+    await tester.pumpWidget(const KtvApp());
 
     expect(find.text('我爱KTV'), findsOneWidget);
     expect(find.text('歌名'), findsOneWidget);
@@ -25,7 +25,7 @@ void main() {
   testWidgets('opens scan directory settings dialog from top actions', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const KtvDemoApp());
+    await tester.pumpWidget(const KtvApp());
 
     await tester.tap(find.text('设置').first);
     await tester.pumpAndSettle();
@@ -38,7 +38,7 @@ void main() {
   testWidgets('opens queued songs page from home toolbar', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const KtvDemoApp());
+    await tester.pumpWidget(const KtvApp());
 
     await tester.tap(find.text('已点0').first);
     await tester.pumpAndSettle();
@@ -58,7 +58,7 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    await tester.pumpWidget(const KtvDemoApp());
+    await tester.pumpWidget(const KtvApp());
 
     await tester.tap(find.text('歌名'));
     await tester.pumpAndSettle();
@@ -76,7 +76,7 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    await tester.pumpWidget(const KtvDemoApp());
+    await tester.pumpWidget(const KtvApp());
 
     await tester.tap(find.text('歌名'));
     await tester.pumpAndSettle();
@@ -107,42 +107,26 @@ void main() {
             searchController: searchController,
             viewModel: const SongBookViewModel(
               navigation: SongBookNavigationViewModel(
-                route: DemoRoute.songBook,
-                songBookMode: DemoSongBookMode.artists,
+                route: KtvRoute.songBook,
+                songBookMode: SongBookMode.artists,
                 selectedArtist: null,
                 breadcrumbLabel: '‹ 主页 / 歌星',
               ),
               library: SongBookLibraryViewModel(
                 searchQuery: '',
                 selectedLanguage: '全部',
-                songs: <DemoSong>[],
-                artists: <DemoArtist>[
-                  DemoArtist(
-                    name: '周杰伦',
-                    songCount: 12,
-                    searchIndex: 'zhoujielun',
-                  ),
-                  DemoArtist(
-                    name: '刘若英',
-                    songCount: 8,
-                    searchIndex: 'liuruoying',
-                  ),
-                  DemoArtist(
+                songs: <Song>[],
+                artists: <Artist>[
+                  Artist(name: '周杰伦', songCount: 12, searchIndex: 'zhoujielun'),
+                  Artist(name: '刘若英', songCount: 8, searchIndex: 'liuruoying'),
+                  Artist(
                     name: '张学友',
                     songCount: 15,
                     searchIndex: 'zhangxueyou',
                   ),
-                  DemoArtist(name: 'A-Lin', songCount: 6, searchIndex: 'a-lin'),
-                  DemoArtist(
-                    name: '邓紫棋',
-                    songCount: 10,
-                    searchIndex: 'dengziqi',
-                  ),
-                  DemoArtist(
-                    name: 'Beyond',
-                    songCount: 9,
-                    searchIndex: 'beyond',
-                  ),
+                  Artist(name: 'A-Lin', songCount: 6, searchIndex: 'a-lin'),
+                  Artist(name: '邓紫棋', songCount: 10, searchIndex: 'dengziqi'),
+                  Artist(name: 'Beyond', songCount: 9, searchIndex: 'beyond'),
                 ],
                 totalCount: 6,
                 pageIndex: 0,
@@ -153,7 +137,7 @@ void main() {
                 isLoadingPage: false,
                 scanErrorMessage: null,
               ),
-              playback: SongBookPlaybackViewModel(queuedSongs: <DemoSong>[]),
+              playback: SongBookPlaybackViewModel(queuedSongs: <Song>[]),
             ),
             callbacks: SongBookCallbacks(
               navigation: SongBookNavigationCallbacks(
@@ -205,37 +189,37 @@ void main() {
               controller: _TestPlayerController(),
               viewModel: const SongBookViewModel(
                 navigation: SongBookNavigationViewModel(
-                  route: DemoRoute.songBook,
-                  songBookMode: DemoSongBookMode.songs,
+                  route: KtvRoute.songBook,
+                  songBookMode: SongBookMode.songs,
                   selectedArtist: null,
                   breadcrumbLabel: '‹ 主页 / 歌名',
                 ),
                 library: SongBookLibraryViewModel(
                   searchQuery: '',
                   selectedLanguage: '全部',
-                  songs: <DemoSong>[
-                    DemoSong(
+                  songs: <Song>[
+                    Song(
                       title: '青花瓷',
                       artist: '周杰伦',
                       languages: <String>['国语'],
                       searchIndex: 'qinghuaci zhoujielun',
                       mediaPath: '/tmp/1.mp4',
                     ),
-                    DemoSong(
+                    Song(
                       title: '夜曲',
                       artist: '周杰伦',
                       languages: <String>['国语'],
                       searchIndex: 'yequ zhoujielun',
                       mediaPath: '/tmp/2.mp4',
                     ),
-                    DemoSong(
+                    Song(
                       title: '后来',
                       artist: '刘若英',
                       languages: <String>['国语'],
                       searchIndex: 'houlai liuruoying',
                       mediaPath: '/tmp/3.mp4',
                     ),
-                    DemoSong(
+                    Song(
                       title: '海阔天空',
                       artist: 'Beyond',
                       languages: <String>['粤语'],
@@ -243,7 +227,7 @@ void main() {
                       mediaPath: '/tmp/4.mp4',
                     ),
                   ],
-                  artists: <DemoArtist>[],
+                  artists: <Artist>[],
                   totalCount: 4,
                   pageIndex: 0,
                   totalPages: 2,
@@ -253,7 +237,7 @@ void main() {
                   isLoadingPage: false,
                   scanErrorMessage: null,
                 ),
-                playback: SongBookPlaybackViewModel(queuedSongs: <DemoSong>[]),
+                playback: SongBookPlaybackViewModel(queuedSongs: <Song>[]),
               ),
               callbacks: SongBookCallbacks(
                 navigation: SongBookNavigationCallbacks(
@@ -292,7 +276,7 @@ void main() {
   testWidgets('opens fullscreen preview and toggles overlay controls on tap', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const KtvDemoApp());
+    await tester.pumpWidget(const KtvApp());
     await tester.pump();
 
     await tester.tap(find.byKey(const ValueKey<String>('preview-tap-target')));
@@ -319,7 +303,7 @@ void main() {
   testWidgets('tapping non-fullscreen progress bar does not enter fullscreen', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const KtvDemoApp());
+    await tester.pumpWidget(const KtvApp());
     await tester.pump();
 
     final Finder slider = find.byType(Slider).first;
@@ -361,7 +345,7 @@ void main() {
       controller.setProgress(
         position: const Duration(seconds: 30),
         duration: const Duration(minutes: 2),
-        mediaPath: '/tmp/demo.mp4',
+        mediaPath: '/tmp/sample.mp4',
       );
       await tester.pump();
 
@@ -377,7 +361,7 @@ void main() {
     controller.setProgress(
       position: Duration.zero,
       duration: const Duration(minutes: 2),
-      mediaPath: '/tmp/demo.mp4',
+      mediaPath: '/tmp/sample.mp4',
     );
 
     await tester.pumpWidget(

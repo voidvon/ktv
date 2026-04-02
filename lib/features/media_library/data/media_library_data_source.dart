@@ -1,40 +1,16 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:lpinyin/lpinyin.dart';
-import 'package:ktv2_example/core/media/demo_supported_video_formats.dart';
+import 'package:ktv2_example/core/media/supported_video_formats.dart';
 
-import 'android_storage_data_source.dart';
-
-class DemoMediaLibraryDataSource {
-  final DemoAndroidStorageDataSource _androidStorageDataSource =
-      DemoAndroidStorageDataSource();
-
-  Future<List<DemoLibrarySong>> scanLibrary(String rootPath) async {
-    if (!kIsWeb &&
-        defaultTargetPlatform == TargetPlatform.android &&
-        _androidStorageDataSource.isDocumentTreeUri(rootPath)) {
-      final List<DemoAndroidLibrarySong> songs = await _androidStorageDataSource
-          .scanLibrary(rootPath);
-      return songs
-          .map(
-            (DemoAndroidLibrarySong song) => DemoLibrarySong(
-              title: song.title,
-              artist: song.artist,
-              mediaPath: song.mediaPath,
-              fileName: song.fileName,
-              extension: song.extension,
-            ),
-          )
-          .toList(growable: false);
-    }
-
+class MediaLibraryDataSource {
+  Future<List<LibrarySong>> scanLibrary(String rootPath) async {
     final Directory directory = Directory(rootPath);
     if (!await directory.exists()) {
       throw FileSystemException('媒体库目录不存在', rootPath);
     }
 
-    final List<DemoLibrarySong> songs = <DemoLibrarySong>[];
+    final List<LibrarySong> songs = <LibrarySong>[];
     final List<Directory> directories = <Directory>[directory];
 
     while (directories.isNotEmpty) {
@@ -58,14 +34,14 @@ class DemoMediaLibraryDataSource {
         }
 
         final String fileName = _extractFileName(entity.path);
-        final String extension = demoExtractVideoExtension(fileName);
-        if (!demoSupportedVideoExtensionSet.contains(extension)) {
+        final String extension = extractVideoExtension(fileName);
+        if (!supportedVideoExtensionSet.contains(extension)) {
           continue;
         }
 
         final _ParsedName metadata = _parseFileName(fileName);
         songs.add(
-          DemoLibrarySong(
+          LibrarySong(
             title: metadata.title,
             artist: metadata.artist,
             mediaPath: entity.path,
@@ -76,7 +52,7 @@ class DemoMediaLibraryDataSource {
       }
     }
 
-    songs.sort((DemoLibrarySong left, DemoLibrarySong right) {
+    songs.sort((LibrarySong left, LibrarySong right) {
       final int titleCompare = left.title.compareTo(right.title);
       if (titleCompare != 0) {
         return titleCompare;
@@ -119,8 +95,8 @@ class DemoMediaLibraryDataSource {
   }
 }
 
-class DemoLibrarySong {
-  const DemoLibrarySong({
+class LibrarySong {
+  const LibrarySong({
     required this.title,
     required this.artist,
     required this.mediaPath,

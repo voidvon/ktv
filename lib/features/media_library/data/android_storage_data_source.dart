@@ -1,12 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/models/demo_artist.dart';
-import '../../../core/models/demo_artist_page.dart';
-import '../../../core/models/demo_song.dart';
-import '../../../core/models/demo_song_page.dart';
+import '../../../core/models/artist.dart';
+import '../../../core/models/artist_page.dart';
+import '../../../core/models/song.dart';
+import '../../../core/models/song_page.dart';
 
-class DemoAndroidStorageDataSource {
+class AndroidStorageDataSource {
   static const MethodChannel _channel = MethodChannel(
     'ktv2_example/android_storage',
   );
@@ -80,13 +80,13 @@ class DemoAndroidStorageDataSource {
     return path;
   }
 
-  Future<List<DemoAndroidLibrarySong>> scanLibrary(String rootUri) async {
+  Future<List<AndroidLibrarySong>> scanLibrary(String rootUri) async {
     final List<dynamic>? result = await _channel.invokeMethod<List<dynamic>>(
       'scanLibrary',
       <String, Object?>{'rootUri': rootUri},
     );
 
-    final List<DemoAndroidLibrarySong> songs = <DemoAndroidLibrarySong>[];
+    final List<AndroidLibrarySong> songs = <AndroidLibrarySong>[];
     for (final dynamic item in result ?? const <dynamic>[]) {
       if (item is! Map) {
         continue;
@@ -94,7 +94,7 @@ class DemoAndroidStorageDataSource {
 
       final Map<Object?, Object?> map = Map<Object?, Object?>.from(item);
       songs.add(
-        DemoAndroidLibrarySong(
+        AndroidLibrarySong(
           title: (map['title'] as String?) ?? '未知歌曲',
           artist: (map['artist'] as String?) ?? '未识别歌手',
           mediaPath: (map['filePath'] as String?) ?? '',
@@ -114,7 +114,7 @@ class DemoAndroidStorageDataSource {
     return indexedCount ?? 0;
   }
 
-  Future<DemoSongPage> queryIndexedSongs({
+  Future<SongPage> queryIndexedSongs({
     required String rootUri,
     required int pageIndex,
     required int pageSize,
@@ -140,13 +140,13 @@ class DemoAndroidStorageDataSource {
     );
     final List<dynamic> items =
         (pageMap['songs'] as List<dynamic>?) ?? const <dynamic>[];
-    final List<DemoSong> songs = items
+    final List<Song> songs = items
         .whereType<Map>()
         .map((Map item) {
           final Map<Object?, Object?> map = Map<Object?, Object?>.from(item);
           final List<String> languages = _parseStringList(map['languages']);
           final List<String> tags = _parseStringList(map['tags']);
-          return DemoSong(
+          return Song(
             title: (map['title'] as String?) ?? '未知歌曲',
             artist: (map['artist'] as String?) ?? '未识别歌手',
             languages: languages.isEmpty
@@ -158,7 +158,7 @@ class DemoAndroidStorageDataSource {
           );
         })
         .toList(growable: false);
-    return DemoSongPage(
+    return SongPage(
       songs: songs,
       totalCount: (pageMap['totalCount'] as num?)?.toInt() ?? 0,
       pageIndex: (pageMap['pageIndex'] as num?)?.toInt() ?? pageIndex,
@@ -166,7 +166,7 @@ class DemoAndroidStorageDataSource {
     );
   }
 
-  Future<DemoArtistPage> queryIndexedArtists({
+  Future<ArtistPage> queryIndexedArtists({
     required String rootUri,
     required int pageIndex,
     required int pageSize,
@@ -190,18 +190,18 @@ class DemoAndroidStorageDataSource {
     );
     final List<dynamic> items =
         (pageMap['artists'] as List<dynamic>?) ?? const <dynamic>[];
-    final List<DemoArtist> artists = items
+    final List<Artist> artists = items
         .whereType<Map>()
         .map((Map item) {
           final Map<Object?, Object?> map = Map<Object?, Object?>.from(item);
-          return DemoArtist(
+          return Artist(
             name: (map['name'] as String?) ?? '未识别歌手',
             songCount: (map['songCount'] as num?)?.toInt() ?? 0,
             searchIndex: (map['searchIndex'] as String?) ?? '',
           );
         })
         .toList(growable: false);
-    return DemoArtistPage(
+    return ArtistPage(
       artists: artists,
       totalCount: (pageMap['totalCount'] as num?)?.toInt() ?? 0,
       pageIndex: (pageMap['pageIndex'] as num?)?.toInt() ?? pageIndex,
@@ -221,8 +221,8 @@ class DemoAndroidStorageDataSource {
   }
 }
 
-class DemoAndroidLibrarySong {
-  const DemoAndroidLibrarySong({
+class AndroidLibrarySong {
+  const AndroidLibrarySong({
     required this.title,
     required this.artist,
     required this.mediaPath,

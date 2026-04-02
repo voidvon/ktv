@@ -4,12 +4,12 @@ import 'package:flutter/services.dart';
 
 import 'android_storage_data_source.dart';
 
-class DemoScanDirectoryDataSource {
+class ScanDirectoryDataSource {
   static const MethodChannel _macosChannel = MethodChannel(
     'ktv2_example/macos_directory_picker',
   );
-  final DemoAndroidStorageDataSource _androidStorageDataSource =
-      DemoAndroidStorageDataSource();
+  final AndroidStorageDataSource _androidStorageDataSource =
+      AndroidStorageDataSource();
 
   Future<String?> pickDirectory({String? initialDirectory}) async {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {

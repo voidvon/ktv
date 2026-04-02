@@ -35,17 +35,16 @@ void main() {
       for (final String fileName in supportedFiles.followedBy(
         unsupportedFiles,
       )) {
-        await File('${directory.path}/$fileName').writeAsString('demo');
+        await File('${directory.path}/$fileName').writeAsString('sample');
       }
 
-      final DemoMediaLibraryDataSource dataSource =
-          DemoMediaLibraryDataSource();
-      final List<DemoLibrarySong> songs = await dataSource.scanLibrary(
+      final MediaLibraryDataSource dataSource = MediaLibraryDataSource();
+      final List<LibrarySong> songs = await dataSource.scanLibrary(
         directory.path,
       );
 
       expect(
-        songs.map((DemoLibrarySong song) => song.fileName).toSet(),
+        songs.map((LibrarySong song) => song.fileName).toSet(),
         supportedFiles.toSet(),
       );
     },

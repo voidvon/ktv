@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 
-import '../features/ktv_demo/presentation/ktv_demo_shell.dart';
+import '../features/ktv/application/ktv_controller.dart';
+import '../features/ktv/presentation/ktv_shell.dart';
+import 'ktv_dependencies.dart';
 
-class KtvDemoApp extends StatelessWidget {
-  const KtvDemoApp({super.key});
+class KtvApp extends StatefulWidget {
+  const KtvApp({super.key});
+
+  @override
+  State<KtvApp> createState() => _KtvAppState();
+}
+
+class _KtvAppState extends State<KtvApp> {
+  late final KtvController _controller = createKtvController();
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +36,13 @@ class KtvDemoApp extends StatelessWidget {
           displayColor: const Color(0xFFFFF7FF),
         ),
       ),
-      home: const KtvDemoShell(),
+      home: KtvShell(controller: _controller),
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 }

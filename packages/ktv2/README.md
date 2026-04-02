@@ -25,14 +25,14 @@ dependencies:
 import 'package:flutter/material.dart';
 import 'package:ktv2/ktv2.dart';
 
-class DemoPage extends StatefulWidget {
-  const DemoPage({super.key});
+class PlayerPage extends StatefulWidget {
+  const PlayerPage({super.key});
 
   @override
-  State<DemoPage> createState() => _DemoPageState();
+  State<PlayerPage> createState() => _PlayerPageState();
 }
 
-class _DemoPageState extends State<DemoPage> {
+class _PlayerPageState extends State<PlayerPage> {
   final PlayerController controller = createPlayerController();
 
   @override
