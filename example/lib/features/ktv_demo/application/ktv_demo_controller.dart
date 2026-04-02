@@ -331,6 +331,37 @@ class KtvDemoController extends ChangeNotifier {
     await _reloadLibraryPage(pageIndex: 0, clearErrorMessage: true);
     if (_state.libraryTotalCount == 0) {
       await scanLibrary(savedDirectory);
+      return;
+    }
+    unawaited(_refreshLibraryIndexInBackground(savedDirectory));
+  }
+
+  Future<void> _refreshLibraryIndexInBackground(String directory) async {
+    if (_state.scanDirectoryPath != directory) {
+      return;
+    }
+    _setState(
+      _state.copyWith(isScanningLibrary: true, libraryScanErrorMessage: null),
+    );
+    try {
+      await _mediaLibraryRepository.scanLibrary(directory);
+      if (_state.scanDirectoryPath != directory) {
+        return;
+      }
+      await _reloadLibraryPage(
+        pageIndex: _state.libraryPageIndex,
+        pageSize: _state.libraryPageSize,
+        clearErrorMessage: true,
+      );
+    } catch (error) {
+      if (_state.scanDirectoryPath != directory) {
+        return;
+      }
+      _setState(_state.copyWith(libraryScanErrorMessage: '后台刷新目录失败：$error'));
+    } finally {
+      if (_state.scanDirectoryPath == directory) {
+        _setState(_state.copyWith(isScanningLibrary: false));
+      }
     }
   }
 

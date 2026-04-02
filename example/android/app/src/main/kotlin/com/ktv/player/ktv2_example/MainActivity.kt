@@ -1150,6 +1150,7 @@ class MainActivity : FlutterActivity() {
         var rightIndex = segments.lastIndex
         val languagesReversed = mutableListOf<String>()
         val tagsReversed = mutableListOf<String>()
+        var firstMatchedKeywordIndex: Int? = null
         while (rightIndex >= artistSegmentCount) {
             val segment = segments[rightIndex].trim()
             if (segment.isEmpty()) {
@@ -1169,6 +1170,7 @@ class MainActivity : FlutterActivity() {
                 if (!languagesReversed.contains(languageMatch)) {
                     languagesReversed += languageMatch
                 }
+                firstMatchedKeywordIndex = rightIndex
                 rightIndex -= 1
                 continue
             }
@@ -1178,14 +1180,18 @@ class MainActivity : FlutterActivity() {
                 if (!tagsReversed.contains(tagMatch)) {
                     tagsReversed += tagMatch
                 }
+                firstMatchedKeywordIndex = rightIndex
                 rightIndex -= 1
                 continue
             }
-            break
+            rightIndex -= 1
         }
 
         val titleSegments =
-            segments.subList(artistSegmentCount, rightIndex + 1)
+            segments.subList(
+                artistSegmentCount,
+                firstMatchedKeywordIndex ?: segments.size,
+            )
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
         val title = titleSegments.joinToString("-").trim()

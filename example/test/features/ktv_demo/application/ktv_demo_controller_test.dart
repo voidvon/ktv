@@ -14,6 +14,11 @@ void main() {
         FakeDemoMediaLibraryRepository(
           savedDirectory: 'content://demo/tree',
           accessibleDirectories: <String>{'content://demo/tree'},
+          indexedResults: <String, List<DemoSong>>{
+            'content://demo/tree': <DemoSong>[
+              _song(title: '海阔天空', artist: 'Beyond'),
+            ],
+          },
           scanResults: <String, List<DemoSong>>{
             'content://demo/tree': <DemoSong>[
               _song(title: '海阔天空', artist: 'Beyond'),
@@ -31,8 +36,45 @@ void main() {
     expect(controller.scanDirectoryPath, 'content://demo/tree');
     expect(controller.route, DemoRoute.songBook);
     expect(controller.librarySongs, hasLength(1));
+    await _settleLibraryQuery();
+    expect(repository.scanLibraryCallCount, 1);
     expect(controller.currentSubtitle, contains('已从扫描目录加载 1 首歌曲'));
   });
+
+  test(
+    'initialize shows indexed songs first then refreshes in background',
+    () async {
+      final FakeDemoMediaLibraryRepository repository =
+          FakeDemoMediaLibraryRepository(
+            savedDirectory: 'content://demo/tree',
+            accessibleDirectories: <String>{'content://demo/tree'},
+            indexedResults: <String, List<DemoSong>>{
+              'content://demo/tree': <DemoSong>[
+                _song(title: '沧海一声笑-国语-单音轨', artist: '任贤齐'),
+              ],
+            },
+            scanResults: <String, List<DemoSong>>{
+              'content://demo/tree': <DemoSong>[
+                _song(title: '沧海一声笑', artist: '任贤齐', language: '国语'),
+              ],
+            },
+          );
+      final KtvDemoController controller = KtvDemoController(
+        mediaLibraryRepository: repository,
+        playerController: FakePlayerController(),
+      );
+
+      await controller.initialize();
+
+      expect(controller.librarySongs.single.title, '沧海一声笑-国语-单音轨');
+
+      await _settleLibraryQuery();
+
+      expect(repository.scanLibraryCallCount, 1);
+      expect(controller.librarySongs.single.title, '沧海一声笑');
+      expect(controller.librarySongs.single.language, '国语');
+    },
+  );
 
   test(
     'scanLibrary resets search and language and filters with state',
@@ -252,15 +294,19 @@ class FakeDemoMediaLibraryRepository extends DemoMediaLibraryRepository {
   FakeDemoMediaLibraryRepository({
     this.savedDirectory,
     Set<String>? accessibleDirectories,
+    Map<String, List<DemoSong>>? indexedResults,
     Map<String, List<DemoSong>>? scanResults,
   }) : _accessibleDirectories = accessibleDirectories ?? <String>{},
+       _indexedResults = indexedResults ?? <String, List<DemoSong>>{},
        _scanResults = scanResults ?? <String, List<DemoSong>>{};
 
   final String? savedDirectory;
   final Set<String> _accessibleDirectories;
+  final Map<String, List<DemoSong>> _indexedResults;
   final Map<String, List<DemoSong>> _scanResults;
   String? lastSavedDirectory;
   String? clearedDirectory;
+  int scanLibraryCallCount = 0;
 
   @override
   Future<String?> loadSelectedDirectory() async => savedDirectory;
@@ -282,10 +328,12 @@ class FakeDemoMediaLibraryRepository extends DemoMediaLibraryRepository {
 
   @override
   Future<int> scanLibrary(String directory) async {
+    scanLibraryCallCount += 1;
     final List<DemoSong>? result = _scanResults[directory];
     if (result == null) {
       throw StateError('missing scan result for $directory');
     }
+    _indexedResults[directory] = List<DemoSong>.of(result);
     return result.length;
   }
 
@@ -298,7 +346,8 @@ class FakeDemoMediaLibraryRepository extends DemoMediaLibraryRepository {
     String? artist,
     String searchQuery = '',
   }) async {
-    final List<DemoSong>? result = _scanResults[directory];
+    final List<DemoSong>? result =
+        _indexedResults[directory] ?? _scanResults[directory];
     if (result == null) {
       throw StateError('missing scan result for $directory');
     }
@@ -340,7 +389,8 @@ class FakeDemoMediaLibraryRepository extends DemoMediaLibraryRepository {
     String? language,
     String searchQuery = '',
   }) async {
-    final List<DemoSong>? result = _scanResults[directory];
+    final List<DemoSong>? result =
+        _indexedResults[directory] ?? _scanResults[directory];
     if (result == null) {
       throw StateError('missing scan result for $directory');
     }
