@@ -335,23 +335,29 @@ class _KtvDemoShellState extends State<KtvDemoShell>
 
   SongBookViewModel _buildSongBookViewModel() {
     return SongBookViewModel(
-      route: _demoController.route,
-      songBookMode: _demoController.songBookMode,
-      searchQuery: _demoController.searchQuery,
-      selectedLanguage: _demoController.selectedLanguage,
-      selectedArtist: _demoController.selectedArtist,
-      songs: _demoController.filteredSongs,
-      artists: _demoController.libraryArtists,
-      libraryTotalCount: _demoController.libraryTotalCount,
-      libraryPageIndex: _demoController.libraryPageIndex,
-      libraryTotalPages: _demoController.libraryTotalPages,
-      libraryPageSize: _demoController.libraryPageSize,
-      hasConfiguredDirectory: _demoController.hasConfiguredDirectory,
-      isScanningLibrary: _demoController.isScanningLibrary,
-      isLoadingLibraryPage: _demoController.isLoadingLibraryPage,
-      libraryScanErrorMessage: _demoController.libraryScanErrorMessage,
-      queuedSongs: _demoController.queuedSongs,
-      breadcrumbLabel: _demoController.breadcrumbLabel,
+      navigation: SongBookNavigationViewModel(
+        route: _demoController.route,
+        songBookMode: _demoController.songBookMode,
+        selectedArtist: _demoController.selectedArtist,
+        breadcrumbLabel: _demoController.breadcrumbLabel,
+      ),
+      library: SongBookLibraryViewModel(
+        searchQuery: _demoController.searchQuery,
+        selectedLanguage: _demoController.selectedLanguage,
+        songs: _demoController.filteredSongs,
+        artists: _demoController.libraryArtists,
+        totalCount: _demoController.libraryTotalCount,
+        pageIndex: _demoController.libraryPageIndex,
+        totalPages: _demoController.libraryTotalPages,
+        pageSize: _demoController.libraryPageSize,
+        hasConfiguredDirectory: _demoController.hasConfiguredDirectory,
+        isScanning: _demoController.isScanningLibrary,
+        isLoadingPage: _demoController.isLoadingLibraryPage,
+        scanErrorMessage: _demoController.libraryScanErrorMessage,
+      ),
+      playback: SongBookPlaybackViewModel(
+        queuedSongs: _demoController.queuedSongs,
+      ),
     );
   }
 

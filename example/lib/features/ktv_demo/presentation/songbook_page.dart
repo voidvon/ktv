@@ -39,42 +39,64 @@ const List<List<String>> _numberKeyboardRows = <List<String>>[
 
 class SongBookViewModel {
   const SongBookViewModel({
+    required this.navigation,
+    required this.library,
+    required this.playback,
+  });
+
+  final SongBookNavigationViewModel navigation;
+  final SongBookLibraryViewModel library;
+  final SongBookPlaybackViewModel playback;
+}
+
+class SongBookNavigationViewModel {
+  const SongBookNavigationViewModel({
     required this.route,
     required this.songBookMode,
-    required this.searchQuery,
-    required this.selectedLanguage,
     required this.selectedArtist,
-    required this.songs,
-    required this.artists,
-    required this.libraryTotalCount,
-    required this.libraryPageIndex,
-    required this.libraryTotalPages,
-    required this.libraryPageSize,
-    required this.hasConfiguredDirectory,
-    required this.isScanningLibrary,
-    required this.isLoadingLibraryPage,
-    required this.libraryScanErrorMessage,
-    required this.queuedSongs,
     required this.breadcrumbLabel,
   });
 
   final DemoRoute route;
   final DemoSongBookMode songBookMode;
+  final String? selectedArtist;
+  final String breadcrumbLabel;
+}
+
+class SongBookLibraryViewModel {
+  const SongBookLibraryViewModel({
+    required this.searchQuery,
+    required this.selectedLanguage,
+    required this.songs,
+    required this.artists,
+    required this.totalCount,
+    required this.pageIndex,
+    required this.totalPages,
+    required this.pageSize,
+    required this.hasConfiguredDirectory,
+    required this.isScanning,
+    required this.isLoadingPage,
+    required this.scanErrorMessage,
+  });
+
   final String searchQuery;
   final String selectedLanguage;
-  final String? selectedArtist;
   final List<DemoSong> songs;
   final List<DemoArtist> artists;
-  final int libraryTotalCount;
-  final int libraryPageIndex;
-  final int libraryTotalPages;
-  final int libraryPageSize;
+  final int totalCount;
+  final int pageIndex;
+  final int totalPages;
+  final int pageSize;
   final bool hasConfiguredDirectory;
-  final bool isScanningLibrary;
-  final bool isLoadingLibraryPage;
-  final String? libraryScanErrorMessage;
+  final bool isScanning;
+  final bool isLoadingPage;
+  final String? scanErrorMessage;
+}
+
+class SongBookPlaybackViewModel {
+  const SongBookPlaybackViewModel({required this.queuedSongs});
+
   final List<DemoSong> queuedSongs;
-  final String breadcrumbLabel;
 }
 
 class SongBookCallbacks {
@@ -152,9 +174,9 @@ class SongBookPage extends StatelessWidget {
         SongBookLeftColumn(
           controller: controller,
           searchController: searchController,
-          route: viewModel.route,
-          songBookMode: viewModel.songBookMode,
-          selectedArtist: viewModel.selectedArtist,
+          route: viewModel.navigation.route,
+          songBookMode: viewModel.navigation.songBookMode,
+          selectedArtist: viewModel.navigation.selectedArtist,
           compact: compact,
           showLetterKeyboard: showLetterKeyboard,
           onAppendSearchToken: callbacks.onAppendSearchToken,
@@ -464,6 +486,9 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
 
   SongBookViewModel get _viewModel => widget.viewModel;
   SongBookCallbacks get _callbacks => widget.callbacks;
+  SongBookNavigationViewModel get _navigation => _viewModel.navigation;
+  SongBookLibraryViewModel get _library => _viewModel.library;
+  SongBookPlaybackViewModel get _playback => _viewModel.playback;
 
   @override
   void initState() {
@@ -631,8 +656,8 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
   }
 
   void _scheduleLibraryPageSizeSync(int pageSize) {
-    if (_viewModel.route == DemoRoute.queueList ||
-        _viewModel.libraryPageSize == pageSize ||
+    if (_navigation.route == DemoRoute.queueList ||
+        _library.pageSize == pageSize ||
         _pendingLibraryPageSizeSync == pageSize) {
       return;
     }
@@ -642,7 +667,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
         return;
       }
       _pendingLibraryPageSizeSync = null;
-      _callbacks.onRequestLibraryPage(_viewModel.libraryPageIndex, pageSize);
+      _callbacks.onRequestLibraryPage(_library.pageIndex, pageSize);
     });
   }
 
@@ -718,11 +743,11 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
   Widget build(BuildContext context) {
     final MediaQueryData media = MediaQuery.of(context);
     final bool isLandscape = media.orientation == Orientation.landscape;
-    final bool isQueueRoute = _viewModel.route == DemoRoute.queueList;
+    final bool isQueueRoute = _navigation.route == DemoRoute.queueList;
     final bool isArtistOverview =
         !isQueueRoute &&
-        _viewModel.songBookMode == DemoSongBookMode.artists &&
-        _viewModel.selectedArtist == null;
+        _navigation.songBookMode == DemoSongBookMode.artists &&
+        _navigation.selectedArtist == null;
     final int crossAxisCount = isArtistOverview
         ? _resolveArtistCrossAxisCount(media, isLandscape: isLandscape)
         : _resolveCrossAxisCount(media);
@@ -765,9 +790,9 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
           itemBuilder: (BuildContext context, int index) {
             final DemoSong song = visibleSongs[index];
             final bool isCurrent =
-                _viewModel.queuedSongs.isNotEmpty &&
-                _viewModel.queuedSongs.first == song;
-            final bool isQueued = _viewModel.queuedSongs.contains(song);
+                _playback.queuedSongs.isNotEmpty &&
+                _playback.queuedSongs.first == song;
+            final bool isQueued = _playback.queuedSongs.contains(song);
             return _SongTile(
               song: song,
               isCurrent: isCurrent,
@@ -814,47 +839,47 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
 
     Widget buildLibraryContent(int rowsPerPage, {required double tileHeight}) {
       final int itemsPerPage = crossAxisCount * rowsPerPage;
-      if (!_viewModel.hasConfiguredDirectory) {
+      if (!_library.hasConfiguredDirectory) {
         return const _EmptyContentCard(message: '请先在设置里选择扫描目录，扫描完成后这里会展示歌曲列表。');
       }
       _scheduleLibraryPageSizeSync(itemsPerPage);
-      if (_viewModel.isScanningLibrary &&
-          _viewModel.libraryTotalCount == 0 &&
-          _viewModel.songs.isEmpty) {
+      if (_library.isScanning &&
+          _library.totalCount == 0 &&
+          _library.songs.isEmpty) {
         return const _EmptyContentCard(message: '正在扫描目录中的歌曲，请稍候。');
       }
-      if (_viewModel.isLoadingLibraryPage &&
-          _viewModel.libraryTotalCount == 0 &&
-          _viewModel.songs.isEmpty &&
-          _viewModel.artists.isEmpty) {
+      if (_library.isLoadingPage &&
+          _library.totalCount == 0 &&
+          _library.songs.isEmpty &&
+          _library.artists.isEmpty) {
         return _EmptyContentCard(
           message: isArtistOverview ? '正在加载歌手列表，请稍候。' : '正在加载歌曲列表，请稍候。',
         );
       }
-      if (_viewModel.libraryScanErrorMessage != null) {
-        return _EmptyContentCard(message: _viewModel.libraryScanErrorMessage!);
+      if (_library.scanErrorMessage != null) {
+        return _EmptyContentCard(message: _library.scanErrorMessage!);
       }
       if (isArtistOverview) {
-        if (_viewModel.artists.isEmpty) {
+        if (_library.artists.isEmpty) {
           return const _EmptyContentCard(
             message: '当前条件下没有可显示的歌手，试试切换语言或清空搜索关键字。',
           );
         }
         return buildArtistGrid(
-          _viewModel.artists,
+          _library.artists,
           rowsPerPage,
           tileHeight: tileHeight,
         );
       }
-      if (_viewModel.songs.isEmpty) {
+      if (_library.songs.isEmpty) {
         return _EmptyContentCard(
-          message: _viewModel.selectedArtist == null
+          message: _navigation.selectedArtist == null
               ? '当前目录下没有扫描到可播放视频文件，请确认目录中包含常见视频格式媒体文件。'
               : '当前歌手下没有匹配的歌曲，试试切换语言或清空搜索关键字。',
         );
       }
       return buildLibraryGrid(
-        _viewModel.songs,
+        _library.songs,
         rowsPerPage,
         tileHeight: tileHeight,
       );
@@ -899,7 +924,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
     }
 
     Widget buildQueueContent(int rowsPerPage, {required double tileHeight}) {
-      if (_viewModel.queuedSongs.isEmpty) {
+      if (_playback.queuedSongs.isEmpty) {
         return const _EmptyContentCard(message: '当前还没有已点歌曲，点歌后会在这里显示。');
       }
       if (filteredQueueEntries.isEmpty) {
@@ -939,7 +964,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
       children: <Widget>[
         _SongBookActionRow(
           controller: widget.controller,
-          queueCount: _viewModel.queuedSongs.length,
+          queueCount: _playback.queuedSongs.length,
           compact: widget.compact,
           onQueuePressed: isQueueRoute ? null : _callbacks.onQueuePressed,
           onSettingsPressed: _callbacks.onSettingsPressed,
@@ -953,7 +978,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
           children: <Widget>[
             Expanded(
               child: Text(
-                _viewModel.breadcrumbLabel,
+                _navigation.breadcrumbLabel,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -976,8 +1001,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
             child: Row(
               children: _languageTabs
                   .map((String language) {
-                    final bool selected =
-                        language == _viewModel.selectedLanguage;
+                    final bool selected = language == _library.selectedLanguage;
                     return Padding(
                       padding: EdgeInsets.only(
                         right: language == _languageTabs.last ? 0 : 4,
@@ -1037,11 +1061,13 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
               final int libraryItemsPerPage =
                   crossAxisCount * fallbackRowsPerPage;
               final int resolvedLibraryTotalPages = _computeVisibleTotalPages(
-                _viewModel.libraryTotalCount,
+                _library.totalCount,
                 libraryItemsPerPage,
               );
-              final int normalizedLibraryPage = _viewModel.libraryPageIndex
-                  .clamp(0, math.max(0, resolvedLibraryTotalPages - 1));
+              final int normalizedLibraryPage = _library.pageIndex.clamp(
+                0,
+                math.max(0, resolvedLibraryTotalPages - 1),
+              );
               final pageData = isQueueRoute
                   ? resolvePageData<QueuedSongEntry>(
                       filteredQueueEntries,
@@ -1092,11 +1118,13 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
                     );
                 final int libraryItemsPerPage = crossAxisCount * rowsPerPage;
                 final int resolvedLibraryTotalPages = _computeVisibleTotalPages(
-                  _viewModel.libraryTotalCount,
+                  _library.totalCount,
                   libraryItemsPerPage,
                 );
-                final int normalizedLibraryPage = _viewModel.libraryPageIndex
-                    .clamp(0, math.max(0, resolvedLibraryTotalPages - 1));
+                final int normalizedLibraryPage = _library.pageIndex.clamp(
+                  0,
+                  math.max(0, resolvedLibraryTotalPages - 1),
+                );
                 final pageData = isQueueRoute
                     ? resolvePageData<QueuedSongEntry>(
                         filteredQueueEntries,
@@ -1153,8 +1181,8 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
   }
 
   List<QueuedSongEntry> _resolveFilteredQueueEntries() {
-    final String normalizedQuery = _viewModel.searchQuery.trim().toLowerCase();
-    final Iterable<QueuedSongEntry> allEntries = _viewModel.queuedSongs
+    final String normalizedQuery = _library.searchQuery.trim().toLowerCase();
+    final Iterable<QueuedSongEntry> allEntries = _playback.queuedSongs
         .asMap()
         .entries
         .map((MapEntry<int, DemoSong> entry) {
