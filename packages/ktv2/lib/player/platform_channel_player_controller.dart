@@ -237,8 +237,10 @@ abstract class PlatformChannelPlayerController extends PlayerController {
 
   @override
   Future<void> applyAudioOutputMode(AudioOutputMode mode) async {
+    if (_stateStore.audioOutputMode == mode) {
+      return;
+    }
     _stateStore.setAudioOutputMode(mode);
-    notifyListeners();
 
     try {
       final snapshot = await _channels.invoke('setAudioOutputMode', {

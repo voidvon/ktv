@@ -32,12 +32,10 @@ class NativeKtvPlayerHost(
 ) : MethodChannel.MethodCallHandler, EventChannel.StreamHandler, MediaPlayer.EventListener {
     private companion object {
         const val tag = "KtvNative"
-        const val singleTrackAudioRoutingRetryDelayMs = 180L
-        const val initialAudioRoutingReapplyDelayMs = 420L
-        const val maxSingleTrackAudioRoutingRetries = 6
         const val libVlcAudioChannelStereo = 1
         const val libVlcAudioChannelLeft = 3
         const val libVlcAudioChannelRight = 4
+        const val lowLatencyCachingMs = 120
         const val nativeSingleTrackRoutingEnabled = true
 
         val libVlcBridgeLoaded =
@@ -97,12 +95,11 @@ class NativeKtvPlayerHost(
     private var lastKnownDurationMs = 0L
     private var lastKnownVoutCount = 0
     private var isApplyingAudioOutputMode = false
+    private var hasPendingAudioOutputModeApply = false
     private var appliedSingleTrackAudioOutputMode: AudioOutputMode? = null
-    private var singleTrackAudioRoutingRetryCount = 0
     private var pendingPlaybackRequest: PendingPlaybackRequest? = null
     private var pendingAttachStateListener: View.OnAttachStateChangeListener? = null
     private var pendingLayoutChangeListener: View.OnLayoutChangeListener? = null
-    private var pendingInitialAudioRoutingReapplyRunnable: Runnable? = null
     private var lastAttachedLayoutWidth = 0
     private var lastAttachedLayoutHeight = 0
     private var keepScreenOnRequested = false
@@ -116,14 +113,9 @@ class NativeKtvPlayerHost(
     private val positionUpdateRunnable =
         object : Runnable {
             override fun run() {
-                pushSnapshot()
+                pushProgressUpdate()
                 mainHandler.postDelayed(this, 300L)
             }
-        }
-
-    private val singleTrackAudioRoutingRetryRunnable =
-        Runnable {
-            applyRequestedAudioOutputModeIfPossible()
         }
 
     init {
@@ -138,7 +130,7 @@ class NativeKtvPlayerHost(
 
     private val libVlc: LibVLC
         get() =
-            libVlcInstance ?: LibVLC(applicationContext, arrayListOf("--verbose=2")).also {
+            libVlcInstance ?: LibVLC(applicationContext, buildLibVlcOptions()).also {
                 libVlcInstance = it
             }
 
@@ -189,6 +181,7 @@ class NativeKtvPlayerHost(
                 "setAudioOutputMode" -> {
                     requestedAudioOutputMode = parseAudioOutputMode(call.argument("mode"))
                     playbackError = null
+                    hasPendingAudioOutputModeApply = true
                     applyRequestedAudioOutputModeIfPossible()
                     result.success(snapshot())
                 }
@@ -218,6 +211,7 @@ class NativeKtvPlayerHost(
         val lengthChanged = event.lengthChanged
         val voutCount = event.voutCount
         mainHandler.post {
+            var shouldPushFullSnapshot = true
             when (eventType) {
                 MediaPlayer.Event.Opening -> {
                     playbackCompleted = false
@@ -230,7 +224,7 @@ class NativeKtvPlayerHost(
                     playbackCompleted = false
                     playbackError = null
                     updateSelectedAudioTrackInfo()
-                    applyRequestedAudioOutputModeIfPossible()
+                    applyRequestedAudioOutputModeIfPending()
                     videoLayout?.let { attachPlayerViews(it, reason = "event:Playing") }
                 }
                 MediaPlayer.Event.Paused -> {
@@ -252,9 +246,11 @@ class NativeKtvPlayerHost(
                 }
                 MediaPlayer.Event.TimeChanged -> {
                     lastKnownPositionMs = timeChanged.coerceAtLeast(0L)
+                    shouldPushFullSnapshot = false
                 }
                 MediaPlayer.Event.LengthChanged -> {
                     lastKnownDurationMs = lengthChanged.coerceAtLeast(0L)
+                    shouldPushFullSnapshot = false
                 }
                 MediaPlayer.Event.Vout -> {
                     lastKnownVoutCount = voutCount
@@ -266,7 +262,7 @@ class NativeKtvPlayerHost(
                 MediaPlayer.Event.MediaChanged,
                 -> {
                     updateSelectedAudioTrackInfo()
-                    applyRequestedAudioOutputModeIfPossible()
+                    applyRequestedAudioOutputModeIfPending()
                 }
             }
             if (
@@ -285,14 +281,14 @@ class NativeKtvPlayerHost(
                 )
             }
             syncKeepScreenOnState()
-            pushSnapshot()
+            if (shouldPushFullSnapshot) {
+                pushSnapshot()
+            }
         }
     }
 
     fun dispose() {
         mainHandler.removeCallbacks(positionUpdateRunnable)
-        mainHandler.removeCallbacks(singleTrackAudioRoutingRetryRunnable)
-        clearPendingInitialAudioRoutingReapply()
         eventChannel.setStreamHandler(null)
         methodChannel.setMethodCallHandler(null)
         clearPendingAttachStateListener()
@@ -497,9 +493,8 @@ class NativeKtvPlayerHost(
         lastKnownPositionMs = 0L
         lastKnownDurationMs = 0L
         lastKnownVoutCount = 0
+        hasPendingAudioOutputModeApply = true
         appliedSingleTrackAudioOutputMode = null
-        resetSingleTrackAudioRoutingRetry()
-        clearPendingInitialAudioRoutingReapply()
         selectedAudioTrackTitle = null
         selectedAudioChannelCount = null
         Log.i(
@@ -540,9 +535,8 @@ class NativeKtvPlayerHost(
         lastKnownVoutCount = 0
         playbackCompleted = false
         playbackError = null
+        hasPendingAudioOutputModeApply = true
         appliedSingleTrackAudioOutputMode = null
-        resetSingleTrackAudioRoutingRetry()
-        clearPendingInitialAudioRoutingReapply()
         selectedAudioTrackTitle = null
         selectedAudioChannelCount = null
 
@@ -556,7 +550,6 @@ class NativeKtvPlayerHost(
         currentPlaybackPath = path
         keepScreenOnRequested = shouldResume
         player.play()
-        scheduleInitialAudioRoutingReapply(path)
         if (preservePositionMs > 0L) {
             player.setTime(preservePositionMs.coerceAtLeast(0L))
         }
@@ -608,6 +601,20 @@ class NativeKtvPlayerHost(
             eventSink?.success(snapshot())
         } else {
             mainHandler.post { eventSink?.success(snapshot()) }
+        }
+    }
+
+    private fun pushProgressUpdate() {
+        val event =
+            mapOf(
+                "eventKind" to "progress",
+                "playbackPositionMs" to currentPositionMs,
+                "playbackDurationMs" to currentDurationMs,
+            )
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            eventSink?.success(event)
+        } else {
+            mainHandler.post { eventSink?.success(event) }
         }
     }
 
@@ -741,29 +748,32 @@ class NativeKtvPlayerHost(
         isApplyingAudioOutputMode = true
         try {
             if (audioTracks.size > 1) {
-                resetSingleTrackAudioRoutingRetry()
                 playbackError = null
-                restoreStereoAudioChannelRouting()
+                if (appliedSingleTrackAudioOutputMode != null) {
+                    restoreStereoAudioChannelRouting()
+                }
                 val targetTrack = preferredAudioTrackForMode(requestedAudioOutputMode, audioTracks)
                 if (player.getAudioTrack() != targetTrack.id) {
                     player.setAudioTrack(targetTrack.id)
                 }
                 selectedAudioTrackTitle = targetTrack.title
                 selectedAudioChannelCount = targetTrack.channelCount
+                hasPendingAudioOutputModeApply = false
                 return
             }
 
             if (libVlcBridgeLoaded && singleTrackNativeChannelRoutingAvailable != false) {
                 if (appliedSingleTrackAudioOutputMode == requestedAudioOutputMode) {
+                    hasPendingAudioOutputModeApply = false
                     return
                 }
                 if (applySingleTrackAudioChannelRouting(requestedAudioOutputMode)) {
-                    resetSingleTrackAudioRoutingRetry()
                     playbackError = null
                     updateSelectedAudioTrackInfo()
+                    hasPendingAudioOutputModeApply = false
                     return
                 }
-                scheduleSingleTrackAudioRoutingRetry("nativeSetAudioChannel returned false for $mediaPath")
+                Log.w(tag, "single-track audio routing not applied for $mediaPath")
                 return
             }
 
@@ -771,13 +781,20 @@ class NativeKtvPlayerHost(
                 return
             }
 
-            scheduleSingleTrackAudioRoutingRetry("audio track metadata not ready for $mediaPath")
+            Log.i(tag, "audio track metadata not ready for $mediaPath")
         } catch (error: Exception) {
             playbackError = "${localizedModeName(requestedAudioOutputMode)}切换失败：${error.message ?: error}"
             Log.e(tag, "applyRequestedAudioOutputMode failed", error)
         } finally {
             isApplyingAudioOutputMode = false
         }
+    }
+
+    private fun applyRequestedAudioOutputModeIfPending() {
+        if (!hasPendingAudioOutputModeApply) {
+            return
+        }
+        applyRequestedAudioOutputModeIfPossible()
     }
 
     private fun applySingleTrackAudioChannelRouting(mode: AudioOutputMode): Boolean {
@@ -824,54 +841,6 @@ class NativeKtvPlayerHost(
         }
     }
 
-    private fun scheduleInitialAudioRoutingReapply(path: String) {
-        if (!libVlcBridgeLoaded || singleTrackNativeChannelRoutingAvailable == false) {
-            return
-        }
-        clearPendingInitialAudioRoutingReapply()
-        val expectedMode = requestedAudioOutputMode
-        val runnable =
-            Runnable {
-                pendingInitialAudioRoutingReapplyRunnable = null
-                if (currentPlaybackPath != path || player.instance == 0L) {
-                    return@Runnable
-                }
-                appliedSingleTrackAudioOutputMode = null
-                requestedAudioOutputMode = expectedMode
-                applyRequestedAudioOutputModeIfPossible()
-            }
-        pendingInitialAudioRoutingReapplyRunnable = runnable
-        mainHandler.postDelayed(runnable, initialAudioRoutingReapplyDelayMs)
-    }
-
-    private fun clearPendingInitialAudioRoutingReapply() {
-        pendingInitialAudioRoutingReapplyRunnable?.let(mainHandler::removeCallbacks)
-        pendingInitialAudioRoutingReapplyRunnable = null
-    }
-
-    private fun scheduleSingleTrackAudioRoutingRetry(reason: String) {
-        if (singleTrackAudioRoutingRetryCount >= maxSingleTrackAudioRoutingRetries) {
-            playbackError = "${localizedModeName(requestedAudioOutputMode)}切换失败：当前文件尚未准备好音频声道信息。"
-            Log.w(tag, "singleTrackAudioRoutingRetry exhausted reason=$reason")
-            return
-        }
-        singleTrackAudioRoutingRetryCount += 1
-        Log.i(
-            tag,
-            "singleTrackAudioRoutingRetry attempt=$singleTrackAudioRoutingRetryCount reason=$reason",
-        )
-        mainHandler.removeCallbacks(singleTrackAudioRoutingRetryRunnable)
-        mainHandler.postDelayed(
-            singleTrackAudioRoutingRetryRunnable,
-            singleTrackAudioRoutingRetryDelayMs,
-        )
-    }
-
-    private fun resetSingleTrackAudioRoutingRetry() {
-        singleTrackAudioRoutingRetryCount = 0
-        mainHandler.removeCallbacks(singleTrackAudioRoutingRetryRunnable)
-    }
-
     private val currentPositionMs: Long
         get() =
             playerOrNull?.time?.takeIf { it >= 0L }
@@ -893,10 +862,35 @@ class NativeKtvPlayerHost(
         }
 
     private fun buildMedia(path: String): Media {
-        if (path.startsWith("content://")) {
-            return Media(libVlc, Uri.parse(path))
-        }
-        return Media(libVlc, path)
+        val media =
+            if (path.startsWith("content://")) {
+                Media(libVlc, Uri.parse(path))
+            } else {
+                Media(libVlc, path)
+            }
+        applyLowLatencyMediaOptions(media)
+        return media
+    }
+
+    private fun buildLibVlcOptions(): ArrayList<String> {
+        return arrayListOf(
+            "--verbose=2",
+            "--file-caching=$lowLatencyCachingMs",
+            "--disc-caching=$lowLatencyCachingMs",
+            "--network-caching=$lowLatencyCachingMs",
+            "--live-caching=$lowLatencyCachingMs",
+            "--clock-jitter=0",
+            "--clock-synchro=0",
+        )
+    }
+
+    private fun applyLowLatencyMediaOptions(media: Media) {
+        media.addOption(":file-caching=$lowLatencyCachingMs")
+        media.addOption(":disc-caching=$lowLatencyCachingMs")
+        media.addOption(":network-caching=$lowLatencyCachingMs")
+        media.addOption(":live-caching=$lowLatencyCachingMs")
+        media.addOption(":clock-jitter=0")
+        media.addOption(":clock-synchro=0")
     }
 
     private fun ensurePlayablePath(path: String) {
