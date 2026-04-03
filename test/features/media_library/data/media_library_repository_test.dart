@@ -47,57 +47,57 @@ void main() {
 
     expect(count, 1);
     expect(localDataSource.scannedDirectories, <String>['/media']);
-    expect(androidStorageDataSource.scanIntoIndexCalls, isEmpty);
+    expect(androidStorageDataSource.scanCalls, isEmpty);
   });
 
-  test('content uri uses indexed android source on Android', () async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    final FakeMediaLibraryDataSource localDataSource =
-        FakeMediaLibraryDataSource(
-          songsByDirectory: <String, List<LibrarySong>>{},
-        );
-    final FakeAndroidStorageDataSource androidStorageDataSource =
-        FakeAndroidStorageDataSource(
-          scanCounts: <String, int>{'content://library/tree': 3},
-          songPages: <String, SongPage>{
-            'content://library/tree': SongPage(
-              songs: <Song>[song(title: '海阔天空', artist: 'Beyond')],
-              totalCount: 1,
-              pageIndex: 0,
-              pageSize: 8,
-            ),
-          },
-          artistPages: <String, ArtistPage>{
-            'content://library/tree': const ArtistPage(
-              artists: <Artist>[],
-              totalCount: 0,
-              pageIndex: 0,
-              pageSize: 8,
-            ),
-          },
-        );
-    final MediaLibraryRepository repository = MediaLibraryRepository(
-      mediaLibraryDataSource: localDataSource,
-      androidStorageDataSource: androidStorageDataSource,
-    );
+  test(
+    'content uri scan is persisted into unified local index on Android',
+    () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      final FakeMediaLibraryDataSource localDataSource =
+          FakeMediaLibraryDataSource(
+            songsByDirectory: <String, List<LibrarySong>>{},
+          );
+      final FakeAndroidStorageDataSource androidStorageDataSource =
+          FakeAndroidStorageDataSource(
+            scannedSongs: <String, List<AndroidLibrarySong>>{
+              'content://library/tree': <AndroidLibrarySong>[
+                const AndroidLibrarySong(
+                  title: '海阔天空',
+                  artist: 'Beyond',
+                  mediaPath: 'content://library/tree/song-1',
+                  fileName: 'Beyond - 海阔天空.mp4',
+                  extension: 'mp4',
+                ),
+              ],
+            },
+          );
+      final MediaLibraryRepository repository = MediaLibraryRepository(
+        mediaLibraryDataSource: localDataSource,
+        androidStorageDataSource: androidStorageDataSource,
+      );
 
-    final int count = await repository.scanLibrary('content://library/tree');
-    final SongPage songPage = await repository.querySongs(
-      directory: 'content://library/tree',
-      pageIndex: 0,
-      pageSize: 8,
-    );
+      final int count = await repository.scanLibrary('content://library/tree');
+      final SongPage songPage = await repository.querySongs(
+        directory: 'content://library/tree',
+        pageIndex: 0,
+        pageSize: 8,
+      );
 
-    expect(count, 3);
-    expect(localDataSource.scannedDirectories, isEmpty);
-    expect(androidStorageDataSource.scanIntoIndexCalls, <String>[
-      'content://library/tree',
-    ]);
-    expect(songPage.songs.single.title, '海阔天空');
-    expect(androidStorageDataSource.querySongCalls, <String>[
-      'content://library/tree',
-    ]);
-  });
+      expect(count, 1);
+      expect(localDataSource.scannedDirectories, isEmpty);
+      expect(androidStorageDataSource.scanCalls, <String>[
+        'content://library/tree',
+      ]);
+      expect(songPage.songs.single.title, '海阔天空');
+      final SongPage aggregatePage = await repository.queryAggregatedSongs(
+        pageIndex: 0,
+        pageSize: 8,
+        localDirectory: 'content://library/tree',
+      );
+      expect(aggregatePage.songs.single.title, '海阔天空');
+    },
+  );
 
   test('getSongsByIds resolves exact songs beyond 10000 entries', () async {
     final List<LibrarySong> librarySongs = List<LibrarySong>.generate(
@@ -350,6 +350,63 @@ void main() {
       ]);
     },
   );
+
+  test('aggregated songs self-heal when aggregate items are missing', () async {
+    final MediaIndexStore store = MediaIndexStore();
+    addTearDown(store.close);
+
+    final MediaLibraryRepository seedRepository = MediaLibraryRepository(
+      mediaLibraryDataSource: FakeMediaLibraryDataSource(
+        songsByDirectory: <String, List<LibrarySong>>{
+          '/media': <LibrarySong>[
+            const TestLibrarySong(
+              title: '青花瓷',
+              artist: '周杰伦',
+              mediaPath: '/media/1.mp4',
+              fileName: '周杰伦 - 青花瓷.mp4',
+              relativePath: '1.mp4',
+              fileSize: 1001,
+              modifiedAtMillis: 1710000000001,
+              sourceFingerprint: 'content:1001:a',
+              languages: <String>['国语'],
+              searchIndex: 'qinghuaci zhoujielun',
+              extension: 'mp4',
+            ),
+          ],
+        },
+      ),
+      androidStorageDataSource: FakeAndroidStorageDataSource(),
+      mediaIndexStore: store,
+    );
+    await seedRepository.scanLibrary('/media');
+
+    final db = await store.database;
+    await db.delete(MediaIndexStore.aggregateSongItemsTable);
+
+    final MediaLibraryRepository repository = MediaLibraryRepository(
+      mediaLibraryDataSource: FakeMediaLibraryDataSource(
+        songsByDirectory: const <String, List<LibrarySong>>{},
+      ),
+      androidStorageDataSource: FakeAndroidStorageDataSource(),
+      mediaIndexStore: store,
+    );
+
+    final SongPage localPage = await repository.querySongs(
+      directory: '/media',
+      pageIndex: 0,
+      pageSize: 8,
+    );
+    final SongPage aggregatePage = await repository.queryAggregatedSongs(
+      pageIndex: 0,
+      pageSize: 8,
+      localDirectory: '/media',
+    );
+
+    expect(localPage.totalCount, 1);
+    expect(localPage.songs.single.title, '青花瓷');
+    expect(aggregatePage.totalCount, 1);
+    expect(aggregatePage.songs.single.title, '青花瓷');
+  });
 }
 
 Song song({required String title, required String artist}) {
@@ -412,23 +469,16 @@ class TestLibrarySong extends LibrarySong {
 
 class FakeAndroidStorageDataSource extends AndroidStorageDataSource {
   FakeAndroidStorageDataSource({
-    Map<String, int>? scanCounts,
-    Map<String, SongPage>? songPages,
-    Map<String, ArtistPage>? artistPages,
-  }) : _scanCounts = scanCounts ?? <String, int>{},
-       _songPages = songPages ?? <String, SongPage>{},
-       _artistPages = artistPages ?? <String, ArtistPage>{};
+    Map<String, List<AndroidLibrarySong>>? scannedSongs,
+  }) : _scannedSongs = scannedSongs ?? <String, List<AndroidLibrarySong>>{};
 
-  final Map<String, int> _scanCounts;
-  final Map<String, SongPage> _songPages;
-  final Map<String, ArtistPage> _artistPages;
-  final List<String> scanIntoIndexCalls = <String>[];
-  final List<String> querySongCalls = <String>[];
+  final Map<String, List<AndroidLibrarySong>> _scannedSongs;
+  final List<String> scanCalls = <String>[];
 
   @override
-  Future<int> scanLibraryIntoIndex(String rootUri) async {
-    scanIntoIndexCalls.add(rootUri);
-    return _scanCounts[rootUri] ?? 0;
+  Future<List<AndroidLibrarySong>> scanLibrary(String rootUri) async {
+    scanCalls.add(rootUri);
+    return _scannedSongs[rootUri] ?? const <AndroidLibrarySong>[];
   }
 
   @override
@@ -440,14 +490,12 @@ class FakeAndroidStorageDataSource extends AndroidStorageDataSource {
     String artist = '',
     String searchQuery = '',
   }) async {
-    querySongCalls.add(rootUri);
-    return _songPages[rootUri] ??
-        SongPage(
-          songs: const <Song>[],
-          totalCount: 0,
-          pageIndex: pageIndex,
-          pageSize: pageSize,
-        );
+    return SongPage(
+      songs: const <Song>[],
+      totalCount: 0,
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+    );
   }
 
   @override
@@ -458,12 +506,11 @@ class FakeAndroidStorageDataSource extends AndroidStorageDataSource {
     String language = '',
     String searchQuery = '',
   }) async {
-    return _artistPages[rootUri] ??
-        ArtistPage(
-          artists: const <Artist>[],
-          totalCount: 0,
-          pageIndex: pageIndex,
-          pageSize: pageSize,
-        );
+    return ArtistPage(
+      artists: const <Artist>[],
+      totalCount: 0,
+      pageIndex: pageIndex,
+      pageSize: pageSize,
+    );
   }
 }

@@ -63,12 +63,7 @@ class LibrarySession {
         hasConfiguredAggregatedSources: true,
       ),
     );
-    await reloadLibraryPage(pageIndex: 0, clearErrorMessage: true);
-    if (_readState().libraryTotalCount == 0) {
-      await scanLibrary(savedDirectory);
-      return;
-    }
-    unawaited(refreshLibraryIndexInBackground(savedDirectory));
+    await scanLibrary(savedDirectory);
   }
 
   Future<void> handleSelectedDirectory(String directory) async {

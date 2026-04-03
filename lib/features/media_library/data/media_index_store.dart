@@ -34,7 +34,7 @@ class MediaIndexStore {
   MediaIndexStore();
 
   static const String _databaseName = 'ktv_media_index.db';
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 3;
 
   static const String sourceSongItemsTable = 'source_song_items';
   static const String aggregateSongItemsTable = 'aggregate_song_items';
@@ -72,12 +72,16 @@ class MediaIndexStore {
   static const String columnLastError = 'last_error';
 
   Future<Database>? _database;
+  Future<void>? _pendingAggregateIndexCheck;
+  bool _aggregateIndexVerified = false;
 
   Future<Database> get database => _database ??= _openDatabase();
 
   Future<void> close() async {
     final Future<Database>? databaseFuture = _database;
     _database = null;
+    _pendingAggregateIndexCheck = null;
+    _aggregateIndexVerified = false;
     if (databaseFuture == null) {
       return;
     }
@@ -117,6 +121,7 @@ class MediaIndexStore {
     required List<LibrarySong> songs,
   }) async {
     final Database db = await database;
+    _aggregateIndexVerified = false;
     final int now = DateTime.now().millisecondsSinceEpoch;
     return db.transaction((Transaction txn) async {
       final List<Map<String, Object?>> oldAggregateRows = await txn.query(
@@ -265,6 +270,7 @@ class MediaIndexStore {
   }
 
   Future<List<Song>> loadAggregateSongs({String? activeLocalRootId}) async {
+    await _ensureAggregateIndexHealthy();
     final Database db = await database;
     final ({String clause, List<Object?> args}) availability =
         _buildAvailability(activeLocalRootId: activeLocalRootId);
@@ -314,6 +320,7 @@ class MediaIndexStore {
     if (aggregateSongIds.isEmpty) {
       return const <Song>[];
     }
+    await _ensureAggregateIndexHealthy();
     final List<Song> songs = await _loadResolvedAggregateSongs(
       aggregateSongIds: aggregateSongIds,
       activeLocalRootId: activeLocalRootId,
@@ -335,6 +342,7 @@ class MediaIndexStore {
     String artist = '',
     String searchQuery = '',
   }) async {
+    await _ensureAggregateIndexHealthy();
     final Database db = await database;
     final int normalizedPageIndex = pageIndex < 0 ? 0 : pageIndex;
     final int normalizedPageSize = pageSize <= 0 ? 1 : pageSize;
@@ -406,6 +414,7 @@ class MediaIndexStore {
     String language = '',
     String searchQuery = '',
   }) async {
+    await _ensureAggregateIndexHealthy();
     final Database db = await database;
     final int normalizedPageIndex = pageIndex < 0 ? 0 : pageIndex;
     final int normalizedPageSize = pageSize <= 0 ? 1 : pageSize;
@@ -809,6 +818,12 @@ class MediaIndexStore {
         onCreate: (Database db, int version) async {
           await _createSchema(db);
         },
+        onUpgrade: (Database db, int oldVersion, int newVersion) async {
+          await _resetSchema(db);
+        },
+        onOpen: (Database db) async {
+          await _ensureSchema(db);
+        },
       );
     }
 
@@ -821,12 +836,30 @@ class MediaIndexStore {
       onCreate: (Database db, int version) async {
         await _createSchema(db);
       },
+      onUpgrade: (Database db, int oldVersion, int newVersion) async {
+        await _resetSchema(db);
+      },
+      onOpen: (Database db) async {
+        await _ensureSchema(db);
+      },
     );
   }
 
   Future<void> _createSchema(Database db) async {
+    await _ensureSchema(db);
+  }
+
+  Future<void> _resetSchema(Database db) async {
+    await db.execute('DROP TABLE IF EXISTS $aggregateSongLinksTable');
+    await db.execute('DROP TABLE IF EXISTS $aggregateSongItemsTable');
+    await db.execute('DROP TABLE IF EXISTS $sourceSongItemsTable');
+    await db.execute('DROP TABLE IF EXISTS $sourceSyncStatesTable');
+    await _ensureSchema(db);
+  }
+
+  Future<void> _ensureSchema(DatabaseExecutor db) async {
     await db.execute('''
-      CREATE TABLE $sourceSongItemsTable (
+      CREATE TABLE IF NOT EXISTS $sourceSongItemsTable (
         $columnSourceType TEXT NOT NULL,
         $columnSourceSongId TEXT NOT NULL,
         $columnSourceRootId TEXT,
@@ -846,7 +879,7 @@ class MediaIndexStore {
       )
     ''');
     await db.execute('''
-      CREATE TABLE $aggregateSongItemsTable (
+      CREATE TABLE IF NOT EXISTS $aggregateSongItemsTable (
         $columnAggregateSongId TEXT PRIMARY KEY,
         $columnCanonicalTitle TEXT NOT NULL,
         $columnCanonicalArtist TEXT NOT NULL,
@@ -859,7 +892,7 @@ class MediaIndexStore {
       )
     ''');
     await db.execute('''
-      CREATE TABLE $aggregateSongLinksTable (
+      CREATE TABLE IF NOT EXISTS $aggregateSongLinksTable (
         $columnAggregateSongId TEXT NOT NULL,
         $columnSourceType TEXT NOT NULL,
         $columnSourceSongId TEXT NOT NULL,
@@ -871,7 +904,7 @@ class MediaIndexStore {
       )
     ''');
     await db.execute('''
-      CREATE TABLE $sourceSyncStatesTable (
+      CREATE TABLE IF NOT EXISTS $sourceSyncStatesTable (
         $columnSourceType TEXT NOT NULL,
         $columnSourceRootId TEXT NOT NULL,
         $columnSyncToken TEXT,
@@ -882,17 +915,133 @@ class MediaIndexStore {
       )
     ''');
     await db.execute('''
-      CREATE INDEX idx_source_song_root
+      CREATE INDEX IF NOT EXISTS idx_source_song_root
       ON $sourceSongItemsTable($columnSourceType, $columnSourceRootId, $columnTitle, $columnArtist)
     ''');
     await db.execute('''
-      CREATE INDEX idx_aggregate_song_title
+      CREATE INDEX IF NOT EXISTS idx_aggregate_song_title
       ON $aggregateSongItemsTable($columnCanonicalTitle, $columnCanonicalArtist)
     ''');
     await db.execute('''
-      CREATE INDEX idx_aggregate_links_source
+      CREATE INDEX IF NOT EXISTS idx_aggregate_links_source
       ON $aggregateSongLinksTable($columnSourceType, $columnSourceSongId)
     ''');
+  }
+
+  Future<void> _ensureAggregateIndexHealthy() {
+    if (_aggregateIndexVerified) {
+      return Future<void>.value();
+    }
+    final Future<void> pending = _pendingAggregateIndexCheck ??=
+        _verifyAndRepairAggregateIndex();
+    return pending.whenComplete(() {
+      if (identical(_pendingAggregateIndexCheck, pending)) {
+        _pendingAggregateIndexCheck = null;
+      }
+    });
+  }
+
+  Future<void> _verifyAndRepairAggregateIndex() async {
+    final Database db = await database;
+    await _ensureSchema(db);
+    await db.transaction((Transaction txn) async {
+      final List<Map<String, Object?>> missingLinkRows = await txn.query(
+        sourceSongItemsTable,
+        columns: <String>[
+          columnSourceType,
+          columnSourceSongId,
+          columnSourceRootId,
+          columnTitle,
+          columnArtist,
+          columnUpdatedAt,
+        ],
+        where:
+            '''
+            $columnAvailabilityStatus = 'ready'
+            AND NOT EXISTS (
+              SELECT 1
+              FROM $aggregateSongLinksTable l
+              WHERE l.$columnSourceType = $sourceSongItemsTable.$columnSourceType
+                AND l.$columnSourceSongId = $sourceSongItemsTable.$columnSourceSongId
+            )
+            ''',
+      );
+      final Set<String> aggregateIdsToRefresh = <String>{};
+      final int now = DateTime.now().millisecondsSinceEpoch;
+      for (final Map<String, Object?> row in missingLinkRows) {
+        final String title = row[columnTitle]?.toString() ?? '';
+        final String artist = row[columnArtist]?.toString() ?? '';
+        if (title.isEmpty || artist.isEmpty) {
+          continue;
+        }
+        final String aggregateSongId = buildAggregateSongId(
+          title: title,
+          artist: artist,
+        );
+        aggregateIdsToRefresh.add(aggregateSongId);
+        await txn.insert(aggregateSongLinksTable, <String, Object?>{
+          columnAggregateSongId: aggregateSongId,
+          columnSourceType: row[columnSourceType]?.toString() ?? '',
+          columnSourceSongId: row[columnSourceSongId]?.toString() ?? '',
+          columnSourceRootId: row[columnSourceRootId]?.toString(),
+          columnMatchScore: 1.0,
+          columnIsPrimary: 0,
+          columnLinkedAt: _readInt(row[columnUpdatedAt]) > 0
+              ? _readInt(row[columnUpdatedAt])
+              : now,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+
+      final List<Map<String, Object?>> missingAggregateRows = await txn
+          .rawQuery('''
+        SELECT DISTINCT l.$columnAggregateSongId
+        FROM $aggregateSongLinksTable l
+        INNER JOIN $sourceSongItemsTable s
+          ON s.$columnSourceType = l.$columnSourceType
+         AND s.$columnSourceSongId = l.$columnSourceSongId
+        LEFT JOIN $aggregateSongItemsTable a
+          ON a.$columnAggregateSongId = l.$columnAggregateSongId
+        WHERE s.$columnAvailabilityStatus = 'ready'
+          AND a.$columnAggregateSongId IS NULL
+        ''');
+      aggregateIdsToRefresh.addAll(
+        missingAggregateRows
+            .map(
+              (Map<String, Object?> row) =>
+                  row[columnAggregateSongId]?.toString() ?? '',
+            )
+            .where((String value) => value.isNotEmpty),
+      );
+
+      final List<Map<String, Object?>> staleAggregateRows = await txn.rawQuery(
+        '''
+        SELECT a.$columnAggregateSongId
+        FROM $aggregateSongItemsTable a
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM $aggregateSongLinksTable l
+          INNER JOIN $sourceSongItemsTable s
+            ON s.$columnSourceType = l.$columnSourceType
+           AND s.$columnSourceSongId = l.$columnSourceSongId
+          WHERE l.$columnAggregateSongId = a.$columnAggregateSongId
+            AND s.$columnAvailabilityStatus = 'ready'
+        )
+        ''',
+      );
+      aggregateIdsToRefresh.addAll(
+        staleAggregateRows
+            .map(
+              (Map<String, Object?> row) =>
+                  row[columnAggregateSongId]?.toString() ?? '',
+            )
+            .where((String value) => value.isNotEmpty),
+      );
+
+      for (final String aggregateSongId in aggregateIdsToRefresh) {
+        await _refreshAggregateEntry(txn, aggregateSongId: aggregateSongId);
+      }
+    });
+    _aggregateIndexVerified = true;
   }
 
   static String _sourcePriorityCase(String expression) {

@@ -65,7 +65,7 @@ void main() {
   });
 
   test(
-    'initialize shows indexed songs first then refreshes in background',
+    'initialize always rescans restored directory before showing songs',
     () async {
       final FakeMediaLibraryRepository repository = FakeMediaLibraryRepository(
         savedDirectory: 'content://library/tree',
@@ -87,10 +87,6 @@ void main() {
       );
 
       await controller.initialize();
-
-      expect(controller.librarySongs.single.title, '沧海一声笑-国语-单音轨');
-
-      await _settleLibraryQuery();
 
       expect(repository.scanLibraryCallCount, 1);
       expect(controller.librarySongs.single.title, '沧海一声笑');

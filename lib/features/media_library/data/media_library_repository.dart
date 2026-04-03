@@ -76,8 +76,14 @@ class MediaLibraryRepository {
 
   Future<int> scanLibrary(String directory) async {
     if (_usesIndexedAndroidLibrary(directory)) {
-      _cachedSongsByDirectory.remove(directory);
-      return _androidStorageDataSource.scanLibraryIntoIndex(directory);
+      final List<AndroidLibrarySong> androidSongs =
+          await _androidStorageDataSource.scanLibrary(directory);
+      return _replaceLocalSongs(
+        sourceRootId: directory,
+        songs: androidSongs
+            .map(_mapIndexedAndroidLibrarySong)
+            .toList(growable: false),
+      );
     }
 
     final Map<String, CachedLocalSongFingerprint> fingerprintCache =
@@ -88,15 +94,7 @@ class MediaLibraryRepository {
       directory,
       cachedFingerprintsByPath: fingerprintCache,
     );
-    final int count = await _mediaIndexStore.replaceLocalSongs(
-      sourceRootId: directory,
-      songs: songs,
-    );
-    final List<Song> mappedSongs = songs
-        .map(_mapLibrarySong)
-        .toList(growable: false);
-    _cachedSongsByDirectory[directory] = mappedSongs;
-    return count;
+    return _replaceLocalSongs(sourceRootId: directory, songs: songs);
   }
 
   Future<SongPage> querySongs({
@@ -112,17 +110,6 @@ class MediaLibraryRepository {
     final String normalizedLanguage = (language ?? '').trim();
     final String normalizedArtist = (artist ?? '').trim();
     final String normalizedQuery = searchQuery.trim().toLowerCase();
-
-    if (_usesIndexedAndroidLibrary(directory)) {
-      return _androidStorageDataSource.queryIndexedSongs(
-        rootUri: directory,
-        language: normalizedLanguage,
-        artist: normalizedArtist,
-        searchQuery: normalizedQuery,
-        pageIndex: normalizedPageIndex,
-        pageSize: normalizedPageSize,
-      );
-    }
 
     final List<Song> songs = await _loadOrRestoreLocalSongs(directory);
     final List<Song> filteredSongs = _filterSongs(
@@ -143,17 +130,6 @@ class MediaLibraryRepository {
     if (cachedSongs != null) {
       return cachedSongs;
     }
-
-    if (_usesIndexedAndroidLibrary(directory)) {
-      final List<AndroidLibrarySong> songs = await _androidStorageDataSource
-          .scanLibrary(directory);
-      final List<Song> mappedSongs =
-          songs.map(_mapAndroidSong).toList(growable: false)
-            ..sort(_compareSongs);
-      _cachedSongsByDirectory[directory] = mappedSongs;
-      return mappedSongs;
-    }
-
     return _loadOrRestoreLocalSongs(directory);
   }
 
@@ -200,16 +176,6 @@ class MediaLibraryRepository {
     final int normalizedPageSize = pageSize <= 0 ? 1 : pageSize;
     final String normalizedLanguage = (language ?? '').trim();
     final String normalizedQuery = searchQuery.trim().toLowerCase();
-
-    if (_usesIndexedAndroidLibrary(directory)) {
-      return _androidStorageDataSource.queryIndexedArtists(
-        rootUri: directory,
-        language: normalizedLanguage,
-        searchQuery: normalizedQuery,
-        pageIndex: normalizedPageIndex,
-        pageSize: normalizedPageSize,
-      );
-    }
 
     final List<Song> songs = await _loadOrRestoreLocalSongs(directory);
     final List<Artist> artists = _buildArtistsFromSongs(
@@ -318,34 +284,46 @@ class MediaLibraryRepository {
     );
   }
 
-  Song _mapAndroidSong(AndroidLibrarySong song) {
+  LibrarySong _mapIndexedAndroidLibrarySong(AndroidLibrarySong song) {
     final String title = song.title;
     final String artist = song.artist;
-    final String raw = '$title $artist ${song.fileName} ${song.extension}'
-        .toLowerCase();
-    return Song(
-      songId: buildAggregateSongId(title: title, artist: artist),
-      sourceId: 'local',
-      sourceSongId: buildLocalSourceSongId(
-        fingerprint: buildLocalMetadataFingerprint(
-          locator: song.mediaPath.isNotEmpty ? song.mediaPath : song.fileName,
-        ),
-      ),
+    final String safeExtension = song.extension.trim().isEmpty
+        ? 'mp4'
+        : song.extension.trim().toLowerCase();
+    final String fallbackFileName = '$artist - $title.$safeExtension';
+    final String fileName = song.fileName.trim().isEmpty
+        ? fallbackFileName
+        : song.fileName.trim();
+    final String locator = song.mediaPath.trim().isNotEmpty
+        ? song.mediaPath.trim()
+        : '$artist/$fileName';
+    final String raw = '$title $artist $fileName $safeExtension'.toLowerCase();
+    return _IndexedAndroidLibrarySong(
       title: title,
       artist: artist,
-      languages: const <String>['其它'],
-      tags: const <String>[],
-      searchIndex: raw,
       mediaPath: song.mediaPath,
+      fileName: fileName,
+      relativePath: fileName,
+      fileSize: 0,
+      modifiedAtMillis: 0,
+      sourceFingerprint: buildLocalMetadataFingerprint(locator: locator),
+      extension: safeExtension,
+      searchIndexOverride: raw,
     );
   }
 
-  int _compareSongs(Song left, Song right) {
-    final int titleCompare = left.title.compareTo(right.title);
-    if (titleCompare != 0) {
-      return titleCompare;
-    }
-    return left.artist.compareTo(right.artist);
+  Future<int> _replaceLocalSongs({
+    required String sourceRootId,
+    required List<LibrarySong> songs,
+  }) async {
+    final int count = await _mediaIndexStore.replaceLocalSongs(
+      sourceRootId: sourceRootId,
+      songs: songs,
+    );
+    _cachedSongsByDirectory[sourceRootId] = songs
+        .map(_mapLibrarySong)
+        .toList(growable: false);
+    return count;
   }
 
   bool _usesIndexedAndroidLibrary(String directory) {
@@ -464,4 +442,24 @@ class MediaLibraryRepository {
       pageSize: normalizedPageSize,
     );
   }
+}
+
+class _IndexedAndroidLibrarySong extends LibrarySong {
+  const _IndexedAndroidLibrarySong({
+    required super.title,
+    required super.artist,
+    required super.mediaPath,
+    required super.fileName,
+    required super.relativePath,
+    required super.fileSize,
+    required super.modifiedAtMillis,
+    required super.sourceFingerprint,
+    required super.extension,
+    required this.searchIndexOverride,
+  });
+
+  final String searchIndexOverride;
+
+  @override
+  String get searchIndex => searchIndexOverride;
 }
