@@ -185,75 +185,94 @@ class SongTile extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(12, 6, 10, 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0x1AFFFFFF)),
-          ),
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    Text(
-                      song.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        height: 1.15,
-                        color: isQueued
-                            ? const Color(0xA6FFF7FF)
-                            : const Color(0xEDFFF7FF),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      isCurrent
-                          ? '${song.artist} · ${song.language} · 当前播放'
-                          : isQueued
-                          ? '${song.artist} · ${song.language} · 已点'
-                          : '${song.artist} · ${song.language}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w500,
-                        height: 1.2,
-                        color: subtitleColor,
-                      ),
-                    ),
-                  ],
-                ),
+        child: LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            final bool useCompactLayout = constraints.maxHeight < 42;
+            final double horizontalPadding = useCompactLayout ? 10 : 12;
+            final double verticalPadding = useCompactLayout ? 4 : 6;
+            final double titleFontSize = useCompactLayout ? 11 : 12;
+            final double subtitleFontSize = useCompactLayout ? 8 : 9;
+            final double textGap = useCompactLayout ? 2 : 4;
+            final double trailingGap = useCompactLayout ? 6 : 8;
+            final double actionSize = useCompactLayout ? 24 : 28;
+            final double actionIconSize = useCompactLayout ? 14 : 16;
+
+            return Container(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                verticalPadding,
+                useCompactLayout ? 8 : 10,
+                verticalPadding,
               ),
-              const SizedBox(width: 8),
-              Material(
-                color: const Color(0x12FFFFFF),
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: onToggleFavorite,
-                  child: SizedBox(
-                    width: 28,
-                    height: 28,
-                    child: Icon(
-                      isFavorite
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      size: 16,
-                      color: isFavorite
-                          ? const Color(0xFFFF7AA2)
-                          : const Color(0xB8F3DAFF),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0x1AFFFFFF)),
+              ),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Text(
+                          song.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: titleFontSize,
+                            fontWeight: FontWeight.w600,
+                            height: 1.1,
+                            color: isQueued
+                                ? const Color(0xA6FFF7FF)
+                                : const Color(0xEDFFF7FF),
+                          ),
+                        ),
+                        SizedBox(height: textGap),
+                        Text(
+                          isCurrent
+                              ? '${song.artist} · ${song.language} · 当前播放'
+                              : isQueued
+                              ? '${song.artist} · ${song.language} · 已点'
+                              : '${song.artist} · ${song.language}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: subtitleFontSize,
+                            fontWeight: FontWeight.w500,
+                            height: 1.1,
+                            color: subtitleColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
+                  SizedBox(width: trailingGap),
+                  Material(
+                    color: const Color(0x12FFFFFF),
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: onToggleFavorite,
+                      child: SizedBox(
+                        width: actionSize,
+                        height: actionSize,
+                        child: Icon(
+                          isFavorite
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          size: actionIconSize,
+                          color: isFavorite
+                              ? const Color(0xFFFF7AA2)
+                              : const Color(0xB8F3DAFF),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

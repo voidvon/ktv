@@ -42,10 +42,13 @@ class SongBookRightColumn extends StatefulWidget {
 class _SongBookRightColumnState extends State<SongBookRightColumn> {
   static const double _gridSpacing = 8;
   static const double _songTileHeight = 44;
+  static const double _songTileMinHeight = 40;
   static const double _artistTileHeight = 104;
+  static const double _artistTileMinHeight = 72;
   static const double _queueTileHeight = 48;
-  static const double _paginationSectionHeight = 42;
-  static const double _paginationSectionGap = 12;
+  static const double _queueTileMinHeight = 44;
+  static const double _paginationSectionHeight = 32;
+  static const double _paginationSectionGap = 8;
   static const double _pageViewportFraction = 0.92;
   static const double _pageGap = 12;
   static const int _maxVisiblePages = 20;
@@ -76,18 +79,33 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
     super.dispose();
   }
 
-  int _resolveCrossAxisCount(MediaQueryData media) {
-    return media.size.width < 340 ? 1 : 2;
+  int _resolveCrossAxisCountForWidth(double availableWidth) {
+    if (availableWidth < 340) {
+      return 1;
+    }
+    if (availableWidth < 760) {
+      return 2;
+    }
+    if (availableWidth < 1080) {
+      return 3;
+    }
+    return 4;
   }
 
-  int _resolveArtistCrossAxisCount(
-    MediaQueryData media, {
-    required bool isLandscape,
-  }) {
-    if (isLandscape) {
+  int _resolveArtistCrossAxisCountForWidth(double availableWidth) {
+    if (availableWidth < 360) {
+      return 2;
+    }
+    if (availableWidth < 620) {
+      return 3;
+    }
+    if (availableWidth < 860) {
       return 4;
     }
-    return media.size.width < 360 ? 2 : 3;
+    if (availableWidth < 1100) {
+      return 5;
+    }
+    return 6;
   }
 
   int _resolveRowsPerPage(
@@ -113,11 +131,10 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
 
   int _resolveRowsPerPageForAvailableHeight({
     required double availableHeight,
-    required bool isLandscape,
     required int fallbackRowsPerPage,
-    required double tileHeight,
+    required double minTileHeight,
   }) {
-    if (isLandscape) {
+    if (!availableHeight.isFinite || availableHeight <= 0) {
       return fallbackRowsPerPage;
     }
     final double listHeight = math.max(
@@ -125,17 +142,17 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
       availableHeight - _paginationSectionHeight - _paginationSectionGap,
     );
     final int fittedRows =
-        ((listHeight + _gridSpacing) / (tileHeight + _gridSpacing)).floor();
+        ((listHeight + _gridSpacing) / (minTileHeight + _gridSpacing)).floor();
     return math.max(1, fittedRows);
   }
 
   double _resolveTileHeightForAvailableHeight({
     required double availableHeight,
-    required bool isLandscape,
     required int rowsPerPage,
+    required double minTileHeight,
     required double fallbackTileHeight,
   }) {
-    if (!isLandscape || rowsPerPage <= 0) {
+    if (rowsPerPage <= 0 || !availableHeight.isFinite || availableHeight <= 0) {
       return fallbackTileHeight;
     }
     final double gridHeight = math.max(
@@ -147,7 +164,9 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
     if (!computedTileHeight.isFinite || computedTileHeight <= 0) {
       return fallbackTileHeight;
     }
-    return math.min(fallbackTileHeight, computedTileHeight);
+    return computedTileHeight
+        .clamp(minTileHeight, fallbackTileHeight)
+        .toDouble();
   }
 
   int _computeMaxPage(int totalSongs, int songsPerPage) {
@@ -327,9 +346,9 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
         _navigation.songBookMode == SongBookMode.artists &&
         _navigation.selectedArtist == null;
     final Set<String> favoriteSongIds = _library.favoriteSongIds.toSet();
-    final int crossAxisCount = isArtistOverview
-        ? _resolveArtistCrossAxisCount(media, isLandscape: isLandscape)
-        : _resolveCrossAxisCount(media);
+    final int fallbackCrossAxisCount = isArtistOverview
+        ? _resolveArtistCrossAxisCountForWidth(media.size.width)
+        : _resolveCrossAxisCountForWidth(media.size.width);
     final int fallbackRowsPerPage = _resolveRowsPerPage(
       media,
       isLandscape: isLandscape,
@@ -340,6 +359,11 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
         : isArtistOverview
         ? _artistTileHeight
         : _songTileHeight;
+    final double minTileHeight = isQueueRoute
+        ? _queueTileMinHeight
+        : isArtistOverview
+        ? _artistTileMinHeight
+        : _songTileMinHeight;
     final List<QueuedSongEntry> filteredQueueEntries = isQueueRoute
         ? _resolveFilteredQueueEntries()
         : const <QueuedSongEntry>[];
@@ -347,6 +371,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
     Widget buildLibraryGrid(
       List<Song> visibleSongs,
       int rowsPerPage, {
+      required int crossAxisCount,
       required double tileHeight,
     }) {
       final double gridHeight = _computeGridHeight(
@@ -391,6 +416,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
     Widget buildArtistGrid(
       List<Artist> visibleArtists,
       int rowsPerPage, {
+      required int crossAxisCount,
       required double tileHeight,
     }) {
       final double gridHeight = _computeGridHeight(
@@ -421,7 +447,11 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
       );
     }
 
-    Widget buildLibraryContent(int rowsPerPage, {required double tileHeight}) {
+    Widget buildLibraryContent(
+      int rowsPerPage, {
+      required int crossAxisCount,
+      required double tileHeight,
+    }) {
       final int itemsPerPage = crossAxisCount * rowsPerPage;
       final bool needsAggregatedSourceConfiguration =
           _navigation.libraryScope == LibraryScope.aggregated &&
@@ -464,6 +494,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
         return buildArtistGrid(
           _library.artists,
           rowsPerPage,
+          crossAxisCount: crossAxisCount,
           tileHeight: tileHeight,
         );
       }
@@ -481,6 +512,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
       return buildLibraryGrid(
         _library.songs,
         rowsPerPage,
+        crossAxisCount: crossAxisCount,
         tileHeight: tileHeight,
       );
     }
@@ -488,6 +520,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
     Widget buildQueueGrid(
       List<QueuedSongEntry> visibleEntries,
       int rowsPerPage, {
+      required int crossAxisCount,
       required double tileHeight,
     }) {
       final double gridHeight = _computeGridHeight(
@@ -523,7 +556,11 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
       );
     }
 
-    Widget buildQueueContent(int rowsPerPage, {required double tileHeight}) {
+    Widget buildQueueContent(
+      int rowsPerPage, {
+      required int crossAxisCount,
+      required double tileHeight,
+    }) {
       if (_playback.queuedSongs.isEmpty) {
         return const EmptyContentCard(message: '当前还没有已点歌曲，点歌后会在这里显示。');
       }
@@ -539,13 +576,18 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
         pages: pages,
         rowsPerPage: rowsPerPage,
         tileHeight: tileHeight,
-        pageBuilder: (List<QueuedSongEntry> pageItems) =>
-            buildQueueGrid(pageItems, rowsPerPage, tileHeight: tileHeight),
+        pageBuilder: (List<QueuedSongEntry> pageItems) => buildQueueGrid(
+          pageItems,
+          rowsPerPage,
+          crossAxisCount: crossAxisCount,
+          tileHeight: tileHeight,
+        ),
       );
     }
 
     ({int currentPage, int totalPages}) resolvePageData<T>(
       List<T> items, {
+      required int crossAxisCount,
       required int rowsPerPage,
     }) {
       final int itemsPerPage = crossAxisCount * rowsPerPage;
@@ -651,10 +693,12 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
               return isQueueRoute
                   ? buildQueueContent(
                       fallbackRowsPerPage,
+                      crossAxisCount: fallbackCrossAxisCount,
                       tileHeight: tileHeight,
                     )
                   : buildLibraryContent(
                       fallbackRowsPerPage,
+                      crossAxisCount: fallbackCrossAxisCount,
                       tileHeight: tileHeight,
                     );
             },
@@ -663,7 +707,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
           Builder(
             builder: (BuildContext context) {
               final int libraryItemsPerPage =
-                  crossAxisCount * fallbackRowsPerPage;
+                  fallbackCrossAxisCount * fallbackRowsPerPage;
               final int resolvedLibraryTotalPages = _computeVisibleTotalPages(
                 _library.totalCount,
                 libraryItemsPerPage,
@@ -675,6 +719,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
               final pageData = isQueueRoute
                   ? resolvePageData<QueuedSongEntry>(
                       filteredQueueEntries,
+                      crossAxisCount: fallbackCrossAxisCount,
                       rowsPerPage: fallbackRowsPerPage,
                     )
                   : (
@@ -709,15 +754,17 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
               builder: (BuildContext context, BoxConstraints constraints) {
                 final int rowsPerPage = _resolveRowsPerPageForAvailableHeight(
                   availableHeight: constraints.maxHeight,
-                  isLandscape: isLandscape,
                   fallbackRowsPerPage: fallbackRowsPerPage,
-                  tileHeight: tileHeight,
+                  minTileHeight: minTileHeight,
                 );
+                final int crossAxisCount = isArtistOverview
+                    ? _resolveArtistCrossAxisCountForWidth(constraints.maxWidth)
+                    : _resolveCrossAxisCountForWidth(constraints.maxWidth);
                 final double resolvedTileHeight =
                     _resolveTileHeightForAvailableHeight(
                       availableHeight: constraints.maxHeight,
-                      isLandscape: isLandscape,
                       rowsPerPage: rowsPerPage,
+                      minTileHeight: minTileHeight,
                       fallbackTileHeight: tileHeight,
                     );
                 final int libraryItemsPerPage = crossAxisCount * rowsPerPage;
@@ -732,6 +779,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
                 final pageData = isQueueRoute
                     ? resolvePageData<QueuedSongEntry>(
                         filteredQueueEntries,
+                        crossAxisCount: crossAxisCount,
                         rowsPerPage: rowsPerPage,
                       )
                     : (
@@ -746,10 +794,12 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
                         child: isQueueRoute
                             ? buildQueueContent(
                                 rowsPerPage,
+                                crossAxisCount: crossAxisCount,
                                 tileHeight: resolvedTileHeight,
                               )
                             : buildLibraryContent(
                                 rowsPerPage,
+                                crossAxisCount: crossAxisCount,
                                 tileHeight: resolvedTileHeight,
                               ),
                       ),

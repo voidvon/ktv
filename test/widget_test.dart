@@ -175,7 +175,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('主页 / 歌星'), findsOneWidget);
-    expect(find.text('1/1'), findsOneWidget);
     expect(find.text('周杰伦'), findsAtLeastNWidgets(1));
     expect(find.text('刘若英'), findsAtLeastNWidgets(1));
     expect(tester.takeException(), isNull);
@@ -312,6 +311,135 @@ void main() {
 
     expect(find.text('1/1'), findsOneWidget);
   });
+
+  testWidgets(
+    'landscape song book increases visible capacity on larger window',
+    (WidgetTester tester) async {
+      String resolvePaginationLabel() {
+        final Iterable<Text> textWidgets = tester
+            .widgetList<Text>(find.byType(Text))
+            .where((Text text) => text.data != null);
+        final Text pagination = textWidgets.firstWhere(
+          (Text text) => RegExp(r'^\d+/\d+$').hasMatch(text.data!),
+        );
+        return pagination.data!;
+      }
+
+      ({int currentPage, int totalPages}) parsePaginationLabel(String label) {
+        final List<String> parts = label.split('/');
+        return (
+          currentPage: int.parse(parts[0]),
+          totalPages: int.parse(parts[1]),
+        );
+      }
+
+      Future<void> pumpSongBook(double width, double height) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: width,
+                height: height,
+                child: SongBookRightColumn(
+                  controller: _TestPlayerController(),
+                  viewModel: SongBookViewModel(
+                    navigation: const SongBookNavigationViewModel(
+                      route: KtvRoute.songBook,
+                      songBookMode: SongBookMode.songs,
+                      libraryScope: LibraryScope.aggregated,
+                      selectedArtist: null,
+                      breadcrumbLabel: '主页 / 歌名',
+                    ),
+                    library: SongBookLibraryViewModel(
+                      searchQuery: '',
+                      selectedLanguage: '全部',
+                      songs: List<Song>.generate(
+                        9,
+                        (int index) => Song(
+                          songId: buildAggregateSongId(
+                            title: '歌曲$index',
+                            artist: '歌手$index',
+                          ),
+                          sourceId: 'local',
+                          sourceSongId: buildLocalSourceSongId(
+                            fingerprint: buildLocalMetadataFingerprint(
+                              locator: '/tmp/$index.mp4',
+                            ),
+                          ),
+                          title: '歌曲$index',
+                          artist: '歌手$index',
+                          languages: const <String>['国语'],
+                          searchIndex: 'gequ$index geshou$index',
+                          mediaPath: '/tmp/$index.mp4',
+                        ),
+                      ),
+                      artists: <Artist>[],
+                      favoriteSongIds: <String>[],
+                      totalCount: 9,
+                      pageIndex: 0,
+                      totalPages: 5,
+                      pageSize: 2,
+                      hasConfiguredDirectory: true,
+                      hasConfiguredAggregatedSources: true,
+                      isScanning: false,
+                      isLoadingPage: false,
+                      scanErrorMessage: null,
+                    ),
+                    playback: const SongBookPlaybackViewModel(
+                      queuedSongs: <Song>[],
+                    ),
+                  ),
+                  callbacks: SongBookCallbacks(
+                    navigation: SongBookNavigationCallbacks(
+                      onBackPressed: () {},
+                      onQueuePressed: () {},
+                      onSelectArtist: (_) {},
+                      onSettingsPressed: () {},
+                    ),
+                    library: SongBookLibraryCallbacks(
+                      onLanguageSelected: (_) {},
+                      onAppendSearchToken: (_) {},
+                      onRemoveSearchCharacter: () {},
+                      onClearSearch: () {},
+                      onRequestLibraryPage: (_, _) {},
+                      onRequestSong: (_) {},
+                      onToggleFavorite: (_) {},
+                    ),
+                    playback: SongBookPlaybackCallbacks(
+                      onPrioritizeQueuedSong: (_) {},
+                      onRemoveQueuedSong: (_) {},
+                      onToggleAudioMode: () {},
+                      onTogglePlayback: () {},
+                      onRestartPlayback: () {},
+                      onSkipSong: () {},
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await pumpSongBook(700, 250);
+      final smallWindowPagination = parsePaginationLabel(
+        resolvePaginationLabel(),
+      );
+
+      await pumpSongBook(980, 620);
+      final largeWindowPagination = parsePaginationLabel(
+        resolvePaginationLabel(),
+      );
+
+      expect(smallWindowPagination.currentPage, 1);
+      expect(largeWindowPagination.currentPage, 1);
+      expect(
+        largeWindowPagination.totalPages,
+        lessThan(smallWindowPagination.totalPages),
+      );
+    },
+  );
 
   testWidgets('opens fullscreen preview and toggles overlay controls on tap', (
     WidgetTester tester,
