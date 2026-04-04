@@ -44,7 +44,7 @@ void main() {
     await tester.tap(find.text('已点0').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('‹ 主页 / 已点'), findsOneWidget);
+    expect(find.text('主页 / 已点'), findsOneWidget);
     expect(find.text('当前还没有已点歌曲，点歌后会在这里显示。'), findsOneWidget);
     expect(find.text('搜索已点歌曲 / 歌手'), findsOneWidget);
   });
@@ -82,7 +82,7 @@ void main() {
     await tester.tap(find.text('歌名'));
     await tester.pumpAndSettle();
 
-    expect(find.text('‹ 主页 / 歌名'), findsOneWidget);
+    expect(find.text('主页 / 歌名'), findsOneWidget);
     expect(find.text('请先在设置里配置数据源，配置完成后这里会展示聚合曲库。'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -112,7 +112,7 @@ void main() {
                 songBookMode: SongBookMode.artists,
                 libraryScope: LibraryScope.aggregated,
                 selectedArtist: null,
-                breadcrumbLabel: '‹ 主页 / 歌星',
+                breadcrumbLabel: '主页 / 歌星',
               ),
               library: SongBookLibraryViewModel(
                 searchQuery: '',
@@ -174,7 +174,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('‹ 主页 / 歌星'), findsOneWidget);
+    expect(find.text('主页 / 歌星'), findsOneWidget);
     expect(find.text('1/1'), findsOneWidget);
     expect(find.text('周杰伦'), findsAtLeastNWidgets(1));
     expect(find.text('刘若英'), findsAtLeastNWidgets(1));
@@ -198,7 +198,7 @@ void main() {
                   songBookMode: SongBookMode.songs,
                   libraryScope: LibraryScope.aggregated,
                   selectedArtist: null,
-                  breadcrumbLabel: '‹ 主页 / 歌名',
+                  breadcrumbLabel: '主页 / 歌名',
                 ),
                 library: SongBookLibraryViewModel(
                   searchQuery: '',

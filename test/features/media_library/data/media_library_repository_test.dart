@@ -212,6 +212,55 @@ void main() {
     expect(firstScan.single.sourceSongId, secondScan.single.sourceSongId);
   });
 
+  test(
+    'local filename parsing extracts language and tags from suffix',
+    () async {
+      final Directory root = await Directory.systemTemp.createTemp(
+        'ktv_parse_keywords_',
+      );
+      addTearDown(() async {
+        if (await root.exists()) {
+          await root.delete(recursive: true);
+        }
+      });
+
+      final File file = File('${root.path}/周杰伦-青花瓷-国语-流行.mp4');
+      await file.writeAsBytes(const <int>[1, 2, 3], flush: true);
+
+      final MediaLibraryDataSource dataSource = MediaLibraryDataSource();
+      final List<LibrarySong> songs = await dataSource.scanLibrary(root.path);
+
+      expect(songs, hasLength(1));
+      expect(songs.single.artist, '周杰伦');
+      expect(songs.single.title, '青花瓷');
+      expect(songs.single.languages, <String>['国语']);
+      expect(songs.single.tags, <String>['流行']);
+    },
+  );
+
+  test('local filename parsing respects hyphenated artist whitelist', () async {
+    final Directory root = await Directory.systemTemp.createTemp(
+      'ktv_parse_whitelist_',
+    );
+    addTearDown(() async {
+      if (await root.exists()) {
+        await root.delete(recursive: true);
+      }
+    });
+
+    final File file = File('${root.path}/A-Lin-Love-Love-Love-国语-流行.mp4');
+    await file.writeAsBytes(const <int>[1, 2, 3], flush: true);
+
+    final MediaLibraryDataSource dataSource = MediaLibraryDataSource();
+    final List<LibrarySong> songs = await dataSource.scanLibrary(root.path);
+
+    expect(songs, hasLength(1));
+    expect(songs.single.artist, 'A-Lin');
+    expect(songs.single.title, 'Love-Love-Love');
+    expect(songs.single.languages, <String>['国语']);
+    expect(songs.single.tags, <String>['流行']);
+  });
+
   test('aggregated song queries filter and paginate in sqlite', () async {
     final MediaLibraryRepository repository = MediaLibraryRepository(
       mediaLibraryDataSource: FakeMediaLibraryDataSource(

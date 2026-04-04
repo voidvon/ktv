@@ -580,6 +580,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
           children: <Widget>[
             ActionPill(
               label: '返回',
+              icon: Icons.arrow_back_ios_new_rounded,
               onPressed: _navigationCallbacks.onBackPressed,
               padding: const EdgeInsets.fromLTRB(8, 5, 14, 5),
             ),

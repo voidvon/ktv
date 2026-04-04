@@ -69,7 +69,7 @@ class NavigationHistory {
   bool get canNavigateBack => _stack.length > 1;
 
   String get breadcrumbLabel =>
-      '‹ ${_stack.map((entry) => entry.breadcrumbSegment).join(' / ')}';
+      _stack.map((entry) => entry.breadcrumbSegment).join(' / ');
 
   bool enterSongBook({
     SongBookMode mode = SongBookMode.songs,

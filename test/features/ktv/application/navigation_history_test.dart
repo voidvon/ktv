@@ -7,7 +7,7 @@ void main() {
     final NavigationHistory history = NavigationHistory();
 
     expect(history.current.route, KtvRoute.home);
-    expect(history.breadcrumbLabel, '‹ 主页');
+    expect(history.breadcrumbLabel, '主页');
 
     expect(history.enterSongBook(mode: SongBookMode.artists), isTrue);
     expect(history.selectArtist('周杰伦'), isTrue);
@@ -20,7 +20,7 @@ void main() {
       isTrue,
     );
 
-    expect(history.breadcrumbLabel, '‹ 主页 / 歌星 / 周杰伦 / 已点');
+    expect(history.breadcrumbLabel, '主页 / 歌星 / 周杰伦 / 已点');
 
     final NavigationDestination? previous = history.navigateBack();
     expect(previous, isNotNull);

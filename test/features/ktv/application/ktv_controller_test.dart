@@ -28,7 +28,7 @@ void main() {
     expect(controller.route, KtvRoute.home);
     expect(controller.canNavigateBack, isFalse);
     expect(controller.scanDirectoryPath, '/music');
-    expect(controller.breadcrumbLabel, '‹ 主页');
+    expect(controller.breadcrumbLabel, '主页');
     expect(controller.libraryTotalCount, 0);
   });
 
@@ -57,7 +57,7 @@ void main() {
 
     expect(controller.scanDirectoryPath, 'content://library/tree');
     expect(controller.route, KtvRoute.home);
-    expect(controller.breadcrumbLabel, '‹ 主页');
+    expect(controller.breadcrumbLabel, '主页');
     expect(controller.librarySongs, hasLength(1));
     await _settleLibraryQuery();
     expect(repository.scanLibraryCallCount, 1);
@@ -202,22 +202,22 @@ void main() {
 
     controller.enterSongBook(mode: SongBookMode.artists);
     expect(controller.route, KtvRoute.songBook);
-    expect(controller.breadcrumbLabel, '‹ 主页 / 歌星');
+    expect(controller.breadcrumbLabel, '主页 / 歌星');
 
     await controller.selectArtist('张学友');
     expect(controller.selectedArtist, '张学友');
-    expect(controller.breadcrumbLabel, '‹ 主页 / 歌星 / 张学友');
+    expect(controller.breadcrumbLabel, '主页 / 歌星 / 张学友');
 
     expect(await controller.navigateBack(), isTrue);
     expect(controller.route, KtvRoute.songBook);
     expect(controller.songBookMode, SongBookMode.artists);
     expect(controller.selectedArtist, isNull);
-    expect(controller.breadcrumbLabel, '‹ 主页 / 歌星');
+    expect(controller.breadcrumbLabel, '主页 / 歌星');
 
     expect(await controller.navigateBack(), isTrue);
     expect(controller.route, KtvRoute.home);
     expect(controller.canNavigateBack, isFalse);
-    expect(controller.breadcrumbLabel, '‹ 主页');
+    expect(controller.breadcrumbLabel, '主页');
   });
 
   test('navigateBack unwinds queue page to song book then home', () async {
@@ -230,15 +230,15 @@ void main() {
     controller.enterQueueList();
 
     expect(controller.route, KtvRoute.queueList);
-    expect(controller.breadcrumbLabel, '‹ 主页 / 歌名 / 已点');
+    expect(controller.breadcrumbLabel, '主页 / 歌名 / 已点');
 
     expect(await controller.navigateBack(), isTrue);
     expect(controller.route, KtvRoute.songBook);
-    expect(controller.breadcrumbLabel, '‹ 主页 / 歌名');
+    expect(controller.breadcrumbLabel, '主页 / 歌名');
 
     expect(await controller.navigateBack(), isTrue);
     expect(controller.route, KtvRoute.home);
-    expect(controller.breadcrumbLabel, '‹ 主页');
+    expect(controller.breadcrumbLabel, '主页');
   });
 
   test('aggregated song book can load without local directory', () async {
