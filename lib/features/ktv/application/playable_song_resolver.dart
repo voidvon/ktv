@@ -1,5 +1,6 @@
 import '../../../core/models/song.dart';
 import '../../media_library/data/baidu_pan/baidu_pan_playback_cache.dart';
+import '../../media_library/data/cloud/cloud_playback_cache.dart';
 
 class PlayableMediaResolution {
   const PlayableMediaResolution({
@@ -20,12 +21,31 @@ abstract class PlayableSongResolver {
 }
 
 class DefaultPlayableSongResolver implements PlayableSongResolver {
-  const DefaultPlayableSongResolver({this.baiduPanPlaybackCache});
+  const DefaultPlayableSongResolver({
+    this.baiduPanPlaybackCache,
+    this.cloudPlaybackCaches = const <String, CloudPlaybackCache>{},
+  });
 
   final BaiduPanPlaybackCache? baiduPanPlaybackCache;
+  final Map<String, CloudPlaybackCache> cloudPlaybackCaches;
 
   @override
   Future<PlayableMediaResolution> resolve(Song song) async {
+    final CloudPlaybackCache? genericPlaybackCache =
+        cloudPlaybackCaches[song.sourceId];
+    if (genericPlaybackCache != null) {
+      final CloudCachedMedia media = await genericPlaybackCache.resolve(
+        song: song,
+        sourceSongId: song.sourceSongId,
+      );
+      return PlayableMediaResolution(
+        song: song,
+        localPath: media.localPath,
+        displayName: media.displayName,
+        cacheHit: media.cacheHit,
+      );
+    }
+
     if (song.sourceId == 'baidu_pan') {
       final BaiduPanPlaybackCache? playbackCache = baiduPanPlaybackCache;
       if (playbackCache == null) {

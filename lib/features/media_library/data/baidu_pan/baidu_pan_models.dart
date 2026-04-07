@@ -1,124 +1,75 @@
-class BaiduPanAuthToken {
+import '../cloud/cloud_models.dart';
+
+class BaiduPanAuthToken extends CloudAuthToken {
   const BaiduPanAuthToken({
-    required this.accessToken,
-    required this.refreshToken,
-    required this.expiresAtMillis,
-    this.scope,
+    required super.accessToken,
+    required super.refreshToken,
+    required super.expiresAtMillis,
+    super.scope,
     this.sessionKey,
     this.sessionSecret,
   });
 
-  final String accessToken;
-  final String refreshToken;
-  final int expiresAtMillis;
-  final String? scope;
   final String? sessionKey;
   final String? sessionSecret;
-
-  bool get isExpired =>
-      DateTime.now().millisecondsSinceEpoch >= expiresAtMillis;
-
-  bool willExpireWithin(Duration duration) {
-    final int thresholdMillis = DateTime.now()
-        .add(duration)
-        .millisecondsSinceEpoch;
-    return expiresAtMillis <= thresholdMillis;
-  }
 }
 
-class BaiduPanSourceConfig {
+class BaiduPanSourceConfig extends CloudSourceConfig {
   const BaiduPanSourceConfig({
-    required this.sourceRootId,
-    required this.rootPath,
-    required this.displayName,
-    this.syncToken,
-    this.lastSyncedAtMillis,
+    required super.sourceRootId,
+    required super.rootPath,
+    required super.displayName,
+    super.syncToken,
+    super.lastSyncedAtMillis,
   });
-
-  final String sourceRootId;
-  final String rootPath;
-  final String displayName;
-  final String? syncToken;
-  final int? lastSyncedAtMillis;
 }
 
-class BaiduPanAppCredentials {
+class BaiduPanAppCredentials extends CloudAppCredentials {
   const BaiduPanAppCredentials({
-    required this.appId,
-    required this.appKey,
-    required this.secretKey,
-    required this.signKey,
-    this.redirectUri = 'oob',
-    this.scope = 'basic,netdisk',
+    required super.appId,
+    required super.appKey,
+    required super.secretKey,
+    required super.signKey,
+    super.redirectUri = 'oob',
+    super.scope = 'basic,netdisk',
   });
-
-  final String appId;
-  final String appKey;
-  final String secretKey;
-  final String signKey;
-  final String redirectUri;
-  final String scope;
-
-  bool get isComplete =>
-      appId.trim().isNotEmpty &&
-      appKey.trim().isNotEmpty &&
-      secretKey.trim().isNotEmpty &&
-      signKey.trim().isNotEmpty;
 }
 
-class BaiduPanRemoteFile {
+class BaiduPanRemoteFile extends CloudRemoteFile {
   const BaiduPanRemoteFile({
     required this.fsid,
-    required this.path,
-    required this.serverFilename,
-    required this.isDirectory,
-    required this.size,
-    required this.modifiedAtMillis,
-    this.md5,
-    this.category,
-    this.dlink,
-    this.rawPayload,
-  });
+    required super.path,
+    required super.serverFilename,
+    required super.isDirectory,
+    required super.size,
+    required super.modifiedAtMillis,
+    super.md5,
+    super.category,
+    super.dlink,
+    super.rawPayload,
+  }) : super(fileId: fsid);
 
   final String fsid;
-  final String path;
-  final String serverFilename;
-  final bool isDirectory;
-  final int size;
-  final int modifiedAtMillis;
-  final String? md5;
-  final int? category;
-  final String? dlink;
-  final Map<String, Object?>? rawPayload;
 }
 
-class BaiduPanUserInfo {
+class BaiduPanUserInfo extends CloudUserInfo {
   const BaiduPanUserInfo({
     required this.uk,
-    required this.displayName,
-    this.avatarUrl,
+    required super.displayName,
+    super.avatarUrl,
     this.vipType,
-  });
+  }) : super(accountId: uk, accountTier: vipType);
 
   final String uk;
-  final String displayName;
-  final String? avatarUrl;
   final int? vipType;
 }
 
-class BaiduPanQuotaInfo {
+class BaiduPanQuotaInfo extends CloudQuotaInfo {
   const BaiduPanQuotaInfo({
-    required this.totalBytes,
-    required this.usedBytes,
-    this.freeBytes,
+    required super.totalBytes,
+    required super.usedBytes,
+    super.freeBytes,
   });
-
-  final int totalBytes;
-  final int usedBytes;
-  final int? freeBytes;
-
-  int get availableBytes =>
-      freeBytes ?? (totalBytes - usedBytes).clamp(0, totalBytes);
 }
 
 class BaiduPanUnauthorizedException implements Exception {

@@ -87,12 +87,6 @@ private final class NativeKtvPlayerBridge: NSObject, FlutterStreamHandler, VLCMe
     player.audioChannel = Int32(vlcAudioChannelStereo)
   }
 
-  private func buildPlayer() -> VLCMediaPlayer {
-    let player = VLCMediaPlayer()
-    configurePlayer(player)
-    return player
-  }
-
   private func audioChannel(for mode: String) -> Int32 {
     mode == "accompaniment" ? Int32(vlcAudioChannelLeft) : Int32(vlcAudioChannelRight)
   }
@@ -158,8 +152,13 @@ private final class NativeKtvPlayerBridge: NSObject, FlutterStreamHandler, VLCMe
     shouldResume: Bool,
     singleTrackMode: String?
   ) {
-    let oldPlayer = player
-    player = buildPlayer()
+    // Reuse the existing VLCMediaPlayer instance. Rebuilding and immediately
+    // stopping the previous player can race with VLCKit release callbacks on
+    // macOS, which showed up as libvlc_media_player_destroy crashes.
+    player.stop()
+    player.media = nil
+    player.audioChannel = Int32(vlcAudioChannelStereo)
+    player.drawable = nil
     playbackCompleted = false
     playbackError = nil
     lastKnownPositionMs = 0
@@ -175,9 +174,6 @@ private final class NativeKtvPlayerBridge: NSObject, FlutterStreamHandler, VLCMe
     if !shouldResume {
       player.pause()
     }
-
-    oldPlayer.delegate = nil
-    oldPlayer.stop()
     currentPlaybackMediaPath = mediaPath
     currentSingleTrackAudioOutputMode = nil
   }

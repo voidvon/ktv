@@ -39,8 +39,9 @@ class SongBookLibraryViewModel {
     required this.songs,
     required this.artists,
     required this.favoriteSongIds,
+    required this.downloadableSourceIds,
     required this.downloadingSongIds,
-    required this.downloadedSourceSongIds,
+    required this.downloadedSongKeys,
     required this.totalCount,
     required this.pageIndex,
     required this.totalPages,
@@ -57,8 +58,9 @@ class SongBookLibraryViewModel {
   final List<Song> songs;
   final List<Artist> artists;
   final List<String> favoriteSongIds;
+  final Set<String> downloadableSourceIds;
   final Set<String> downloadingSongIds;
-  final Set<String> downloadedSourceSongIds;
+  final Set<String> downloadedSongKeys;
   final int totalCount;
   final int pageIndex;
   final int totalPages;
@@ -68,6 +70,17 @@ class SongBookLibraryViewModel {
   final bool isScanning;
   final bool isLoadingPage;
   final String? scanErrorMessage;
+
+  bool supportsDownload(Song song) =>
+      downloadableSourceIds.contains(song.sourceId);
+
+  bool isSongDownloaded(Song song) {
+    final String sourceSongId = song.sourceSongId.trim();
+    if (sourceSongId.isEmpty) {
+      return false;
+    }
+    return downloadedSongKeys.contains('${song.sourceId}::$sourceSongId');
+  }
 }
 
 class SongBookPlaybackViewModel {

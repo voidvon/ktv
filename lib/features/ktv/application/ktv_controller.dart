@@ -6,6 +6,7 @@ import '../../../core/models/artist.dart';
 import '../../../core/models/song.dart';
 import '../../media_library/data/aggregated_library_repository.dart';
 import '../../media_library/data/baidu_pan/baidu_pan_song_download_service.dart';
+import '../../media_library/data/cloud/cloud_song_download_service.dart';
 import '../../media_library/data/local_song_source_adapter.dart';
 import '../../media_library/data/media_library_repository.dart';
 import '../../song_profile/data/song_profile_repository.dart';
@@ -25,6 +26,7 @@ class KtvController extends ChangeNotifier {
     PlayerController? playerController,
     PlayableSongResolver? playableSongResolver,
     BaiduPanSongDownloadService? baiduPanSongDownloadService,
+    Map<String, CloudSongDownloadService>? songDownloadServices,
   }) : _mediaLibraryRepository =
            mediaLibraryRepository ?? MediaLibraryRepository(),
        _songProfileRepository =
@@ -32,9 +34,11 @@ class KtvController extends ChangeNotifier {
        playerController = playerController ?? createPlayerController(),
        _playableSongResolver =
            playableSongResolver ?? const DefaultPlayableSongResolver(),
-       _baiduPanSongDownloadService =
-           baiduPanSongDownloadService ??
-           _createDefaultDownloadService(playableSongResolver) {
+       _songDownloadServices = _resolveSongDownloadServices(
+         playableSongResolver: playableSongResolver,
+         baiduPanSongDownloadService: baiduPanSongDownloadService,
+         songDownloadServices: songDownloadServices,
+       ) {
     _aggregatedLibraryRepository =
         aggregatedLibraryRepository ??
         DefaultAggregatedLibraryRepository(
@@ -61,12 +65,28 @@ class KtvController extends ChangeNotifier {
     return BaiduPanSongDownloadService(playbackCache: playbackCache);
   }
 
+  static Map<String, CloudSongDownloadService> _resolveSongDownloadServices({
+    required PlayableSongResolver? playableSongResolver,
+    required BaiduPanSongDownloadService? baiduPanSongDownloadService,
+    required Map<String, CloudSongDownloadService>? songDownloadServices,
+  }) {
+    final Map<String, CloudSongDownloadService> resolvedServices =
+        <String, CloudSongDownloadService>{...?songDownloadServices};
+    final BaiduPanSongDownloadService? baiduService =
+        baiduPanSongDownloadService ??
+        _createDefaultDownloadService(playableSongResolver);
+    if (baiduService != null) {
+      resolvedServices[baiduService.sourceId] = baiduService;
+    }
+    return Map<String, CloudSongDownloadService>.unmodifiable(resolvedServices);
+  }
+
   final MediaLibraryRepository _mediaLibraryRepository;
   late final AggregatedLibraryRepository _aggregatedLibraryRepository;
   final SongProfileRepository _songProfileRepository;
   final PlayerController playerController;
   final PlayableSongResolver _playableSongResolver;
-  final BaiduPanSongDownloadService? _baiduPanSongDownloadService;
+  final Map<String, CloudSongDownloadService> _songDownloadServices;
   late final PlaybackQueueManager _playbackQueueManager = PlaybackQueueManager(
     playerController: playerController,
     playableSongResolver: _playableSongResolver,
@@ -85,7 +105,7 @@ class KtvController extends ChangeNotifier {
   bool _didInitialize = false;
   Timer? _pendingSearchRefresh;
   final Set<String> _downloadingSongIds = <String>{};
-  final Set<String> _downloadedSourceSongIds = <String>{};
+  final Set<String> _downloadedSongKeys = <String>{};
 
   MediaLibraryRepository get mediaLibraryRepository => _mediaLibraryRepository;
   KtvState get state => _state;
@@ -113,8 +133,10 @@ class KtvController extends ChangeNotifier {
       List<String>.unmodifiable(_state.libraryFavoriteSongIds);
   Set<String> get downloadingSongIds =>
       Set<String>.unmodifiable(_downloadingSongIds);
-  Set<String> get downloadedSourceSongIds =>
-      Set<String>.unmodifiable(_downloadedSourceSongIds);
+  Set<String> get downloadedSongKeys =>
+      Set<String>.unmodifiable(_downloadedSongKeys);
+  Set<String> get downloadableSourceIds =>
+      Set<String>.unmodifiable(_songDownloadServices.keys.toSet());
   List<Song> get filteredSongs => librarySongs;
   int get libraryTotalCount => _state.libraryTotalCount;
   int get libraryPageIndex => _state.libraryPageIndex;
@@ -134,12 +156,21 @@ class KtvController extends ChangeNotifier {
     }
     _didInitialize = true;
     await _librarySession.restoreSavedDirectory();
-    final BaiduPanSongDownloadService? downloader =
-        _baiduPanSongDownloadService;
-    if (downloader != null) {
-      _downloadedSourceSongIds
-        ..clear()
-        ..addAll(await downloader.loadDownloadedSourceSongIds());
+    if (_songDownloadServices.isNotEmpty) {
+      _downloadedSongKeys.clear();
+      for (final CloudSongDownloadService service
+          in _songDownloadServices.values) {
+        final Set<String> downloadedSourceSongIds = await service
+            .loadDownloadedSourceSongIds();
+        _downloadedSongKeys.addAll(
+          downloadedSourceSongIds.map(
+            (String sourceSongId) => _buildDownloadKey(
+              sourceId: service.sourceId,
+              sourceSongId: sourceSongId,
+            ),
+          ),
+        );
+      }
       notifyListeners();
     }
   }
@@ -264,14 +295,11 @@ class KtvController extends ChangeNotifier {
     await _reloadSongProfileDrivenPageIfNeeded();
   }
 
-  Future<BaiduPanDownloadResult> downloadSongToLocal(Song song) async {
-    final BaiduPanSongDownloadService? downloader =
-        _baiduPanSongDownloadService;
+  Future<CloudSongDownloadResult> downloadSongToLocal(Song song) async {
+    final CloudSongDownloadService? downloader =
+        _songDownloadServices[song.sourceId];
     if (downloader == null) {
-      throw StateError('百度网盘下载服务未启用');
-    }
-    if (song.sourceId != 'baidu_pan') {
-      throw StateError('仅支持下载百度网盘歌曲');
+      throw StateError('${song.sourceId} 下载服务未启用');
     }
     if (_downloadingSongIds.contains(song.songId)) {
       throw StateError('这首歌曲正在下载中');
@@ -281,7 +309,7 @@ class KtvController extends ChangeNotifier {
     notifyListeners();
     try {
       final String? preferredDirectory = _state.scanDirectoryPath;
-      final BaiduPanDownloadResult result = await downloader.downloadSong(
+      final CloudSongDownloadResult result = await downloader.downloadSong(
         song: song,
         preferredDirectory: preferredDirectory,
       );
@@ -292,7 +320,12 @@ class KtvController extends ChangeNotifier {
           _librarySession.refreshLibraryIndexInBackground(preferredDirectory),
         );
       }
-      _downloadedSourceSongIds.add(song.sourceSongId);
+      _downloadedSongKeys.add(
+        _buildDownloadKey(
+          sourceId: song.sourceId,
+          sourceSongId: song.sourceSongId,
+        ),
+      );
       notifyListeners();
       return result;
     } finally {
@@ -419,6 +452,20 @@ class KtvController extends ChangeNotifier {
         libraryFavoriteSongIds: const <String>[],
       ),
     );
+  }
+
+  String buildDownloadKeyForSong(Song song) {
+    return _buildDownloadKey(
+      sourceId: song.sourceId,
+      sourceSongId: song.sourceSongId,
+    );
+  }
+
+  String _buildDownloadKey({
+    required String sourceId,
+    required String sourceSongId,
+  }) {
+    return '$sourceId::${sourceSongId.trim()}';
   }
 
   @override

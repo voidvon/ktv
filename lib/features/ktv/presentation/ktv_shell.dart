@@ -8,9 +8,9 @@ import '../../../core/models/song.dart';
 import '../../media_library/data/baidu_pan/baidu_pan_app_config.dart';
 import '../../media_library/data/baidu_pan/baidu_pan_http_api_client.dart';
 import '../../media_library/data/baidu_pan/baidu_pan_oauth_repository.dart';
-import '../../media_library/data/baidu_pan/baidu_pan_song_download_service.dart';
 import '../../media_library/data/baidu_pan/file_baidu_pan_auth_store.dart';
 import '../../media_library/data/baidu_pan/file_baidu_pan_source_config_store.dart';
+import '../../media_library/data/cloud/cloud_song_download_service.dart';
 import '../../settings/application/baidu_pan_settings_controller.dart';
 import '../../settings/application/settings_controller.dart';
 import '../../settings/presentation/settings_page.dart';
@@ -253,7 +253,7 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
 
   Future<void> _downloadSong(Song song) async {
     try {
-      final BaiduPanDownloadResult result = await _controller
+      final CloudSongDownloadResult result = await _controller
           .downloadSongToLocal(song);
       if (!mounted) {
         return;
@@ -290,8 +290,9 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
         songs: _controller.filteredSongs,
         artists: _controller.libraryArtists,
         favoriteSongIds: _controller.favoriteSongIds,
+        downloadableSourceIds: _controller.downloadableSourceIds,
         downloadingSongIds: _controller.downloadingSongIds,
-        downloadedSourceSongIds: _controller.downloadedSourceSongIds,
+        downloadedSongKeys: _controller.downloadedSongKeys,
         totalCount: _controller.libraryTotalCount,
         pageIndex: _controller.libraryPageIndex,
         totalPages: _controller.libraryTotalPages,

@@ -12,6 +12,7 @@ import '../features/media_library/data/baidu_pan/baidu_pan_song_source.dart';
 import '../features/media_library/data/baidu_pan/file_baidu_pan_auth_store.dart';
 import '../features/media_library/data/baidu_pan/file_baidu_pan_playback_cache.dart';
 import '../features/media_library/data/baidu_pan/file_baidu_pan_source_config_store.dart';
+import '../features/media_library/data/cloud/cloud_playback_cache.dart';
 import '../features/media_library/data/local_song_source_adapter.dart';
 import '../features/media_library/data/media_library_repository.dart';
 
@@ -62,6 +63,9 @@ KtvController createKtvController({
         playableSongResolver ??
         DefaultPlayableSongResolver(
           baiduPanPlaybackCache: baiduPanPlaybackCache,
+          cloudPlaybackCaches: <String, CloudPlaybackCache>{
+            'baidu_pan': baiduPanPlaybackCache,
+          },
         ),
   );
 }

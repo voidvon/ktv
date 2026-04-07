@@ -1,22 +1,21 @@
 import '../../../../core/models/song.dart';
+import '../cloud/cloud_playback_cache.dart';
 
-class BaiduPanCachedMedia {
+class BaiduPanCachedMedia extends CloudCachedMedia {
   const BaiduPanCachedMedia({
-    required this.localPath,
-    required this.displayName,
-    this.cacheHit = false,
+    required super.localPath,
+    required super.displayName,
+    super.cacheHit = false,
   });
-
-  final String localPath;
-  final String displayName;
-  final bool cacheHit;
 }
 
-abstract class BaiduPanPlaybackCache {
+abstract class BaiduPanPlaybackCache extends CloudPlaybackCache {
+  @override
   Future<BaiduPanCachedMedia> resolve({
     required Song song,
     required String sourceSongId,
   });
 
+  @override
   Future<void> clearExpiredCache();
 }

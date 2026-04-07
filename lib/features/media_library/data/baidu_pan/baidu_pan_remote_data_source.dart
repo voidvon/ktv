@@ -1,16 +1,9 @@
+import '../cloud/cloud_remote_data_source.dart';
 import 'baidu_pan_api_client.dart';
 import 'baidu_pan_models.dart';
 
-abstract class BaiduPanRemoteDataSource {
-  Future<List<BaiduPanRemoteFile>> scanRoot(String rootPath);
-
-  Future<List<BaiduPanRemoteFile>> searchFiles({
-    required String keyword,
-    String? rootPath,
-  });
-
-  Future<BaiduPanRemoteFile> getPlayableFileMeta(String fsid);
-}
+abstract class BaiduPanRemoteDataSource
+    extends CloudRemoteDataSource<BaiduPanRemoteFile> {}
 
 class DefaultBaiduPanRemoteDataSource implements BaiduPanRemoteDataSource {
   const DefaultBaiduPanRemoteDataSource({required BaiduPanApiClient apiClient})

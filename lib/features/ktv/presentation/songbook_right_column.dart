@@ -391,11 +391,9 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
                 _playback.queuedSongs.first == song;
             final bool isQueued = _playback.queuedSongs.contains(song);
             final bool isFavorite = favoriteSongIds.contains(song.songId);
-            final bool isDownloaded = _library.downloadedSourceSongIds.contains(
-              song.sourceSongId,
-            );
+            final bool isDownloaded = _library.isSongDownloaded(song);
             final bool showDownloadAction =
-                song.sourceId == 'baidu_pan' && !isDownloaded;
+                _library.supportsDownload(song) && !isDownloaded;
             final bool isDownloading = _library.downloadingSongIds.contains(
               song.songId,
             );
