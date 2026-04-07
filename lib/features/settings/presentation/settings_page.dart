@@ -59,6 +59,10 @@ class SettingsPage extends StatelessWidget {
                     baiduPanController,
                   ]),
                   builder: (BuildContext context, _) {
+                    final bool baiduPanReady =
+                        baiduPanController.canRefreshRemoteFolder;
+                    final String? baiduPanRootPath =
+                        baiduPanController.rootPath;
                     return Column(
                       children: <Widget>[
                         _SettingsEntryCard(
@@ -91,8 +95,10 @@ class SettingsPage extends StatelessWidget {
                           title: '百度网盘',
                           subtitle: baiduPanController.isLoading
                               ? '加载中'
-                              : baiduPanController.isConfigured
-                              ? '已配置 ${baiduPanController.rootPath}'
+                              : baiduPanReady
+                              ? '已配置 $baiduPanRootPath'
+                              : (baiduPanRootPath?.trim().isNotEmpty ?? false)
+                              ? '未登录'
                               : '未配置',
                           icon: Icons.cloud_rounded,
                           onTap: () async {
@@ -270,6 +276,9 @@ class _BaiduPanSettingsPageState extends State<_BaiduPanSettingsPage> {
       animation: widget.controller,
       builder: (BuildContext context, _) {
         final bool supportsQrLogin = widget.controller.supportsQrLogin;
+        final bool canRefreshRemoteFolder =
+            widget.controller.canRefreshRemoteFolder;
+        final String? rootPath = widget.controller.rootPath;
         return Scaffold(
           backgroundColor: const Color(0xFF0A0014),
           appBar: AppBar(
@@ -294,8 +303,10 @@ class _BaiduPanSettingsPageState extends State<_BaiduPanSettingsPage> {
                       title: '当前状态',
                       content: widget.controller.isLoading
                           ? '加载中'
-                          : widget.controller.isConfigured
-                          ? '已配置，歌曲根目录：${widget.controller.rootPath}'
+                          : canRefreshRemoteFolder
+                          ? '已配置，歌曲根目录：$rootPath'
+                          : (rootPath?.trim().isNotEmpty ?? false)
+                          ? '未登录，已保存歌曲根目录：$rootPath'
                           : '未配置百度网盘数据源',
                     ),
                     const SizedBox(height: 16),
