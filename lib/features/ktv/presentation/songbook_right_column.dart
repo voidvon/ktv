@@ -387,6 +387,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
           itemBuilder: (BuildContext context, int index) {
             final Song song = visibleSongs[index];
             final bool isCurrent =
+                widget.controller.hasMedia &&
                 _playback.queuedSongs.isNotEmpty &&
                 _playback.queuedSongs.first == song;
             final bool isQueued = _playback.queuedSongs.contains(song);
@@ -837,11 +838,30 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
 
   List<QueuedSongEntry> _resolveFilteredQueueEntries() {
     final String normalizedQuery = _library.searchQuery.trim().toLowerCase();
+    final bool hasCurrentPlayback =
+        widget.controller.hasMedia && _playback.queuedSongs.isNotEmpty;
     final Iterable<QueuedSongEntry> allEntries = _playback.queuedSongs
         .asMap()
         .entries
         .map((MapEntry<int, Song> entry) {
-          return QueuedSongEntry(song: entry.value, queueIndex: entry.key);
+          final Song song = entry.value;
+          final bool isPendingDownload =
+              _library.supportsDownload(song) &&
+              !_library.isSongDownloaded(song);
+          final bool isDownloading = _library.downloadingSongIds.contains(
+            song.songId,
+          );
+          return QueuedSongEntry(
+            song: song,
+            queueIndex: entry.key,
+            isCurrent: hasCurrentPlayback && entry.key == 0,
+            canPinToTop: !isPendingDownload && entry.key > 1,
+            subtitle: hasCurrentPlayback && entry.key == 0
+                ? '当前播放'
+                : isPendingDownload
+                ? (isDownloading ? '下载中' : '等待下载')
+                : '队列 ${entry.key}',
+          );
         });
     if (normalizedQuery.isEmpty) {
       return allEntries.toList(growable: false);

@@ -263,6 +263,15 @@ class FileBaiduPanPlaybackCache implements BaiduPanPlaybackCache {
       final HttpClientResponse response = await request.close();
       if (response.statusCode != HttpStatus.ok &&
           response.statusCode != HttpStatus.partialContent) {
+        if (response.statusCode == HttpStatus.unauthorized) {
+          throw const BaiduPanUnauthorizedException();
+        }
+        if (response.statusCode == HttpStatus.forbidden) {
+          throw const BaiduPanDownloadForbiddenException();
+        }
+        if (response.statusCode == HttpStatus.notFound) {
+          throw const BaiduPanFileNotFoundException();
+        }
         throw HttpException('百度网盘下载失败: ${response.statusCode}', uri: uri);
       }
       final bool isPartial = response.statusCode == HttpStatus.partialContent;

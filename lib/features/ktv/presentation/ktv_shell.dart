@@ -199,10 +199,7 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
         _controller.queuedSongs.isEmpty) {
       return;
     }
-    final int requiredQueueLength = _controller.playerController.hasMedia
-        ? 2
-        : 1;
-    if (_controller.queuedSongs.length < requiredQueueLength) {
+    if (!_controller.hasNextPlayableQueuedSong) {
       CenterOverlayToast.showError(context, message: '暂无下一首');
       return;
     }
@@ -294,18 +291,21 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
         await _controller.requestSong(song);
         return;
       case SongSelectionAction.startDownload:
+        await _controller.enqueuePendingSong(song);
         unawaited(_downloadSong(song));
         if (mounted) {
-          CenterOverlayToast.showSuccess(context, message: '已加入下载列表');
+          CenterOverlayToast.showSuccess(context, message: '已加入已点');
         }
         return;
       case SongSelectionAction.resumeDownload:
+        await _controller.enqueuePendingSong(song);
         unawaited(_downloadSong(song));
         if (mounted) {
           CenterOverlayToast.showSuccess(context, message: '已恢复下载');
         }
         return;
       case SongSelectionAction.downloading:
+        await _controller.enqueuePendingSong(song);
         if (mounted) {
           CenterOverlayToast.showSuccess(context, message: '正在下载');
         }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
@@ -55,6 +56,27 @@ class BaiduPanSettingsController
 
   @override
   String get expiredSessionMessage => '百度网盘登录已过期，请重新扫码登录。';
+
+  @override
+  bool isAuthorizationError(Object error) {
+    if (error is BaiduPanUnauthorizedException ||
+        error is BaiduPanTokenExpiredException) {
+      return true;
+    }
+    final String message = error.toString().toLowerCase();
+    if (message.contains('baidupanunauthorizedexception') ||
+        message.contains('baidupantokenexpiredexception') ||
+        message.contains('未授权') ||
+        message.contains('授权已过期') ||
+        message.contains('access_denied') ||
+        message.contains('expired_token')) {
+      return true;
+    }
+    if (error is HttpException) {
+      return message.contains('401') || message.contains('403');
+    }
+    return false;
+  }
 
   @override
   Future<void> load() async {

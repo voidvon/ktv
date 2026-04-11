@@ -96,6 +96,9 @@ class CloudSourceSettingsController<
   String get expiredSessionMessage => '$_providerLabel登录已过期，请重新登录。';
 
   @protected
+  bool isAuthorizationError(Object error) => false;
+
+  @protected
   void setErrorMessage(String? message) {
     _errorMessage = message;
   }
@@ -104,7 +107,16 @@ class CloudSourceSettingsController<
   Future<void> applyAuthorizedToken(TToken token) async {
     _authToken = token;
     _errorMessage = null;
-    await _loadAccountSummary();
+    try {
+      await _loadAccountSummary();
+    } catch (error) {
+      if (!isAuthorizationError(error)) {
+        rethrow;
+      }
+      await _authRepository.logout();
+      clearAuthorizedSessionState();
+      _errorMessage = expiredSessionMessage;
+    }
   }
 
   @protected
@@ -129,7 +141,16 @@ class CloudSourceSettingsController<
           : false;
       _authToken = hasValidSession ? await _authRepository.readToken() : null;
       if (_authToken != null) {
-        await _loadAccountSummary();
+        try {
+          await _loadAccountSummary();
+        } catch (error) {
+          if (!isAuthorizationError(error)) {
+            rethrow;
+          }
+          await _authRepository.logout();
+          clearAuthorizedSessionState();
+          _errorMessage = expiredSessionMessage;
+        }
       } else {
         clearAuthorizedSessionState();
         if (hasStoredSession) {

@@ -144,6 +144,32 @@ class DownloadingSongItem {
   }
 }
 
+int compareDownloadingSongItems(
+  DownloadingSongItem left,
+  DownloadingSongItem right,
+) {
+  final int startedAtComparison = right.startedAtMillis.compareTo(
+    left.startedAtMillis,
+  );
+  if (startedAtComparison != 0) {
+    return startedAtComparison;
+  }
+
+  final int sourceComparison = right.sourceId.compareTo(left.sourceId);
+  if (sourceComparison != 0) {
+    return sourceComparison;
+  }
+
+  final int sourceSongComparison = right.sourceSongId.compareTo(
+    left.sourceSongId,
+  );
+  if (sourceSongComparison != 0) {
+    return sourceSongComparison;
+  }
+
+  return right.songId.compareTo(left.songId);
+}
+
 bool isRetryableDownloadErrorMessage(String? errorMessage) {
   final String normalized = errorMessage?.trim() ?? '';
   if (normalized.isEmpty) {
@@ -209,7 +235,7 @@ bool isAuthorizationDownloadErrorMessage(String? errorMessage) {
   );
   if (statusMatch != null) {
     final int? statusCode = int.tryParse(statusMatch.group(1) ?? '');
-    return statusCode == 401 || statusCode == 403;
+    return statusCode == 401;
   }
 
   return false;
@@ -232,6 +258,7 @@ String buildDownloadErrorSummary(
 
   final String lower = normalized.toLowerCase();
   if (lower.contains('缺少可下载 dlink') ||
+      lower.contains('baidupandownloadforbiddenexception') ||
       lower.contains('filenotfound') ||
       lower.contains('文件不存在')) {
     return '下载失败，文件不可用';

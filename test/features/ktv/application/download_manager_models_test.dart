@@ -77,7 +77,7 @@ void main() {
     );
     expect(
       isAuthorizationDownloadErrorMessage('HttpException: 百度网盘下载失败: 403'),
-      isTrue,
+      isFalse,
     );
     expect(
       const DownloadingSongItem(
@@ -119,6 +119,13 @@ void main() {
     expect(
       buildDownloadErrorSummary(
         'StateError: 百度网盘歌曲 song-1 缺少可下载 dlink',
+        fallback: '下载失败',
+      ),
+      '下载失败，文件不可用',
+    );
+    expect(
+      buildDownloadErrorSummary(
+        'BaiduPanDownloadForbiddenException: 百度网盘下载被拒绝',
         fallback: '下载失败',
       ),
       '下载失败，文件不可用',

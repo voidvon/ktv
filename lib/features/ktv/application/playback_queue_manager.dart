@@ -79,10 +79,20 @@ class PlaybackQueueManager {
     if (!playerController.hasMedia) {
       return;
     }
-    unawaited(playerController.seekToProgress(0));
+    unawaited(_restartPlayback());
   }
 
-  Future<List<Song>> skipCurrentSong(List<Song> queuedSongs) async {
+  Future<void> _restartPlayback() async {
+    await playerController.seekToProgress(0);
+    if (!playerController.isPlaying) {
+      await playerController.togglePlayback();
+    }
+  }
+
+  Future<List<Song>> skipCurrentSong(
+    List<Song> queuedSongs, {
+    required bool Function(Song song) canPlaySong,
+  }) async {
     if (!playerController.hasMedia && queuedSongs.isEmpty) {
       return queuedSongs;
     }
@@ -94,6 +104,15 @@ class PlaybackQueueManager {
 
     if (remainingQueue.isEmpty) {
       return queuedSongs;
+    }
+
+    final int nextPlayableIndex = remainingQueue.indexWhere(canPlaySong);
+    if (nextPlayableIndex < 0) {
+      return queuedSongs;
+    }
+    if (nextPlayableIndex > 0) {
+      final Song nextPlayableSong = remainingQueue.removeAt(nextPlayableIndex);
+      remainingQueue.insert(0, nextPlayableSong);
     }
 
     final Song nextSong = remainingQueue.first;

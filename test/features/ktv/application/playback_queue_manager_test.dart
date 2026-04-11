@@ -50,6 +50,7 @@ void main() {
 
     final List<Song> remainingQueue = await manager.skipCurrentSong(
       queueAfterSecond,
+      canPlaySong: (_) => true,
     );
 
     expect(remainingQueue, <Song>[second]);
@@ -74,20 +75,64 @@ void main() {
     expect(playerController.lastOpenedSource?.displayName, '缓存版第一首');
   });
 
-  test('skipCurrentSong keeps current playback when no next song exists', () async {
+  test(
+    'skipCurrentSong keeps current playback when no next song exists',
+    () async {
+      final _FakePlayerController playerController = _FakePlayerController();
+      final PlaybackQueueManager manager = PlaybackQueueManager(
+        playerController: playerController,
+      );
+      final Song first = _song('第一首');
+
+      final List<Song> queue = await manager.requestSong(const <Song>[], first);
+      final List<Song> remainingQueue = await manager.skipCurrentSong(
+        queue,
+        canPlaySong: (_) => true,
+      );
+
+      expect(remainingQueue, <Song>[first]);
+      expect(playerController.lastOpenedSource?.displayName, '第一首');
+      expect(playerController.hasMedia, isTrue);
+      expect(playerController.stopPlaybackCallCount, 0);
+    },
+  );
+
+  test('skipCurrentSong ignores unplayable queued placeholder songs', () async {
+    final _FakePlayerController playerController = _FakePlayerController();
+    final PlaybackQueueManager manager = PlaybackQueueManager(
+      playerController: playerController,
+    );
+    final Song current = _song('当前歌曲');
+    final Song pending = _song('等待下载');
+
+    final List<Song> queue = await manager.requestSong(const <Song>[], current);
+    final List<Song> nextQueue = <Song>[...queue, pending];
+    final List<Song> remainingQueue = await manager.skipCurrentSong(
+      nextQueue,
+      canPlaySong: (Song song) => song != pending,
+    );
+
+    expect(remainingQueue, nextQueue);
+    expect(playerController.lastOpenedSource?.displayName, '当前歌曲');
+  });
+
+  test('restartPlayback resumes playback from start when paused', () async {
     final _FakePlayerController playerController = _FakePlayerController();
     final PlaybackQueueManager manager = PlaybackQueueManager(
       playerController: playerController,
     );
     final Song first = _song('第一首');
 
-    final List<Song> queue = await manager.requestSong(const <Song>[], first);
-    final List<Song> remainingQueue = await manager.skipCurrentSong(queue);
+    await manager.requestSong(const <Song>[], first);
+    await playerController.seekToProgress(0.5);
+    await playerController.togglePlayback();
+    expect(playerController.isPlaying, isFalse);
 
-    expect(remainingQueue, <Song>[first]);
-    expect(playerController.lastOpenedSource?.displayName, '第一首');
-    expect(playerController.hasMedia, isTrue);
-    expect(playerController.stopPlaybackCallCount, 0);
+    manager.restartPlayback();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(playerController.playbackPosition, Duration.zero);
+    expect(playerController.isPlaying, isTrue);
   });
 }
 

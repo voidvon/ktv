@@ -409,6 +409,60 @@ void main() {
   );
 
   test(
+    'requestSong keeps pending cloud songs at the bottom of queue',
+    () async {
+      final FakePlayerController playerController = FakePlayerController();
+      final KtvController controller = KtvController(
+        mediaLibraryRepository: FakeMediaLibraryRepository(),
+        playerController: playerController,
+        songDownloadServices: <String, CloudSongDownloadService>{
+          'baidu_pan': _FakeCloudSongDownloadService(sourceId: 'baidu_pan'),
+        },
+        downloadTaskStore: _FakeDownloadTaskStore(),
+      );
+      final Song current = _song(title: '当前播放', artist: '歌手甲');
+      final Song localNext = _song(title: '本地下一首', artist: '歌手乙');
+      final Song pendingRemote = _remoteSong(
+        title: '云端待下载',
+        artist: '云端歌手',
+        sourceSongId: 'fsid-pending-bottom',
+      );
+
+      await controller.requestSong(current);
+      await controller.requestSong(pendingRemote);
+      await controller.requestSong(localNext);
+
+      expect(controller.queuedSongs, <Song>[current, localNext, pendingRemote]);
+    },
+  );
+
+  test(
+    'enqueuePendingSong adds cloud song to queue bottom without duplicates',
+    () async {
+      final KtvController controller = KtvController(
+        mediaLibraryRepository: FakeMediaLibraryRepository(),
+        playerController: FakePlayerController(),
+        songDownloadServices: <String, CloudSongDownloadService>{
+          'baidu_pan': _FakeCloudSongDownloadService(sourceId: 'baidu_pan'),
+        },
+        downloadTaskStore: _FakeDownloadTaskStore(),
+      );
+      final Song localSong = _song(title: '本地歌曲', artist: '歌手甲');
+      final Song pendingRemote = _remoteSong(
+        title: '云端待下载',
+        artist: '云端歌手',
+        sourceSongId: 'fsid-enqueue',
+      );
+
+      await controller.requestSong(localSong);
+      await controller.enqueuePendingSong(pendingRemote);
+      await controller.enqueuePendingSong(pendingRemote);
+
+      expect(controller.queuedSongs, <Song>[localSong, pendingRemote]);
+    },
+  );
+
+  test(
     'prioritizeQueuedSong moves later queued item behind current song',
     () async {
       final KtvController controller = KtvController(
@@ -619,6 +673,104 @@ void main() {
         '/tmp/downloaded/night.mp4',
       );
       expect(taskStore.savedTasks, isEmpty);
+    },
+  );
+
+  test(
+    'downloadingSongs keeps latest started task first while progress updates',
+    () async {
+      final Song firstSong = _remoteSong(
+        title: '第一首云端歌',
+        artist: '歌手甲',
+        sourceSongId: 'fsid-first',
+      );
+      final Song secondSong = _remoteSong(
+        title: '第二首云端歌',
+        artist: '歌手乙',
+        sourceSongId: 'fsid-second',
+      );
+      final Completer<void> releaseDownloads = Completer<void>();
+      final Completer<void> firstProgressReported = Completer<void>();
+      final Completer<void> secondProgressReported = Completer<void>();
+      void Function(CloudDownloadProgress progress)? firstProgressCallback;
+      final _FakeCloudSongDownloadService downloadService =
+          _FakeCloudSongDownloadService(
+            sourceId: 'baidu_pan',
+            onDownloadSong:
+                ({
+                  required Song song,
+                  String? preferredDirectory,
+                  void Function(CloudDownloadProgress progress)? onProgress,
+                  CloudDownloadCancellationToken? cancellationToken,
+                }) async {
+                  if (song.sourceSongId == 'fsid-first') {
+                    firstProgressCallback = onProgress;
+                    onProgress?.call(
+                      const CloudDownloadProgress(
+                        phaseLabel: '缓存 第一首云端歌',
+                        value: 0.2,
+                      ),
+                    );
+                    if (!firstProgressReported.isCompleted) {
+                      firstProgressReported.complete();
+                    }
+                  } else {
+                    onProgress?.call(
+                      const CloudDownloadProgress(
+                        phaseLabel: '缓存 第二首云端歌',
+                        value: 0.4,
+                      ),
+                    );
+                    if (!secondProgressReported.isCompleted) {
+                      secondProgressReported.complete();
+                    }
+                  }
+                  await releaseDownloads.future;
+                  cancellationToken?.throwIfCancelled();
+                  return CloudSongDownloadResult(
+                    savedPath: '/tmp/${song.sourceSongId}.mp4',
+                    usedPreferredDirectory: false,
+                  );
+                },
+          );
+      final KtvController controller = KtvController(
+        mediaLibraryRepository: FakeMediaLibraryRepository(),
+        playerController: FakePlayerController(),
+        songDownloadServices: <String, CloudSongDownloadService>{
+          'baidu_pan': downloadService,
+        },
+        downloadTaskStore: _FakeDownloadTaskStore(),
+      );
+
+      final Future<CloudSongDownloadResult> firstDownload = controller
+          .downloadSongToLocal(firstSong);
+      await firstProgressReported.future;
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+
+      final Future<CloudSongDownloadResult> secondDownload = controller
+          .downloadSongToLocal(secondSong);
+      await secondProgressReported.future;
+
+      expect(
+        controller.downloadingSongs.map(
+          (DownloadingSongItem item) => item.title,
+        ),
+        <String>['第二首云端歌', '第一首云端歌'],
+      );
+
+      firstProgressCallback?.call(
+        const CloudDownloadProgress(phaseLabel: '继续缓存 第一首云端歌', value: 0.6),
+      );
+
+      expect(
+        controller.downloadingSongs.map(
+          (DownloadingSongItem item) => item.title,
+        ),
+        <String>['第二首云端歌', '第一首云端歌'],
+      );
+
+      releaseDownloads.complete();
+      await Future.wait(<Future<Object?>>[firstDownload, secondDownload]);
     },
   );
 

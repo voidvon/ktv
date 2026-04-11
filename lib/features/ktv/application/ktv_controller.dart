@@ -157,10 +157,7 @@ class KtvController extends ChangeNotifier {
     final List<DownloadingSongItem> items = _downloadTasksByKey.values.toList(
       growable: false,
     );
-    items.sort(
-      (DownloadingSongItem a, DownloadingSongItem b) =>
-          b.updatedAtMillis.compareTo(a.updatedAtMillis),
-    );
+    items.sort(compareDownloadingSongItems);
     return items;
   }
 
@@ -185,6 +182,13 @@ class KtvController extends ChangeNotifier {
   String get currentTitle => _state.currentTitle;
 
   String get currentSubtitle => _state.currentSubtitle;
+
+  bool get hasNextPlayableQueuedSong {
+    final Iterable<Song> tailQueue = _state.queuedSongs.skip(
+      playerController.hasMedia ? 1 : 0,
+    );
+    return tailQueue.any(isSongPlayable);
+  }
 
   String get breadcrumbLabel => _navigationHistory.breadcrumbLabel;
 
@@ -364,16 +368,33 @@ class KtvController extends ChangeNotifier {
   }
 
   Future<void> requestSong(Song song) async {
+    if (!isSongPlayable(song)) {
+      await enqueuePendingSong(song);
+      return;
+    }
     final bool startsPlaybackImmediately =
         !(_state.queuedSongs.isNotEmpty && playerController.hasMedia);
     await _recordSongRequested(song);
-    final List<Song> nextQueue = await _playbackQueueManager.requestSong(
+    final List<Song> normalizedQueue = _normalizeQueuedSongs(
       _state.queuedSongs,
-      song,
     );
+    final List<Song> nextQueue = startsPlaybackImmediately
+        ? await _playbackQueueManager.requestSong(normalizedQueue, song)
+        : _insertPlayableSong(normalizedQueue, song);
     if (startsPlaybackImmediately) {
       await _recordSongStarted(song);
     }
+    _setState(_state.copyWith(queuedSongs: nextQueue));
+    await _reloadSongProfileDrivenPageIfNeeded();
+  }
+
+  Future<void> enqueuePendingSong(Song song) async {
+    final List<Song> nextQueue = _normalizeQueuedSongs(_state.queuedSongs);
+    if (nextQueue.contains(song)) {
+      return;
+    }
+    await _recordSongRequested(song);
+    nextQueue.add(song);
     _setState(_state.copyWith(queuedSongs: nextQueue));
     await _reloadSongProfileDrivenPageIfNeeded();
   }
@@ -601,9 +622,8 @@ class KtvController extends ChangeNotifier {
   void prioritizeQueuedSong(Song song) {
     _setState(
       _state.copyWith(
-        queuedSongs: _playbackQueueManager.prioritizeQueuedSong(
-          _state.queuedSongs,
-          song,
+        queuedSongs: _normalizeQueuedSongs(
+          _playbackQueueManager.prioritizeQueuedSong(_state.queuedSongs, song),
         ),
       ),
     );
@@ -612,9 +632,8 @@ class KtvController extends ChangeNotifier {
   void removeQueuedSong(Song song) {
     _setState(
       _state.copyWith(
-        queuedSongs: _playbackQueueManager.removeQueuedSong(
-          _state.queuedSongs,
-          song,
+        queuedSongs: _normalizeQueuedSongs(
+          _playbackQueueManager.removeQueuedSong(_state.queuedSongs, song),
         ),
       ),
     );
@@ -633,9 +652,16 @@ class KtvController extends ChangeNotifier {
   }
 
   Future<void> skipCurrentSong() async {
-    final List<Song> nextQueue = await _playbackQueueManager.skipCurrentSong(
+    final List<Song> normalizedQueue = _normalizeQueuedSongs(
       _state.queuedSongs,
     );
+    final List<Song> nextQueue = await _playbackQueueManager.skipCurrentSong(
+      normalizedQueue,
+      canPlaySong: isSongPlayable,
+    );
+    if (_sameQueue(nextQueue, normalizedQueue)) {
+      return;
+    }
     if (nextQueue.isNotEmpty) {
       await _recordSongStarted(nextQueue.first);
     }
@@ -733,8 +759,53 @@ class KtvController extends ChangeNotifier {
     return _downloadedSongKeys.contains(buildDownloadKeyForSong(song));
   }
 
+  bool isSongPlayable(Song song) {
+    return !supportsDownload(song) || isSongDownloaded(song);
+  }
+
   DownloadingSongItem? findDownloadTaskForSong(Song song) {
     return _downloadTasksByKey[buildDownloadKeyForSong(song)];
+  }
+
+  List<Song> _normalizeQueuedSongs(List<Song> queuedSongs) {
+    final List<Song> playableSongs = <Song>[];
+    final List<Song> pendingSongs = <Song>[];
+    for (final Song queuedSong in queuedSongs) {
+      if (isSongPlayable(queuedSong)) {
+        playableSongs.add(queuedSong);
+      } else {
+        pendingSongs.add(queuedSong);
+      }
+    }
+    return <Song>[...playableSongs, ...pendingSongs];
+  }
+
+  List<Song> _insertPlayableSong(List<Song> queuedSongs, Song song) {
+    final List<Song> nextQueue = List<Song>.of(queuedSongs);
+    if (nextQueue.contains(song)) {
+      return nextQueue;
+    }
+    final int pendingIndex = nextQueue.indexWhere(
+      (Song queuedSong) => !isSongPlayable(queuedSong),
+    );
+    if (pendingIndex < 0) {
+      nextQueue.add(song);
+    } else {
+      nextQueue.insert(pendingIndex, song);
+    }
+    return nextQueue;
+  }
+
+  bool _sameQueue(List<Song> left, List<Song> right) {
+    if (left.length != right.length) {
+      return false;
+    }
+    for (int index = 0; index < left.length; index += 1) {
+      if (left[index] != right[index]) {
+        return false;
+      }
+    }
+    return true;
   }
 
   String _buildDownloadKey({

@@ -3,20 +3,19 @@ import 'package:flutter/material.dart';
 import '../../../core/models/song.dart';
 
 class QueuedSongEntry {
-  const QueuedSongEntry({required this.song, required this.queueIndex});
+  const QueuedSongEntry({
+    required this.song,
+    required this.queueIndex,
+    required this.isCurrent,
+    required this.canPinToTop,
+    required this.subtitle,
+  });
 
   final Song song;
   final int queueIndex;
-
-  bool get isCurrent => queueIndex == 0;
-  bool get canPinToTop => queueIndex > 1;
-
-  String get subtitle {
-    if (isCurrent) {
-      return '当前播放';
-    }
-    return '队列 $queueIndex';
-  }
+  final bool isCurrent;
+  final bool canPinToTop;
+  final String subtitle;
 }
 
 class QueuedSongTile extends StatelessWidget {

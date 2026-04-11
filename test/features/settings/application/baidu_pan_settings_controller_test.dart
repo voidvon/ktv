@@ -194,6 +194,44 @@ void main() {
     },
   );
 
+  test(
+    'load clears authorized state when account summary returns unauthorized',
+    () async {
+      final _FakeBaiduPanAuthRepository authRepository =
+          _FakeBaiduPanAuthRepository(
+            authorizeUri: Uri.parse('https://example.com/login'),
+            token: BaiduPanAuthToken(
+              accessToken: 'token',
+              refreshToken: 'refresh-token',
+              expiresAtMillis: DateTime.now()
+                  .add(const Duration(hours: 1))
+                  .millisecondsSinceEpoch,
+            ),
+            hasValidSessionValue: true,
+          );
+      final BaiduPanSettingsController controller = BaiduPanSettingsController(
+        appCredentials: const BaiduPanAppCredentials(
+          appId: '122751914',
+          appKey: 'app-key',
+          secretKey: 'secret-key',
+          signKey: 'sign-key',
+        ),
+        apiClient: _FakeBaiduPanApiClient(
+          userInfoError: const BaiduPanUnauthorizedException(),
+        ),
+        authRepository: authRepository,
+        sourceConfigStore: _FakeBaiduPanSourceConfigStore(),
+      );
+
+      await controller.load();
+
+      expect(controller.isAuthorized, isFalse);
+      expect(controller.accountDisplayName, isNull);
+      expect(controller.errorMessage, '百度网盘登录已过期，请重新扫码登录。');
+      expect(authRepository.logoutCallCount, 1);
+    },
+  );
+
   test('saveSettings validates root path', () async {
     final BaiduPanSettingsController controller = BaiduPanSettingsController(
       appCredentials: const BaiduPanAppCredentials(
@@ -419,6 +457,10 @@ class _FakeBaiduPanAuthRepository implements BaiduPanAuthRepository {
 }
 
 class _FakeBaiduPanApiClient implements BaiduPanApiClient {
+  _FakeBaiduPanApiClient({this.userInfoError});
+
+  final Object? userInfoError;
+
   @override
   Future<BaiduPanQuotaInfo> getQuota() async {
     return const BaiduPanQuotaInfo(totalBytes: 1024, usedBytes: 256);
@@ -426,6 +468,9 @@ class _FakeBaiduPanApiClient implements BaiduPanApiClient {
 
   @override
   Future<BaiduPanUserInfo> getUserInfo() async {
+    if (userInfoError != null) {
+      throw userInfoError!;
+    }
     return const BaiduPanUserInfo(
       uk: '12345',
       displayName: '测试账号',
