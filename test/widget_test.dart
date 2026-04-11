@@ -807,6 +807,52 @@ void main() {
     },
   );
 
+  testWidgets('downloading cloud songs show a thin progress bar', (
+    WidgetTester tester,
+  ) async {
+    final Song song = Song(
+      songId: buildAggregateSongId(title: '下载中的云端歌曲', artist: '云端歌手'),
+      sourceId: 'baidu_pan',
+      sourceSongId: 'fsid-cloud-progress',
+      title: '下载中的云端歌曲',
+      artist: '云端歌手',
+      languages: const <String>['国语'],
+      searchIndex: 'downloading cloud song',
+      mediaPath: '',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 320,
+              height: 64,
+              child: SongTile(
+                song: song,
+                isCurrent: false,
+                isQueued: false,
+                isFavorite: false,
+                showCloudStatus: true,
+                isDownloading: true,
+                downloadProgress: 0.4,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder progressFinder = find.byKey(
+      ValueKey<String>('song-download-progress-${song.songId}'),
+    );
+    expect(progressFinder, findsOneWidget);
+    expect(tester.widget<LinearProgressIndicator>(progressFinder).value, 0.4);
+    expect(find.byIcon(Icons.cloud_rounded), findsNothing);
+    expect(find.byIcon(Icons.cloud_sync_rounded), findsNothing);
+  });
+
   testWidgets('phone-height song grid uses bottom space to fit one more row', (
     WidgetTester tester,
   ) async {

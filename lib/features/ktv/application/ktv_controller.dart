@@ -149,6 +149,17 @@ class KtvController extends ChangeNotifier {
         .map((DownloadingSongItem item) => item.songId)
         .toSet(),
   );
+  Map<String, double> get downloadingSongProgressByKey =>
+      Map<String, double>.unmodifiable(<String, double>{
+        for (final DownloadingSongItem item in _downloadTasksByKey.values)
+          if (item.isDownloading)
+            _buildDownloadKey(
+              sourceId: item.sourceId,
+              sourceSongId: item.sourceSongId,
+            ): item.progress
+                .clamp(0, 1)
+                .toDouble(),
+      });
   Set<String> get downloadedSongKeys =>
       Set<String>.unmodifiable(_downloadedSongKeys);
   Set<String> get downloadableSourceIds =>

@@ -50,13 +50,9 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
   static const double _queueTileMinHeight = 44;
   static const double _paginationSectionHeight = 28;
   static const double _paginationSectionGap = 6;
-  static const double _pageViewportFraction = 0.92;
-  static const double _pageGap = 12;
   static const int _maxVisiblePages = 20;
 
   int _currentPage = 0;
-  late final PageController _pageController;
-  int? _pendingPageJump;
   int? _pendingLibraryPageSizeSync;
 
   SongBookViewModel get _viewModel => widget.viewModel;
@@ -67,18 +63,6 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
   SongBookNavigationCallbacks get _navigationCallbacks => _callbacks.navigation;
   SongBookLibraryCallbacks get _libraryCallbacks => _callbacks.library;
   SongBookPlaybackCallbacks get _playbackCallbacks => _callbacks.playback;
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController(viewportFraction: _pageViewportFraction);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
 
   int _resolveCrossAxisCountForWidth(double availableWidth) {
     if (availableWidth < 760) {
@@ -204,41 +188,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
     if (_currentPage != normalizedPage) {
       _currentPage = normalizedPage;
     }
-    _schedulePageJump(normalizedPage);
     return normalizedPage;
-  }
-
-  void _schedulePageJump(int targetPage) {
-    if (_pageController.hasClients) {
-      final double fallbackPage = _currentPage.toDouble();
-      final int controllerPage = (_pageController.page ?? fallbackPage).round();
-      if (controllerPage == targetPage) {
-        _pendingPageJump = null;
-        return;
-      }
-    }
-    if (_pendingPageJump == targetPage) {
-      return;
-    }
-    _pendingPageJump = targetPage;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      final int? pendingPage = _pendingPageJump;
-      if (pendingPage == null) {
-        return;
-      }
-      _pendingPageJump = null;
-      if (!_pageController.hasClients) {
-        return;
-      }
-      final double fallbackPage = _currentPage.toDouble();
-      final int controllerPage = (_pageController.page ?? fallbackPage).round();
-      if (controllerPage != pendingPage) {
-        _pageController.jumpToPage(pendingPage);
-      }
-    });
   }
 
   void _scheduleLibraryPageSizeSync(int pageSize) {
@@ -257,72 +207,11 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
     });
   }
 
-  Future<void> _animateToPage(int page) async {
+  void _animateToPage(int page) {
     if (page == _currentPage) {
       return;
     }
-    if (!_pageController.hasClients) {
-      setState(() => _currentPage = page);
-      return;
-    }
-    await _pageController.animateToPage(
-      page,
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
-    );
-  }
-
-  Widget _buildAnimatedPagedContent<T>({
-    required List<List<T>> pages,
-    required int rowsPerPage,
-    required double tileHeight,
-    required Widget Function(List<T> pageItems) pageBuilder,
-  }) {
-    return SizedBox(
-      height: _computeGridHeight(
-        rowsPerPage: rowsPerPage,
-        tileHeight: tileHeight,
-      ),
-      child: PageView.builder(
-        controller: _pageController,
-        physics: const BouncingScrollPhysics(parent: PageScrollPhysics()),
-        itemCount: pages.length,
-        onPageChanged: (int page) {
-          if (page == _currentPage) {
-            return;
-          }
-          setState(() => _currentPage = page);
-        },
-        itemBuilder: (BuildContext context, int index) {
-          return AnimatedBuilder(
-            animation: _pageController,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: _pageGap / 2),
-              child: pageBuilder(pages[index]),
-            ),
-            builder: (BuildContext context, Widget? child) {
-              double page = _currentPage.toDouble();
-              if (_pageController.hasClients) {
-                page = _pageController.page ?? page;
-              }
-              final double distance = (page - index).abs().clamp(0.0, 1.0);
-              final double opacity = math.max(0.9, 1 - (distance * 0.12));
-              final double scale = 1 - (distance * 0.02);
-              return ClipRect(
-                child: Opacity(
-                  opacity: opacity,
-                  child: Transform.scale(
-                    scale: scale,
-                    alignment: Alignment.center,
-                    child: child,
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
+    setState(() => _currentPage = page);
   }
 
   @override
@@ -398,6 +287,9 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
             final bool isDownloading = _library.downloadingSongIds.contains(
               song.songId,
             );
+            final double? downloadProgress = _library.downloadProgressForSong(
+              song,
+            );
             return SongTile(
               song: song,
               isCurrent: isCurrent,
@@ -405,6 +297,7 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
               isFavorite: isFavorite,
               showCloudStatus: showCloudStatus,
               isDownloading: isDownloading,
+              downloadProgress: isDownloading ? downloadProgress : null,
               onToggleFavorite: () => _libraryCallbacks.onToggleFavorite(song),
               onTap: isQueued
                   ? null
@@ -544,14 +437,28 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
           itemCount: visibleEntries.length,
           itemBuilder: (BuildContext context, int index) {
             final QueuedSongEntry entry = visibleEntries[index];
-            return QueuedSongTile(
-              entry: entry,
-              onPinToTop: entry.canPinToTop
-                  ? () => _playbackCallbacks.onPrioritizeQueuedSong(entry.song)
-                  : null,
-              onRemove: entry.isCurrent
-                  ? null
-                  : () => _playbackCallbacks.onRemoveQueuedSong(entry.song),
+            final Song song = entry.song;
+            final bool isFavorite = favoriteSongIds.contains(song.songId);
+            final bool isDownloaded = _library.isSongDownloaded(song);
+            final bool showCloudStatus =
+                _library.supportsDownload(song) && !isDownloaded;
+            final bool isDownloading = _library.downloadingSongIds.contains(
+              song.songId,
+            );
+            final double? downloadProgress = _library.downloadProgressForSong(
+              song,
+            );
+            return SongTile(
+              song: song,
+              isCurrent: entry.isCurrent,
+              isQueued: true,
+              isFavorite: isFavorite,
+              subtitleOverride:
+                  '${song.artist} · ${song.language} · ${entry.subtitle}',
+              showCloudStatus: showCloudStatus,
+              isDownloading: isDownloading,
+              downloadProgress: isDownloading ? downloadProgress : null,
+              onToggleFavorite: () => _libraryCallbacks.onToggleFavorite(song),
             );
           },
         ),
@@ -573,17 +480,12 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
         filteredQueueEntries,
         itemsPerPage: crossAxisCount * rowsPerPage,
       );
-      _normalizeCurrentPage(pages.length);
-      return _buildAnimatedPagedContent<QueuedSongEntry>(
-        pages: pages,
-        rowsPerPage: rowsPerPage,
+      final int currentPage = _normalizeCurrentPage(pages.length);
+      return buildQueueGrid(
+        pages[currentPage],
+        rowsPerPage,
+        crossAxisCount: crossAxisCount,
         tileHeight: tileHeight,
-        pageBuilder: (List<QueuedSongEntry> pageItems) => buildQueueGrid(
-          pageItems,
-          rowsPerPage,
-          crossAxisCount: crossAxisCount,
-          tileHeight: tileHeight,
-        ),
       );
     }
 

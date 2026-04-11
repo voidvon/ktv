@@ -157,8 +157,10 @@ class SongTile extends StatelessWidget {
     required this.isCurrent,
     required this.isQueued,
     required this.isFavorite,
+    this.subtitleOverride,
     this.showCloudStatus = false,
     this.isDownloading = false,
+    this.downloadProgress,
     this.onToggleFavorite,
     this.onTap,
   });
@@ -167,8 +169,10 @@ class SongTile extends StatelessWidget {
   final bool isCurrent;
   final bool isQueued;
   final bool isFavorite;
+  final String? subtitleOverride;
   final bool showCloudStatus;
   final bool isDownloading;
+  final double? downloadProgress;
   final VoidCallback? onToggleFavorite;
   final VoidCallback? onTap;
 
@@ -184,6 +188,16 @@ class SongTile extends StatelessWidget {
         : isQueued
         ? const Color(0x80F3DAFF)
         : const Color(0xB8F3DAFF);
+    final String subtitleText =
+        subtitleOverride ??
+        (isCurrent
+            ? '${song.artist} · ${song.language} · 当前播放'
+            : isQueued
+            ? '${song.artist} · ${song.language} · 已点'
+            : '${song.artist} · ${song.language}');
+    final double? normalizedDownloadProgress = downloadProgress
+        ?.clamp(0, 1)
+        .toDouble();
 
     return Material(
       color: backgroundColor,
@@ -202,6 +216,8 @@ class SongTile extends StatelessWidget {
             final double trailingGap = useCompactLayout ? 6 : 8;
             final double actionSize = useCompactLayout ? 24 : 28;
             final double actionIconSize = useCompactLayout ? 14 : 16;
+            final double progressGap = useCompactLayout ? 3 : 4;
+            final double progressHeight = useCompactLayout ? 2 : 2.5;
 
             return Container(
               padding: EdgeInsets.fromLTRB(
@@ -214,83 +230,99 @@ class SongTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: const Color(0x1AFFFFFF)),
               ),
-              child: Row(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Row(
                       children: <Widget>[
-                        Text(
-                          song.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: titleFontSize,
-                            fontWeight: FontWeight.w600,
-                            height: 1.1,
-                            color: isQueued
-                                ? const Color(0xA6FFF7FF)
-                                : const Color(0xEDFFF7FF),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: <Widget>[
+                              Text(
+                                song.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: titleFontSize,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.1,
+                                  color: isQueued
+                                      ? const Color(0xA6FFF7FF)
+                                      : const Color(0xEDFFF7FF),
+                                ),
+                              ),
+                              SizedBox(height: textGap),
+                              Text(
+                                subtitleText,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: subtitleFontSize,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.1,
+                                  color: subtitleColor,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        SizedBox(height: textGap),
-                        Text(
-                          isCurrent
-                              ? '${song.artist} · ${song.language} · 当前播放'
-                              : isQueued
-                              ? '${song.artist} · ${song.language} · 已点'
-                              : '${song.artist} · ${song.language}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: subtitleFontSize,
-                            fontWeight: FontWeight.w500,
-                            height: 1.1,
-                            color: subtitleColor,
+                        SizedBox(width: trailingGap),
+                        if (showCloudStatus && !isDownloading) ...<Widget>[
+                          SizedBox(
+                            width: actionSize,
+                            height: actionSize,
+                            child: Icon(
+                              Icons.cloud_rounded,
+                              size: actionIconSize,
+                              color: const Color(0xB8F3DAFF),
+                            ),
+                          ),
+                          SizedBox(width: trailingGap),
+                        ],
+                        Material(
+                          color: const Color(0x12FFFFFF),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: onToggleFavorite,
+                            child: SizedBox(
+                              width: actionSize,
+                              height: actionSize,
+                              child: Icon(
+                                isFavorite
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                size: actionIconSize,
+                                color: isFavorite
+                                    ? const Color(0xFFFF7AA2)
+                                    : const Color(0xB8F3DAFF),
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  SizedBox(width: trailingGap),
-                  if (showCloudStatus) ...<Widget>[
-                    SizedBox(
-                      width: actionSize,
-                      height: actionSize,
-                      child: Icon(
-                        isDownloading
-                            ? Icons.cloud_sync_rounded
-                            : Icons.cloud_rounded,
-                        size: actionIconSize,
-                        color: isDownloading
-                            ? const Color(0xFFFFD85E)
-                            : const Color(0xB8F3DAFF),
-                      ),
-                    ),
-                    SizedBox(width: trailingGap),
-                  ],
-                  Material(
-                    color: const Color(0x12FFFFFF),
-                    shape: const CircleBorder(),
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: onToggleFavorite,
-                      child: SizedBox(
-                        width: actionSize,
-                        height: actionSize,
-                        child: Icon(
-                          isFavorite
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
-                          size: actionIconSize,
-                          color: isFavorite
-                              ? const Color(0xFFFF7AA2)
-                              : const Color(0xB8F3DAFF),
+                  if (normalizedDownloadProgress != null) ...<Widget>[
+                    SizedBox(height: progressGap),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(progressHeight),
+                      child: LinearProgressIndicator(
+                        key: ValueKey<String>(
+                          'song-download-progress-${song.songId}',
+                        ),
+                        value: normalizedDownloadProgress,
+                        minHeight: progressHeight,
+                        backgroundColor: const Color(0x14FFFFFF),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Color(0xFFFFD85E),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             );

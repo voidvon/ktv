@@ -41,6 +41,7 @@ class SongBookLibraryViewModel {
     required this.favoriteSongIds,
     required this.downloadableSourceIds,
     required this.downloadingSongIds,
+    this.downloadingSongProgressByKey = const <String, double>{},
     required this.downloadedSongKeys,
     required this.totalCount,
     required this.pageIndex,
@@ -60,6 +61,7 @@ class SongBookLibraryViewModel {
   final List<String> favoriteSongIds;
   final Set<String> downloadableSourceIds;
   final Set<String> downloadingSongIds;
+  final Map<String, double> downloadingSongProgressByKey;
   final Set<String> downloadedSongKeys;
   final int totalCount;
   final int pageIndex;
@@ -80,6 +82,14 @@ class SongBookLibraryViewModel {
       return false;
     }
     return downloadedSongKeys.contains('${song.sourceId}::$sourceSongId');
+  }
+
+  double? downloadProgressForSong(Song song) {
+    final String sourceSongId = song.sourceSongId.trim();
+    if (sourceSongId.isEmpty) {
+      return null;
+    }
+    return downloadingSongProgressByKey['${song.sourceId}::$sourceSongId'];
   }
 }
 
