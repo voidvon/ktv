@@ -39,8 +39,8 @@ This file records the exact branch, commit and release link used for each publis
 - Dirty Worktree: no
 - Release: https://github.com/voidvon/maimai-ktv/releases/tag/v1.0.0-alpha.3
 - Assets:
-  - app-arm64-v8a-release.apk
-  - app-armeabi-v7a-release.apk
-  - app-x86_64-release.apk
+  - maimai-ktv-v1.0.0-alpha.3-android-arm64-v8a.apk
+  - maimai-ktv-v1.0.0-alpha.3-android-armeabi-v7a.apk
   - maimai-ktv-v1.0.0-alpha.3-android-universal.apk
+  - maimai-ktv-v1.0.0-alpha.3-android-x86_64.apk
   - maimai-ktv-v1.0.0-alpha.3-macos.zip
