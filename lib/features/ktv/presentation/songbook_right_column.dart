@@ -46,8 +46,8 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
   static const double _artistTileHeight = 104;
   static const double _artistTileMinHeight = 72;
   static const double _artistTargetTileWidth = 64;
-  static const double _queueTileHeight = 48;
-  static const double _queueTileMinHeight = 44;
+  static const double _queueTileHeight = _songTileHeight;
+  static const double _queueTileMinHeight = _songTileMinHeight;
   static const double _paginationSectionHeight = 28;
   static const double _paginationSectionGap = 6;
   static const int _maxVisiblePages = 20;
@@ -290,15 +290,40 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
             final double? downloadProgress = _library.downloadProgressForSong(
               song,
             );
+            final Widget trailing = Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                if (showCloudStatus && !isDownloading) ...<Widget>[
+                  const SongTileIconButton(
+                    icon: Icons.cloud_rounded,
+                    preserveColorWhenDisabled: true,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                SongTileIconButton(
+                  icon: isFavorite
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  color: isFavorite
+                      ? const Color(0xFFFF7AA2)
+                      : const Color(0xB8F3DAFF),
+                  onPressed: () => _libraryCallbacks.onToggleFavorite(song),
+                ),
+              ],
+            );
             return SongTile(
-              song: song,
-              isCurrent: isCurrent,
-              isQueued: isQueued,
-              isFavorite: isFavorite,
-              showCloudStatus: showCloudStatus,
-              isDownloading: isDownloading,
+              title: song.title,
+              subtitle: isCurrent
+                  ? '${song.artist} · ${song.language} · 当前播放'
+                  : isQueued
+                  ? '${song.artist} · ${song.language} · 已点'
+                  : '${song.artist} · ${song.language}',
+              highlighted: isCurrent,
               downloadProgress: isDownloading ? downloadProgress : null,
-              onToggleFavorite: () => _libraryCallbacks.onToggleFavorite(song),
+              progressKey: ValueKey<String>(
+                'song-download-progress-${song.songId}',
+              ),
+              trailing: trailing,
               onTap: isQueued
                   ? null
                   : () => _libraryCallbacks.onRequestSong(song),
@@ -438,27 +463,42 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
           itemBuilder: (BuildContext context, int index) {
             final QueuedSongEntry entry = visibleEntries[index];
             final Song song = entry.song;
-            final bool isFavorite = favoriteSongIds.contains(song.songId);
-            final bool isDownloaded = _library.isSongDownloaded(song);
-            final bool showCloudStatus =
-                _library.supportsDownload(song) && !isDownloaded;
             final bool isDownloading = _library.downloadingSongIds.contains(
               song.songId,
             );
             final double? downloadProgress = _library.downloadProgressForSong(
               song,
             );
+            final Widget? trailing = entry.isCurrent
+                ? null
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      SongTileIconButton(
+                        icon: Icons.vertical_align_top_rounded,
+                        onPressed: entry.canPinToTop
+                            ? () => _playbackCallbacks.onPrioritizeQueuedSong(
+                                song,
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 4),
+                      SongTileIconButton(
+                        icon: Icons.delete_outline_rounded,
+                        onPressed: () =>
+                            _playbackCallbacks.onRemoveQueuedSong(song),
+                      ),
+                    ],
+                  );
             return SongTile(
-              song: song,
-              isCurrent: entry.isCurrent,
-              isQueued: true,
-              isFavorite: isFavorite,
-              subtitleOverride:
-                  '${song.artist} · ${song.language} · ${entry.subtitle}',
-              showCloudStatus: showCloudStatus,
-              isDownloading: isDownloading,
+              title: song.title,
+              subtitle: '${song.artist} · ${song.language} · ${entry.subtitle}',
+              highlighted: entry.isCurrent,
               downloadProgress: isDownloading ? downloadProgress : null,
-              onToggleFavorite: () => _libraryCallbacks.onToggleFavorite(song),
+              progressKey: ValueKey<String>(
+                'song-download-progress-${song.songId}',
+              ),
+              trailing: trailing,
             );
           },
         ),

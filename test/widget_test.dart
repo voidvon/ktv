@@ -790,11 +790,9 @@ void main() {
                 width: 320,
                 height: 64,
                 child: SongTile(
-                  song: song,
-                  isCurrent: false,
-                  isQueued: false,
-                  isFavorite: false,
-                  showCloudStatus: true,
+                  title: song.title,
+                  subtitle: '${song.artist} · ${song.language}',
+                  trailing: const Icon(Icons.cloud_rounded),
                 ),
               ),
             ),
@@ -805,6 +803,104 @@ void main() {
 
       expect(find.byIcon(Icons.cloud_rounded), findsOneWidget);
       expect(find.byIcon(Icons.download_rounded), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'queued song tile reuses shared text style and shows queue actions',
+    (WidgetTester tester) async {
+      final Song librarySong = Song(
+        songId: buildAggregateSongId(title: '点歌列表歌曲', artist: '歌手甲'),
+        sourceId: 'local',
+        sourceSongId: buildLocalSourceSongId(
+          fingerprint: buildLocalMetadataFingerprint(
+            locator: '/tmp/library.mp4',
+          ),
+        ),
+        title: '点歌列表歌曲',
+        artist: '歌手甲',
+        languages: const <String>['国语'],
+        searchIndex: 'library song',
+        mediaPath: '/tmp/library.mp4',
+      );
+      final Song queuedSong = Song(
+        songId: buildAggregateSongId(title: '已点列表歌曲', artist: '歌手乙'),
+        sourceId: 'local',
+        sourceSongId: buildLocalSourceSongId(
+          fingerprint: buildLocalMetadataFingerprint(locator: '/tmp/queue.mp4'),
+        ),
+        title: '已点列表歌曲',
+        artist: '歌手乙',
+        languages: const <String>['国语'],
+        searchIndex: 'queued song',
+        mediaPath: '/tmp/queue.mp4',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: <Widget>[
+                SizedBox(
+                  width: 320,
+                  height: 64,
+                  child: SongTile(
+                    title: librarySong.title,
+                    subtitle: '${librarySong.artist} · ${librarySong.language}',
+                    trailing: SongTileIconButton(
+                      icon: Icons.favorite_border_rounded,
+                      onPressed: () {},
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: 320,
+                  height: 64,
+                  child: SongTile(
+                    title: queuedSong.title,
+                    subtitle:
+                        '${queuedSong.artist} · ${queuedSong.language} · 队列 2',
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        SongTileIconButton(
+                          icon: Icons.vertical_align_top_rounded,
+                          onPressed: () {},
+                        ),
+                        const SizedBox(width: 4),
+                        SongTileIconButton(
+                          icon: Icons.delete_outline_rounded,
+                          onPressed: () {},
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final Text libraryTitle = tester.widget<Text>(find.text('点歌列表歌曲'));
+      final Text queuedTitle = tester.widget<Text>(find.text('已点列表歌曲'));
+      final Text librarySubtitle = tester.widget<Text>(find.text('歌手甲 · 国语'));
+      final Text queuedSubtitle = tester.widget<Text>(
+        find.text('歌手乙 · 国语 · 队列 2'),
+      );
+
+      expect(queuedTitle.style?.fontSize, libraryTitle.style?.fontSize);
+      expect(queuedTitle.style?.fontWeight, libraryTitle.style?.fontWeight);
+      expect(queuedSubtitle.style?.fontSize, librarySubtitle.style?.fontSize);
+      expect(
+        queuedSubtitle.style?.fontWeight,
+        librarySubtitle.style?.fontWeight,
+      );
+      expect(find.byIcon(Icons.vertical_align_top_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.favorite_border_rounded), findsOneWidget);
     },
   );
 
@@ -830,13 +926,12 @@ void main() {
               width: 320,
               height: 64,
               child: SongTile(
-                song: song,
-                isCurrent: false,
-                isQueued: false,
-                isFavorite: false,
-                showCloudStatus: true,
-                isDownloading: true,
+                title: song.title,
+                subtitle: '${song.artist} · ${song.language}',
                 downloadProgress: 0.4,
+                progressKey: ValueKey<String>(
+                  'song-download-progress-${song.songId}',
+                ),
               ),
             ),
           ),

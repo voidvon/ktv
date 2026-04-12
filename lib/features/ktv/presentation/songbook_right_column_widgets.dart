@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:ktv2/ktv2.dart';
 
 import '../../../core/models/artist.dart';
-import '../../../core/models/song.dart';
 
 class SongBookActionRow extends StatelessWidget {
   const SongBookActionRow({
@@ -153,48 +152,31 @@ class ActionPill extends StatelessWidget {
 class SongTile extends StatelessWidget {
   const SongTile({
     super.key,
-    required this.song,
-    required this.isCurrent,
-    required this.isQueued,
-    required this.isFavorite,
-    this.subtitleOverride,
-    this.showCloudStatus = false,
-    this.isDownloading = false,
+    required this.title,
+    required this.subtitle,
+    this.highlighted = false,
     this.downloadProgress,
-    this.onToggleFavorite,
+    this.progressKey,
+    this.trailing,
     this.onTap,
   });
 
-  final Song song;
-  final bool isCurrent;
-  final bool isQueued;
-  final bool isFavorite;
-  final String? subtitleOverride;
-  final bool showCloudStatus;
-  final bool isDownloading;
+  final String title;
+  final String subtitle;
+  final bool highlighted;
   final double? downloadProgress;
-  final VoidCallback? onToggleFavorite;
+  final Key? progressKey;
+  final Widget? trailing;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final Color backgroundColor = isCurrent
+    final Color backgroundColor = highlighted
         ? const Color(0x29FFFFFF)
-        : isQueued
-        ? const Color(0x12FFFFFF)
         : const Color(0x1AFFFFFF);
-    final Color subtitleColor = isCurrent
+    final Color subtitleColor = highlighted
         ? const Color(0xCCF3DAFF)
-        : isQueued
-        ? const Color(0x80F3DAFF)
         : const Color(0xB8F3DAFF);
-    final String subtitleText =
-        subtitleOverride ??
-        (isCurrent
-            ? '${song.artist} · ${song.language} · 当前播放'
-            : isQueued
-            ? '${song.artist} · ${song.language} · 已点'
-            : '${song.artist} · ${song.language}');
     final double? normalizedDownloadProgress = downloadProgress
         ?.clamp(0, 1)
         .toDouble();
@@ -210,11 +192,10 @@ class SongTile extends StatelessWidget {
             final bool useCompactLayout = constraints.maxHeight < 42;
             final double horizontalPadding = useCompactLayout ? 10 : 12;
             final double verticalPadding = useCompactLayout ? 4 : 6;
-            final double titleFontSize = useCompactLayout ? 11 : 12;
+            final double titleFontSize = useCompactLayout ? 10 : 11;
             final double subtitleFontSize = useCompactLayout ? 8 : 9;
             final double textGap = useCompactLayout ? 2 : 4;
             final double trailingGap = useCompactLayout ? 6 : 8;
-            final double actionSize = useCompactLayout ? 24 : 28;
             final double actionIconSize = useCompactLayout ? 14 : 16;
             final double progressGap = useCompactLayout ? 3 : 4;
             final double progressHeight = useCompactLayout ? 2 : 2.5;
@@ -242,21 +223,19 @@ class SongTile extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: <Widget>[
                               Text(
-                                song.title,
+                                title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: titleFontSize,
                                   fontWeight: FontWeight.w600,
                                   height: 1.1,
-                                  color: isQueued
-                                      ? const Color(0xA6FFF7FF)
-                                      : const Color(0xEDFFF7FF),
+                                  color: const Color(0xEDFFF7FF),
                                 ),
                               ),
                               SizedBox(height: textGap),
                               Text(
-                                subtitleText,
+                                subtitle,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -269,40 +248,23 @@ class SongTile extends StatelessWidget {
                             ],
                           ),
                         ),
-                        SizedBox(width: trailingGap),
-                        if (showCloudStatus && !isDownloading) ...<Widget>[
-                          SizedBox(
-                            width: actionSize,
-                            height: actionSize,
-                            child: Icon(
-                              Icons.cloud_rounded,
-                              size: actionIconSize,
-                              color: const Color(0xB8F3DAFF),
-                            ),
-                          ),
+                        if (trailing != null) ...<Widget>[
                           SizedBox(width: trailingGap),
-                        ],
-                        Material(
-                          color: const Color(0x12FFFFFF),
-                          shape: const CircleBorder(),
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: onToggleFavorite,
-                            child: SizedBox(
-                              width: actionSize,
-                              height: actionSize,
-                              child: Icon(
-                                isFavorite
-                                    ? Icons.favorite_rounded
-                                    : Icons.favorite_border_rounded,
+                          DefaultTextStyle.merge(
+                            style: TextStyle(
+                              fontSize: useCompactLayout ? 8 : 9,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xCCFFF7FF),
+                            ),
+                            child: IconTheme.merge(
+                              data: IconThemeData(
                                 size: actionIconSize,
-                                color: isFavorite
-                                    ? const Color(0xFFFF7AA2)
-                                    : const Color(0xB8F3DAFF),
+                                color: const Color(0xB8F3DAFF),
                               ),
+                              child: trailing!,
                             ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -311,9 +273,7 @@ class SongTile extends StatelessWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(progressHeight),
                       child: LinearProgressIndicator(
-                        key: ValueKey<String>(
-                          'song-download-progress-${song.songId}',
-                        ),
+                        key: progressKey,
                         value: normalizedDownloadProgress,
                         minHeight: progressHeight,
                         backgroundColor: const Color(0x14FFFFFF),
@@ -327,6 +287,46 @@ class SongTile extends StatelessWidget {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class SongTileIconButton extends StatelessWidget {
+  const SongTileIconButton({
+    super.key,
+    required this.icon,
+    this.color,
+    this.onPressed,
+    this.size = 28,
+    this.preserveColorWhenDisabled = false,
+  });
+
+  final IconData icon;
+  final Color? color;
+  final VoidCallback? onPressed;
+  final double size;
+  final bool preserveColorWhenDisabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isEnabled = onPressed != null;
+    return Material(
+      color: isEnabled ? const Color(0x12FFFFFF) : Colors.transparent,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onPressed,
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Icon(
+            icon,
+            color: isEnabled || preserveColorWhenDisabled
+                ? (color ?? const Color(0xB8F3DAFF))
+                : const Color(0x7AFFF7FF),
+          ),
         ),
       ),
     );
