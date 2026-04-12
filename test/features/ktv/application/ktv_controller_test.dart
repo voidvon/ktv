@@ -596,6 +596,48 @@ void main() {
     expect(playerController.audioOutputMode, AudioOutputMode.accompaniment);
   });
 
+  test('playback completion advances to next queued song', () async {
+    final FakePlayerController playerController = FakePlayerController();
+    final KtvController controller = KtvController(
+      mediaLibraryRepository: FakeMediaLibraryRepository(),
+      playerController: playerController,
+      playbackSessionStore: _FakePlaybackSessionStore(),
+    );
+    final Song current = _song(title: '第一首', artist: '歌手甲');
+    final Song next = _song(title: '第二首', artist: '歌手乙');
+
+    await controller.requestSong(current);
+    await controller.requestSong(next);
+
+    playerController.setPlaybackCompleted(true);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.queuedSongs, <Song>[next]);
+    expect(playerController.lastOpenedSource?.displayName, '第二首');
+    expect(playerController.hasMedia, isTrue);
+  });
+
+  test('playback completion clears last song and resets player', () async {
+    final FakePlayerController playerController = FakePlayerController();
+    final _FakePlaybackSessionStore sessionStore = _FakePlaybackSessionStore();
+    final KtvController controller = KtvController(
+      mediaLibraryRepository: FakeMediaLibraryRepository(),
+      playerController: playerController,
+      playbackSessionStore: sessionStore,
+    );
+    final Song current = _song(title: '最后一首', artist: '歌手甲');
+
+    await controller.requestSong(current);
+
+    playerController.setPlaybackCompleted(true);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.queuedSongs, isEmpty);
+    expect(playerController.hasMedia, isFalse);
+    expect(playerController.playbackPosition, Duration.zero);
+    expect(sessionStore.session, isNull);
+  });
+
   test(
     'initialize loads downloaded song records for download manager',
     () async {
@@ -1616,6 +1658,30 @@ class FakePlayerController extends PlayerController {
       audioOutputMode: _state.audioOutputMode,
       currentMediaPath: _state.currentMediaPath,
       isPlaying: !_state.isPlaying,
+      playbackDuration: _state.playbackDuration,
+      playbackPosition: _state.playbackPosition,
+    );
+    notifyListeners();
+  }
+
+  @override
+  Future<void> clearMedia() async {
+    _state = PlayerState(
+      audioOutputMode: _state.audioOutputMode,
+      currentMediaPath: null,
+      isPlaying: false,
+      playbackDuration: Duration.zero,
+      playbackPosition: Duration.zero,
+    );
+    notifyListeners();
+  }
+
+  void setPlaybackCompleted(bool isCompleted) {
+    _state = PlayerState(
+      audioOutputMode: _state.audioOutputMode,
+      currentMediaPath: _state.currentMediaPath,
+      isPlaying: isCompleted ? false : _state.isPlaying,
+      isPlaybackCompleted: isCompleted,
       playbackDuration: _state.playbackDuration,
       playbackPosition: _state.playbackPosition,
     );

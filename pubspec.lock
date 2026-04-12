@@ -221,7 +221,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: eb831742e95eb2df9924987cc9a1417f8a30db94
+      resolved-ref: "20ada2f571f753f14240ed10b30c8094a43b343d"
       url: "https://github.com/voidvon/ktv-player.git"
     source: git
     version: "1.0.0+1"

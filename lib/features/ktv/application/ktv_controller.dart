@@ -57,6 +57,7 @@ class KtvController extends ChangeNotifier {
             repository: _mediaLibraryRepository,
           ),
         );
+    this.playerController.addListener(_handlePlayerControllerChanged);
   }
 
   static const String allLanguagesLabel = '全部';
@@ -123,6 +124,8 @@ class KtvController extends ChangeNotifier {
       <String, DownloadedSongItem>{};
   final Map<String, CloudDownloadCancellationToken>
   _downloadCancellationTokens = <String, CloudDownloadCancellationToken>{};
+  bool _lastPlaybackCompleted = false;
+  bool _isHandlingPlaybackCompletion = false;
 
   MediaLibraryRepository get mediaLibraryRepository => _mediaLibraryRepository;
   KtvState get state => _state;
@@ -714,6 +717,12 @@ class KtvController extends ChangeNotifier {
     return _playbackQueueManager.stopPlayback();
   }
 
+  Future<void> clearQueueAndPlayback() async {
+    _setState(_state.copyWith(queuedSongs: const <Song>[]));
+    await _playbackSessionStore.clearSession();
+    await playerController.clearMedia();
+  }
+
   Future<void> persistPlaybackSession({List<Song>? queuedSongs}) async {
     final List<Song> normalizedQueue = _normalizeQueuedSongs(
       queuedSongs ?? _state.queuedSongs,
@@ -914,10 +923,39 @@ class KtvController extends ChangeNotifier {
     );
   }
 
+  void _handlePlayerControllerChanged() {
+    final bool isPlaybackCompleted = playerController.isPlaybackCompleted;
+    if (_lastPlaybackCompleted == isPlaybackCompleted) {
+      return;
+    }
+    _lastPlaybackCompleted = isPlaybackCompleted;
+    if (!isPlaybackCompleted || _isHandlingPlaybackCompletion) {
+      return;
+    }
+    unawaited(_handlePlaybackCompleted());
+  }
+
+  Future<void> _handlePlaybackCompleted() async {
+    if (_isHandlingPlaybackCompletion) {
+      return;
+    }
+    _isHandlingPlaybackCompletion = true;
+    try {
+      if (hasNextPlayableQueuedSong) {
+        await skipCurrentSong();
+        return;
+      }
+      await clearQueueAndPlayback();
+    } finally {
+      _isHandlingPlaybackCompletion = false;
+    }
+  }
+
   @override
   void dispose() {
     _pendingSearchRefresh?.cancel();
     unawaited(_songProfileRepository.close());
+    playerController.removeListener(_handlePlayerControllerChanged);
     playerController.dispose();
     super.dispose();
   }
