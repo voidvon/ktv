@@ -15,6 +15,7 @@ import 'download_manager_models.dart';
 import 'download_task_store.dart';
 import 'library_session.dart';
 import 'navigation_history.dart';
+import 'playback_session_store.dart';
 import 'playback_queue_manager.dart';
 import 'playable_song_resolver.dart';
 import 'ktv_state.dart';
@@ -33,6 +34,7 @@ class KtvController extends ChangeNotifier {
     BaiduPanSongDownloadService? baiduPanSongDownloadService,
     Map<String, CloudSongDownloadService>? songDownloadServices,
     DownloadTaskStore? downloadTaskStore,
+    PlaybackSessionStore? playbackSessionStore,
   }) : _mediaLibraryRepository =
            mediaLibraryRepository ?? MediaLibraryRepository(),
        _songProfileRepository =
@@ -45,7 +47,8 @@ class KtvController extends ChangeNotifier {
          baiduPanSongDownloadService: baiduPanSongDownloadService,
          songDownloadServices: songDownloadServices,
        ),
-       _downloadTaskStore = downloadTaskStore ?? DownloadTaskStore() {
+       _downloadTaskStore = downloadTaskStore ?? DownloadTaskStore(),
+       _playbackSessionStore = playbackSessionStore ?? PlaybackSessionStore() {
     _aggregatedLibraryRepository =
         aggregatedLibraryRepository ??
         DefaultAggregatedLibraryRepository(
@@ -95,6 +98,7 @@ class KtvController extends ChangeNotifier {
   final PlayableSongResolver _playableSongResolver;
   final Map<String, CloudSongDownloadService> _songDownloadServices;
   final DownloadTaskStore _downloadTaskStore;
+  final PlaybackSessionStore _playbackSessionStore;
   late final PlaybackQueueManager _playbackQueueManager = PlaybackQueueManager(
     playerController: playerController,
     playableSongResolver: _playableSongResolver,
@@ -255,6 +259,9 @@ class KtvController extends ChangeNotifier {
       if (shouldPersistTasks) {
         await _persistDownloadTasks();
       }
+    }
+    await restorePlaybackSessionIfNeeded(force: true);
+    if (_songDownloadServices.isNotEmpty) {
       notifyListeners();
     }
   }
@@ -396,6 +403,7 @@ class KtvController extends ChangeNotifier {
       await _recordSongStarted(song);
     }
     _setState(_state.copyWith(queuedSongs: nextQueue));
+    await persistPlaybackSession();
     await _reloadSongProfileDrivenPageIfNeeded();
   }
 
@@ -407,6 +415,7 @@ class KtvController extends ChangeNotifier {
     await _recordSongRequested(song);
     nextQueue.add(song);
     _setState(_state.copyWith(queuedSongs: nextQueue));
+    await persistPlaybackSession();
     await _reloadSongProfileDrivenPageIfNeeded();
   }
 
@@ -631,23 +640,19 @@ class KtvController extends ChangeNotifier {
   }
 
   void prioritizeQueuedSong(Song song) {
-    _setState(
-      _state.copyWith(
-        queuedSongs: _normalizeQueuedSongs(
-          _playbackQueueManager.prioritizeQueuedSong(_state.queuedSongs, song),
-        ),
-      ),
+    final List<Song> nextQueue = _normalizeQueuedSongs(
+      _playbackQueueManager.prioritizeQueuedSong(_state.queuedSongs, song),
     );
+    _setState(_state.copyWith(queuedSongs: nextQueue));
+    unawaited(persistPlaybackSession());
   }
 
   void removeQueuedSong(Song song) {
-    _setState(
-      _state.copyWith(
-        queuedSongs: _normalizeQueuedSongs(
-          _playbackQueueManager.removeQueuedSong(_state.queuedSongs, song),
-        ),
-      ),
+    final List<Song> nextQueue = _normalizeQueuedSongs(
+      _playbackQueueManager.removeQueuedSong(_state.queuedSongs, song),
     );
+    _setState(_state.copyWith(queuedSongs: nextQueue));
+    unawaited(persistPlaybackSession());
   }
 
   void togglePlayback() {
@@ -677,6 +682,7 @@ class KtvController extends ChangeNotifier {
       await _recordSongStarted(nextQueue.first);
     }
     _setState(_state.copyWith(queuedSongs: nextQueue));
+    await persistPlaybackSession();
     await _reloadSongProfileDrivenPageIfNeeded();
   }
 
@@ -706,6 +712,72 @@ class KtvController extends ChangeNotifier {
 
   Future<void> stopPlayback() {
     return _playbackQueueManager.stopPlayback();
+  }
+
+  Future<void> persistPlaybackSession({List<Song>? queuedSongs}) async {
+    final List<Song> normalizedQueue = _normalizeQueuedSongs(
+      queuedSongs ?? _state.queuedSongs,
+    );
+    if (normalizedQueue.isEmpty) {
+      await _playbackSessionStore.clearSession();
+      return;
+    }
+    await _playbackSessionStore.saveSession(
+      PersistedPlaybackSession(
+        queuedSongs: normalizedQueue,
+        playbackProgress: playerController.hasMedia
+            ? playerController.playbackProgress.clamp(0.0, 1.0).toDouble()
+            : 0,
+        wasPlaying: playerController.isPlaying,
+        audioOutputMode: playerController.audioOutputMode,
+      ),
+    );
+  }
+
+  Future<void> restorePlaybackSessionIfNeeded({bool force = false}) async {
+    final PersistedPlaybackSession? session = await _playbackSessionStore
+        .loadSession();
+    if (session == null) {
+      return;
+    }
+    final List<Song> restoredQueue = _normalizeQueuedSongs(session.queuedSongs);
+    if (restoredQueue.isEmpty) {
+      await _playbackSessionStore.clearSession();
+      return;
+    }
+    if (!force &&
+        _sameQueue(restoredQueue, _state.queuedSongs) &&
+        playerController.hasMedia) {
+      return;
+    }
+
+    _setState(_state.copyWith(queuedSongs: restoredQueue));
+    final Song currentSong = restoredQueue.first;
+    if (!isSongPlayable(currentSong)) {
+      return;
+    }
+
+    try {
+      final PlayableMediaResolution media = await _playableSongResolver.resolve(
+        currentSong,
+      );
+      await playerController.openMedia(
+        MediaSource(path: media.localPath, displayName: media.displayName),
+      );
+      final double progress = session.playbackProgress.clamp(0.0, 1.0);
+      if (progress > 0) {
+        await playerController.seekToProgress(progress >= 1 ? 0.999 : progress);
+      }
+      if (playerController.audioOutputMode != session.audioOutputMode) {
+        await playerController.applyAudioOutputMode(session.audioOutputMode);
+      }
+      if (playerController.isPlaying != session.wasPlaying) {
+        await playerController.togglePlayback();
+      }
+    } catch (error) {
+      debugPrint('Failed to restore playback session: $error');
+      await _playbackSessionStore.clearSession();
+    }
   }
 
   void _scheduleLibraryRefresh({required bool resetPage}) {

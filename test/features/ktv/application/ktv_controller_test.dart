@@ -12,12 +12,15 @@ import 'package:ktv2_example/core/models/song_page.dart';
 import 'package:ktv2_example/features/ktv/application/download_manager_models.dart';
 import 'package:ktv2_example/features/ktv/application/ktv_controller.dart';
 import 'package:ktv2_example/features/ktv/application/download_task_store.dart';
+import 'package:ktv2_example/features/ktv/application/playback_session_store.dart';
 import 'package:ktv2_example/features/media_library/data/aggregated_library_repository.dart';
 import 'package:ktv2_example/features/media_library/data/cloud/cloud_playback_cache.dart';
 import 'package:ktv2_example/features/media_library/data/cloud/cloud_song_download_service.dart';
 import 'package:ktv2_example/features/media_library/data/media_library_repository.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('initialize keeps restored directory on home route', () async {
     final FakeMediaLibraryRepository repository = FakeMediaLibraryRepository(
       savedDirectory: '/music',
@@ -265,6 +268,7 @@ void main() {
     );
 
     controller.enterSongBook(mode: SongBookMode.songs);
+    await _settleLibraryQuery();
     await _settleLibraryQuery();
 
     expect(controller.scanDirectoryPath, isNull);
@@ -515,6 +519,61 @@ void main() {
     expect(playerController.isPlaying, isFalse);
     expect(playerController.playbackPosition, Duration.zero);
   });
+
+  test('initialize restores playing playback session', () async {
+    final Song current = _song(title: '夜空中最亮的星', artist: '逃跑计划');
+    final Song next = _song(title: '稻香', artist: '周杰伦');
+    final FakePlayerController playerController = FakePlayerController();
+    final _FakePlaybackSessionStore sessionStore = _FakePlaybackSessionStore(
+      session: PersistedPlaybackSession(
+        queuedSongs: <Song>[current, next],
+        playbackProgress: 0.25,
+        wasPlaying: true,
+        audioOutputMode: AudioOutputMode.accompaniment,
+      ),
+    );
+    final KtvController controller = KtvController(
+      mediaLibraryRepository: FakeMediaLibraryRepository(),
+      playerController: playerController,
+      playbackSessionStore: sessionStore,
+    );
+
+    await controller.initialize();
+
+    expect(controller.queuedSongs, <Song>[current, next]);
+    expect(playerController.lastOpenedSource?.displayName, current.title);
+    expect(playerController.playbackPosition, const Duration(minutes: 1));
+    expect(playerController.isPlaying, isTrue);
+    expect(playerController.audioOutputMode, AudioOutputMode.accompaniment);
+    expect(sessionStore.clearCallCount, 0);
+  });
+
+  test(
+    'initialize restores paused playback session without auto-playing',
+    () async {
+      final Song current = _song(title: '后来', artist: '刘若英');
+      final FakePlayerController playerController = FakePlayerController();
+      final KtvController controller = KtvController(
+        mediaLibraryRepository: FakeMediaLibraryRepository(),
+        playerController: playerController,
+        playbackSessionStore: _FakePlaybackSessionStore(
+          session: PersistedPlaybackSession(
+            queuedSongs: <Song>[current],
+            playbackProgress: 0.5,
+            wasPlaying: false,
+            audioOutputMode: AudioOutputMode.original,
+          ),
+        ),
+      );
+
+      await controller.initialize();
+
+      expect(controller.queuedSongs, <Song>[current]);
+      expect(playerController.lastOpenedSource?.displayName, current.title);
+      expect(playerController.playbackPosition, const Duration(minutes: 2));
+      expect(playerController.isPlaying, isFalse);
+    },
+  );
 
   test('skipCurrentSong keeps selected audio mode for next song', () async {
     final FakePlayerController playerController = FakePlayerController();
@@ -1284,6 +1343,29 @@ class _FakeDownloadTaskStore extends DownloadTaskStore {
   Future<void> saveTasks(List<DownloadingSongItem> tasks) async {
     saveCallCount += 1;
     _tasks = List<DownloadingSongItem>.of(tasks);
+  }
+}
+
+class _FakePlaybackSessionStore extends PlaybackSessionStore {
+  _FakePlaybackSessionStore({this.session});
+
+  PersistedPlaybackSession? session;
+  int clearCallCount = 0;
+  int saveCallCount = 0;
+
+  @override
+  Future<PersistedPlaybackSession?> loadSession() async => session;
+
+  @override
+  Future<void> saveSession(PersistedPlaybackSession nextSession) async {
+    saveCallCount += 1;
+    session = nextSession;
+  }
+
+  @override
+  Future<void> clearSession() async {
+    clearCallCount += 1;
+    session = null;
   }
 }
 

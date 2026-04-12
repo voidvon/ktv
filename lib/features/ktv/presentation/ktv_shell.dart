@@ -76,9 +76,11 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final AppLifecycleState previousState = _appLifecycleState;
     _appLifecycleState = state;
     _pruneExpiredSuppressedDownloadErrors();
-    if (_isBackgroundLifecycle(state)) {
+    if (_isBackgroundLifecycle(state) &&
+        !_isBackgroundLifecycle(previousState)) {
       final Set<String> downloadKeys = _controller.downloadingSongs
           .where((DownloadingSongItem item) => item.isDownloading)
           .map((DownloadingSongItem item) {
@@ -87,10 +89,11 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
           .toSet();
       _backgroundInterruptedDownloadKeys.addAll(downloadKeys);
       _markSuppressedDownloadErrors(downloadKeys);
-      unawaited(_controller.stopPlayback());
+      unawaited(_handleAppMovedToBackground());
       return;
     }
     if (state == AppLifecycleState.resumed &&
+        _isBackgroundLifecycle(previousState) &&
         _backgroundInterruptedDownloadKeys.isNotEmpty) {
       final List<String> pendingKeys = _backgroundInterruptedDownloadKeys
           .toList(growable: false);
@@ -100,6 +103,10 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
           _clearBackgroundRetryState(key);
         }
       }
+    }
+    if (state == AppLifecycleState.resumed &&
+        _isBackgroundLifecycle(previousState)) {
+      unawaited(_controller.restorePlaybackSessionIfNeeded(force: true));
     }
   }
 
@@ -347,6 +354,11 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
         ),
       );
     }
+  }
+
+  Future<void> _handleAppMovedToBackground() async {
+    await _controller.persistPlaybackSession();
+    await _controller.stopPlayback();
   }
 
   bool _isBackgroundLifecycle(AppLifecycleState state) {
