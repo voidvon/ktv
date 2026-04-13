@@ -8,6 +8,21 @@ The format is intentionally simple:
 - Focus on what users can perceive.
 - Avoid implementation details unless they affect usage.
 
+## [v1.0.0-alpha.5] - 2026-04-13
+
+### Added
+
+- Settings now includes an About page with a short app introduction and the open-source repository link for quick reference.
+
+### Changed
+
+- Downloading songs now keep a more consistent queued state, reducing mismatches between the song list, queue, and playback readiness.
+- Song list item actions are more unified, making add-to-queue and related operations feel clearer and more predictable.
+
+### Notes
+
+- This is an alpha prerelease intended for testing and validation.
+
 ## [v1.0.0-alpha.4] - 2026-04-12
 
 ### Changed
