@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/presentation/center_overlay_toast.dart';
 import '../../ktv/application/download_manager_models.dart';
@@ -155,6 +155,33 @@ class SettingsPage extends StatelessWidget {
                               return;
                             }
                             Navigator.of(context).pop(result);
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '其他',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _SettingsEntryCard(
+                          title: '关于我们',
+                          subtitle: '查看应用简介和开源地址',
+                          icon: Icons.info_outline_rounded,
+                          onTap: () async {
+                            await Navigator.of(context).push<void>(
+                              MaterialPageRoute<void>(
+                                builder: (BuildContext context) {
+                                  return const _AboutPage();
+                                },
+                              ),
+                            );
                           },
                         ),
                       ],
@@ -382,6 +409,90 @@ class _DownloadManagerPage extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _AboutPage extends StatelessWidget {
+  const _AboutPage();
+
+  static const String _opensourceUrl = 'https://github.com/voidvon/maimai-ktv';
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A0014),
+      appBar: AppBar(
+        title: const Text('关于我们'),
+        backgroundColor: Colors.transparent,
+      ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: ListView(
+              padding: const EdgeInsets.all(24),
+              children: <Widget>[
+                const _InfoCard(
+                  title: '应用介绍',
+                  content: '麦麦 KTV 是一个简洁的点歌与播放应用，方便在本地或云端曲库中快速找歌、点歌和播放。',
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: const Color(0x14FFFFFF),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0x26FFFFFF)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Text(
+                        '开源地址',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const SelectableText(
+                        _opensourceUrl,
+                        style: TextStyle(color: Color(0xFFD8E5FF), height: 1.5),
+                      ),
+                      const SizedBox(height: 14),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          await Clipboard.setData(
+                            const ClipboardData(text: _opensourceUrl),
+                          );
+                          if (!context.mounted) {
+                            return;
+                          }
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('开源地址已复制')),
+                          );
+                        },
+                        icon: const Icon(Icons.copy_rounded),
+                        label: const Text('复制地址'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Color(0x33FFFFFF)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
