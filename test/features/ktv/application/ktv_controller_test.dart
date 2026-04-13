@@ -487,6 +487,44 @@ void main() {
     },
   );
 
+  test('prioritizeQueuedSong moves pending queued item to front', () async {
+    final KtvController controller = KtvController(
+      mediaLibraryRepository: FakeMediaLibraryRepository(),
+      playerController: FakePlayerController(),
+      songDownloadServices: <String, CloudSongDownloadService>{
+        'baidu_pan': _FakeCloudSongDownloadService(sourceId: 'baidu_pan'),
+      },
+      downloadTaskStore: _FakeDownloadTaskStore(),
+    );
+    final Song firstPending = _remoteSong(
+      title: '待下载第一首',
+      artist: '云端歌手甲',
+      sourceSongId: 'fsid-first-pending',
+    );
+    final Song secondPending = _remoteSong(
+      title: '待下载第二首',
+      artist: '云端歌手乙',
+      sourceSongId: 'fsid-second-pending',
+    );
+    final Song thirdPending = _remoteSong(
+      title: '待下载第三首',
+      artist: '云端歌手丙',
+      sourceSongId: 'fsid-third-pending',
+    );
+
+    await controller.enqueuePendingSong(firstPending);
+    await controller.enqueuePendingSong(secondPending);
+    await controller.enqueuePendingSong(thirdPending);
+
+    controller.prioritizeQueuedSong(thirdPending);
+
+    expect(controller.queuedSongs, <Song>[
+      thirdPending,
+      firstPending,
+      secondPending,
+    ]);
+  });
+
   test('removeQueuedSong only removes non-current queued items', () async {
     final KtvController controller = KtvController(
       mediaLibraryRepository: FakeMediaLibraryRepository(),

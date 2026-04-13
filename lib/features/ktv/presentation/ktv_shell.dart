@@ -425,6 +425,7 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
         downloadableSourceIds: _controller.downloadableSourceIds,
         downloadingSongIds: _controller.downloadingSongIds,
         downloadingSongProgressByKey: _controller.downloadingSongProgressByKey,
+        downloadTaskStatusByKey: _controller.downloadTaskStatusByKey,
         downloadedSongKeys: _controller.downloadedSongKeys,
         totalCount: _controller.libraryTotalCount,
         pageIndex: _controller.libraryPageIndex,

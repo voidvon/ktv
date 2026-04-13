@@ -4,6 +4,7 @@ import 'package:ktv2/ktv2.dart';
 import 'package:ktv2_example/core/models/artist.dart';
 import 'package:ktv2_example/core/models/song.dart';
 import 'package:ktv2_example/core/models/song_identity.dart';
+import 'package:ktv2_example/features/ktv/application/download_manager_models.dart';
 import 'package:ktv2_example/features/ktv/application/ktv_controller.dart';
 import 'package:ktv2_example/features/ktv/presentation/songbook_contracts.dart';
 import 'package:ktv2_example/features/ktv/presentation/songbook_page.dart';
@@ -948,6 +949,288 @@ void main() {
     expect(find.byIcon(Icons.cloud_rounded), findsNothing);
     expect(find.byIcon(Icons.cloud_sync_rounded), findsNothing);
   });
+
+  testWidgets('paused queued downloads hide pin action and keep progress bar', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(932, 430);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final TextEditingController searchController = TextEditingController();
+    addTearDown(searchController.dispose);
+
+    final Song pausedSong = Song(
+      songId: buildAggregateSongId(title: '暂停下载歌曲', artist: '云端歌手'),
+      sourceId: 'baidu_pan',
+      sourceSongId: 'fsid-paused',
+      title: '暂停下载歌曲',
+      artist: '云端歌手',
+      languages: const <String>['国语'],
+      searchIndex: '暂停下载歌曲 云端歌手',
+      mediaPath: '',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SongBookPage(
+            controller: _TestPlayerController(),
+            searchController: searchController,
+            viewModel: SongBookViewModel(
+              navigation: const SongBookNavigationViewModel(
+                route: KtvRoute.queueList,
+                songBookMode: SongBookMode.songs,
+                libraryScope: LibraryScope.aggregated,
+                selectedArtist: null,
+                breadcrumbLabel: '主页 / 已点',
+              ),
+              library: SongBookLibraryViewModel(
+                searchQuery: '',
+                selectedLanguage: '全部',
+                songs: const <Song>[],
+                artists: const <Artist>[],
+                favoriteSongIds: const <String>[],
+                downloadableSourceIds: const <String>{'baidu_pan'},
+                downloadingSongIds: <String>{pausedSong.songId},
+                downloadingSongProgressByKey: const <String, double>{
+                  'baidu_pan::fsid-paused': 0.4,
+                },
+                downloadTaskStatusByKey: const <String, DownloadTaskStatus>{
+                  'baidu_pan::fsid-paused': DownloadTaskStatus.paused,
+                },
+                downloadedSongKeys: const <String>{},
+                totalCount: 0,
+                pageIndex: 0,
+                totalPages: 1,
+                pageSize: 12,
+                hasConfiguredDirectory: true,
+                hasConfiguredAggregatedSources: true,
+                isScanning: false,
+                isLoadingPage: false,
+                scanErrorMessage: null,
+              ),
+              playback: SongBookPlaybackViewModel(
+                queuedSongs: <Song>[pausedSong],
+              ),
+            ),
+            callbacks: buildSongBookCallbacks(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('云端歌手 · 国语 · 已暂停'), findsOneWidget);
+    expect(
+      find.byKey(
+        ValueKey<String>('song-download-progress-${pausedSong.songId}'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.vertical_align_top_rounded), findsNothing);
+    expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
+  });
+
+  testWidgets('failed queued downloads hide pin action and show failed state', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(932, 430);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final TextEditingController searchController = TextEditingController();
+    addTearDown(searchController.dispose);
+
+    final Song failedSong = Song(
+      songId: buildAggregateSongId(title: '失败下载歌曲', artist: '云端歌手'),
+      sourceId: 'baidu_pan',
+      sourceSongId: 'fsid-failed',
+      title: '失败下载歌曲',
+      artist: '云端歌手',
+      languages: const <String>['国语'],
+      searchIndex: '失败下载歌曲 云端歌手',
+      mediaPath: '',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SongBookPage(
+            controller: _TestPlayerController(),
+            searchController: searchController,
+            viewModel: SongBookViewModel(
+              navigation: const SongBookNavigationViewModel(
+                route: KtvRoute.queueList,
+                songBookMode: SongBookMode.songs,
+                libraryScope: LibraryScope.aggregated,
+                selectedArtist: null,
+                breadcrumbLabel: '主页 / 已点',
+              ),
+              library: SongBookLibraryViewModel(
+                searchQuery: '',
+                selectedLanguage: '全部',
+                songs: const <Song>[],
+                artists: const <Artist>[],
+                favoriteSongIds: const <String>[],
+                downloadableSourceIds: const <String>{'baidu_pan'},
+                downloadingSongIds: <String>{failedSong.songId},
+                downloadingSongProgressByKey: const <String, double>{
+                  'baidu_pan::fsid-failed': 0.6,
+                },
+                downloadTaskStatusByKey: const <String, DownloadTaskStatus>{
+                  'baidu_pan::fsid-failed': DownloadTaskStatus.failed,
+                },
+                downloadedSongKeys: const <String>{},
+                totalCount: 0,
+                pageIndex: 0,
+                totalPages: 1,
+                pageSize: 12,
+                hasConfiguredDirectory: true,
+                hasConfiguredAggregatedSources: true,
+                isScanning: false,
+                isLoadingPage: false,
+                scanErrorMessage: null,
+              ),
+              playback: SongBookPlaybackViewModel(
+                queuedSongs: <Song>[failedSong],
+              ),
+            ),
+            callbacks: buildSongBookCallbacks(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('云端歌手 · 国语 · 下载失败'), findsOneWidget);
+    expect(
+      find.byKey(
+        ValueKey<String>('song-download-progress-${failedSong.songId}'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.vertical_align_top_rounded), findsNothing);
+    expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
+  });
+
+  testWidgets(
+    'queued paused download tile taps request callback in queue list',
+    (WidgetTester tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(932, 430);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final TextEditingController searchController = TextEditingController();
+      addTearDown(searchController.dispose);
+
+      final Song pausedSong = Song(
+        songId: buildAggregateSongId(title: '可继续下载歌曲', artist: '云端歌手'),
+        sourceId: 'baidu_pan',
+        sourceSongId: 'fsid-resume-tap',
+        title: '可继续下载歌曲',
+        artist: '云端歌手',
+        languages: const <String>['国语'],
+        searchIndex: '可继续下载歌曲 云端歌手',
+        mediaPath: '',
+      );
+      int requestCallCount = 0;
+      Song? requestedSong;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SongBookPage(
+              controller: _TestPlayerController(),
+              searchController: searchController,
+              viewModel: SongBookViewModel(
+                navigation: const SongBookNavigationViewModel(
+                  route: KtvRoute.queueList,
+                  songBookMode: SongBookMode.songs,
+                  libraryScope: LibraryScope.aggregated,
+                  selectedArtist: null,
+                  breadcrumbLabel: '主页 / 已点',
+                ),
+                library: SongBookLibraryViewModel(
+                  searchQuery: '',
+                  selectedLanguage: '全部',
+                  songs: const <Song>[],
+                  artists: const <Artist>[],
+                  favoriteSongIds: const <String>[],
+                  downloadableSourceIds: const <String>{'baidu_pan'},
+                  downloadingSongIds: <String>{pausedSong.songId},
+                  downloadingSongProgressByKey: const <String, double>{
+                    'baidu_pan::fsid-resume-tap': 0.5,
+                  },
+                  downloadTaskStatusByKey: const <String, DownloadTaskStatus>{
+                    'baidu_pan::fsid-resume-tap': DownloadTaskStatus.paused,
+                  },
+                  downloadedSongKeys: const <String>{},
+                  totalCount: 0,
+                  pageIndex: 0,
+                  totalPages: 1,
+                  pageSize: 12,
+                  hasConfiguredDirectory: true,
+                  hasConfiguredAggregatedSources: true,
+                  isScanning: false,
+                  isLoadingPage: false,
+                  scanErrorMessage: null,
+                ),
+                playback: SongBookPlaybackViewModel(
+                  queuedSongs: <Song>[pausedSong],
+                ),
+              ),
+              callbacks: SongBookCallbacks(
+                navigation: SongBookNavigationCallbacks(
+                  onBackPressed: () {},
+                  onQueuePressed: () {},
+                  onSelectArtist: (_) {},
+                  onSettingsPressed: () {},
+                ),
+                library: SongBookLibraryCallbacks(
+                  onLanguageSelected: (_) {},
+                  onAppendSearchToken: (_) {},
+                  onRemoveSearchCharacter: () {},
+                  onClearSearch: () {},
+                  onRequestLibraryPage: (_, _) {},
+                  onRequestSong: (Song song) {
+                    requestCallCount += 1;
+                    requestedSong = song;
+                  },
+                  onToggleFavorite: (_) {},
+                  onDownloadSong: (_) {},
+                ),
+                playback: SongBookPlaybackCallbacks(
+                  onPrioritizeQueuedSong: (_) {},
+                  onRemoveQueuedSong: (_) {},
+                  onToggleAudioMode: () {},
+                  onTogglePlayback: () {},
+                  onRestartPlayback: () {},
+                  onSkipSong: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('可继续下载歌曲'));
+      await tester.pumpAndSettle();
+
+      expect(requestCallCount, 1);
+      expect(requestedSong, pausedSong);
+    },
+  );
 
   testWidgets('phone-height song grid uses bottom space to fit one more row', (
     WidgetTester tester,

@@ -5,6 +5,7 @@ import 'package:ktv2/ktv2.dart';
 
 import '../../../core/models/artist.dart';
 import '../../../core/models/song.dart';
+import '../application/download_manager_models.dart';
 import '../application/ktv_controller.dart';
 import 'queue_page.dart';
 import 'songbook_contracts.dart';
@@ -275,6 +276,8 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
           itemCount: visibleSongs.length,
           itemBuilder: (BuildContext context, int index) {
             final Song song = visibleSongs[index];
+            final DownloadTaskStatus? downloadTaskStatus = _library
+                .downloadTaskStatusForSong(song);
             final bool isCurrent =
                 widget.controller.hasMedia &&
                 _playback.queuedSongs.isNotEmpty &&
@@ -284,16 +287,17 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
             final bool isDownloaded = _library.isSongDownloaded(song);
             final bool showCloudStatus =
                 _library.supportsDownload(song) && !isDownloaded;
-            final bool isDownloading = _library.downloadingSongIds.contains(
-              song.songId,
-            );
+            final bool hasDownloadTask =
+                downloadTaskStatus == DownloadTaskStatus.downloading ||
+                downloadTaskStatus == DownloadTaskStatus.paused ||
+                downloadTaskStatus == DownloadTaskStatus.failed;
             final double? downloadProgress = _library.downloadProgressForSong(
               song,
             );
             final Widget trailing = Row(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                if (showCloudStatus && !isDownloading) ...<Widget>[
+                if (showCloudStatus && !hasDownloadTask) ...<Widget>[
                   const SongTileIconButton(
                     icon: Icons.cloud_rounded,
                     preserveColorWhenDisabled: true,
@@ -319,14 +323,14 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
                   ? '${song.artist} · ${song.language} · 已点'
                   : '${song.artist} · ${song.language}',
               highlighted: isCurrent,
-              downloadProgress: isDownloading ? downloadProgress : null,
+              downloadProgress: hasDownloadTask ? downloadProgress : null,
               progressKey: ValueKey<String>(
                 'song-download-progress-${song.songId}',
               ),
               trailing: trailing,
-              onTap: isQueued
-                  ? null
-                  : () => _libraryCallbacks.onRequestSong(song),
+              onTap: !isQueued || showCloudStatus
+                  ? () => _libraryCallbacks.onRequestSong(song)
+                  : null,
             );
           },
         ),
@@ -463,9 +467,6 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
           itemBuilder: (BuildContext context, int index) {
             final QueuedSongEntry entry = visibleEntries[index];
             final Song song = entry.song;
-            final bool isDownloading = _library.downloadingSongIds.contains(
-              song.songId,
-            );
             final double? downloadProgress = _library.downloadProgressForSong(
               song,
             );
@@ -474,15 +475,17 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
                 : Row(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      SongTileIconButton(
-                        icon: Icons.vertical_align_top_rounded,
-                        onPressed: entry.canPinToTop
-                            ? () => _playbackCallbacks.onPrioritizeQueuedSong(
-                                song,
-                              )
-                            : null,
-                      ),
-                      const SizedBox(width: 4),
+                      if (entry.showPinAction) ...<Widget>[
+                        SongTileIconButton(
+                          icon: Icons.vertical_align_top_rounded,
+                          onPressed: entry.canPinToTop
+                              ? () => _playbackCallbacks.onPrioritizeQueuedSong(
+                                  song,
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 4),
+                      ],
                       SongTileIconButton(
                         icon: Icons.delete_outline_rounded,
                         onPressed: () =>
@@ -494,11 +497,14 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
               title: song.title,
               subtitle: '${song.artist} · ${song.language} · ${entry.subtitle}',
               highlighted: entry.isCurrent,
-              downloadProgress: isDownloading ? downloadProgress : null,
+              downloadProgress: downloadProgress,
               progressKey: ValueKey<String>(
                 'song-download-progress-${song.songId}',
               ),
               trailing: trailing,
+              onTap: entry.isPendingDownload
+                  ? () => _libraryCallbacks.onRequestSong(song)
+                  : null,
             );
           },
         ),
@@ -787,22 +793,36 @@ class _SongBookRightColumnState extends State<SongBookRightColumn> {
         .entries
         .map((MapEntry<int, Song> entry) {
           final Song song = entry.value;
+          final DownloadTaskStatus? downloadTaskStatus = _library
+              .downloadTaskStatusForSong(song);
           final bool isPendingDownload =
               _library.supportsDownload(song) &&
               !_library.isSongDownloaded(song);
-          final bool isDownloading = _library.downloadingSongIds.contains(
-            song.songId,
-          );
+          final bool isDownloading =
+              downloadTaskStatus == DownloadTaskStatus.downloading;
+          final bool isPausedDownload =
+              downloadTaskStatus == DownloadTaskStatus.paused;
+          final bool isFailedDownload =
+              downloadTaskStatus == DownloadTaskStatus.failed;
           return QueuedSongEntry(
             song: song,
             queueIndex: entry.key,
             isCurrent: hasCurrentPlayback && entry.key == 0,
-            canPinToTop: !isPendingDownload && entry.key > 1,
+            isPendingDownload: isPendingDownload,
+            canPinToTop:
+                !isPendingDownload && entry.key > (hasCurrentPlayback ? 1 : 0),
+            showPinAction: !isPendingDownload,
             subtitle: hasCurrentPlayback && entry.key == 0
                 ? '当前播放'
                 : isPendingDownload
-                ? (isDownloading ? '下载中' : '等待下载')
-                : '队列 ${entry.key}',
+                ? (isDownloading
+                      ? '下载中'
+                      : isPausedDownload
+                      ? '已暂停'
+                      : isFailedDownload
+                      ? '下载失败'
+                      : '等待下载')
+                : '队列 ${entry.key + (hasCurrentPlayback ? 0 : 1)}',
           );
         });
     if (normalizedQuery.isEmpty) {

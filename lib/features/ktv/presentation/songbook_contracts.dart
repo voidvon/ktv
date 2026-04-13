@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/models/artist.dart';
 import '../../../core/models/song.dart';
+import '../application/download_manager_models.dart';
 import '../application/ktv_controller.dart';
 
 class SongBookViewModel {
@@ -42,6 +43,7 @@ class SongBookLibraryViewModel {
     required this.downloadableSourceIds,
     required this.downloadingSongIds,
     this.downloadingSongProgressByKey = const <String, double>{},
+    this.downloadTaskStatusByKey = const <String, DownloadTaskStatus>{},
     required this.downloadedSongKeys,
     required this.totalCount,
     required this.pageIndex,
@@ -62,6 +64,7 @@ class SongBookLibraryViewModel {
   final Set<String> downloadableSourceIds;
   final Set<String> downloadingSongIds;
   final Map<String, double> downloadingSongProgressByKey;
+  final Map<String, DownloadTaskStatus> downloadTaskStatusByKey;
   final Set<String> downloadedSongKeys;
   final int totalCount;
   final int pageIndex;
@@ -90,6 +93,14 @@ class SongBookLibraryViewModel {
       return null;
     }
     return downloadingSongProgressByKey['${song.sourceId}::$sourceSongId'];
+  }
+
+  DownloadTaskStatus? downloadTaskStatusForSong(Song song) {
+    final String sourceSongId = song.sourceSongId.trim();
+    if (sourceSongId.isEmpty) {
+      return null;
+    }
+    return downloadTaskStatusByKey['${song.sourceId}::$sourceSongId'];
   }
 }
 

@@ -75,6 +75,24 @@ void main() {
     expect(playerController.lastOpenedSource?.displayName, '缓存版第一首');
   });
 
+  test('prioritizeQueuedSong moves item to front when nothing is playing', () {
+    final _FakePlayerController playerController = _FakePlayerController();
+    final PlaybackQueueManager manager = PlaybackQueueManager(
+      playerController: playerController,
+    );
+    final Song first = _song('第一首');
+    final Song second = _song('第二首');
+    final Song third = _song('第三首');
+
+    final List<Song> nextQueue = manager.prioritizeQueuedSong(<Song>[
+      first,
+      second,
+      third,
+    ], third);
+
+    expect(nextQueue, <Song>[third, first, second]);
+  });
+
   test(
     'skipCurrentSong keeps current playback when no next song exists',
     () async {

@@ -42,12 +42,13 @@ class PlaybackQueueManager {
   List<Song> prioritizeQueuedSong(List<Song> queuedSongs, Song song) {
     final List<Song> nextQueue = List<Song>.of(queuedSongs);
     final int currentIndex = nextQueue.indexOf(song);
-    if (currentIndex <= 1) {
+    final int targetIndex = playerController.hasMedia ? 1 : 0;
+    if (currentIndex <= targetIndex) {
       return nextQueue;
     }
     nextQueue
       ..removeAt(currentIndex)
-      ..insert(1, song);
+      ..insert(targetIndex, song);
     return nextQueue;
   }
 
