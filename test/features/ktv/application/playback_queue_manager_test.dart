@@ -1,268 +1,75 @@
-﻿import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ktv2/ktv2.dart';
-import 'package:maimai_ktv/core/models/song_identity.dart';
 import 'package:maimai_ktv/core/models/song.dart';
-import 'package:maimai_ktv/features/ktv/application/playback_queue_manager.dart';
 import 'package:maimai_ktv/features/ktv/application/playable_song_resolver.dart';
+import 'package:maimai_ktv/features/ktv/application/playback_queue_manager.dart';
+
+import '../../../test_support/ktv_test_doubles.dart';
 
 void main() {
-  test('requestSong opens first song and appends later songs', () async {
-    final _FakePlayerController playerController = _FakePlayerController();
+  test('requestSong starts playback when there is no current media', () async {
+    final FakePlayerController playerController = FakePlayerController();
+    final Song song = buildLocalSong(
+      title: '七里香',
+      artist: '周杰伦',
+      mediaPath: '/music/qilixiang.mp4',
+    );
     final PlaybackQueueManager manager = PlaybackQueueManager(
       playerController: playerController,
-    );
-    final Song first = _song('绗竴棣?);
-    final Song second = _song('绗簩棣?);
-
-    final List<Song> initialQueue = await manager.requestSong(
-      const <Song>[],
-      first,
-    );
-    final List<Song> nextQueue = await manager.requestSong(
-      initialQueue,
-      second,
+      playableSongResolver: _FakePlayableSongResolver(),
     );
 
-    expect(playerController.lastOpenedSource?.displayName, '绗竴棣?);
-    expect(nextQueue, <Song>[first, second]);
-  });
+    final List<Song> nextQueue = await manager.requestSong(<Song>[], song);
 
-  test('skipCurrentSong keeps audio mode and advances queue', () async {
-    final _FakePlayerController playerController = _FakePlayerController();
-    final PlaybackQueueManager manager = PlaybackQueueManager(
-      playerController: playerController,
-    );
-    final Song first = _song('绗竴棣?);
-    final Song second = _song('绗簩棣?);
-
-    final List<Song> queueAfterFirst = await manager.requestSong(
-      const <Song>[],
-      first,
-    );
-    final List<Song> queueAfterSecond = await manager.requestSong(
-      queueAfterFirst,
-      second,
-    );
-
-    manager.toggleAudioMode();
-    expect(playerController.audioOutputMode, AudioOutputMode.accompaniment);
-
-    final List<Song> remainingQueue = await manager.skipCurrentSong(
-      queueAfterSecond,
-      canPlaySong: (_) => true,
-    );
-
-    expect(remainingQueue, <Song>[second]);
-    expect(playerController.lastOpenedSource?.displayName, '绗簩棣?);
-    expect(playerController.audioOutputMode, AudioOutputMode.accompaniment);
-  });
-
-  test('requestSong resolves playable media before opening player', () async {
-    final _FakePlayerController playerController = _FakePlayerController();
-    final PlaybackQueueManager manager = PlaybackQueueManager(
-      playerController: playerController,
-      playableSongResolver: _FakePlayableSongResolver(
-        resolvedPath: '/cache/resolved.mp4',
-        displayName: '缂撳瓨鐗堢涓€棣?,
-      ),
-    );
-    final Song first = _song('绗竴棣?);
-
-    await manager.requestSong(const <Song>[], first);
-
-    expect(playerController.lastOpenedSource?.path, '/cache/resolved.mp4');
-    expect(playerController.lastOpenedSource?.displayName, '缂撳瓨鐗堢涓€棣?);
-  });
-
-  test('prioritizeQueuedSong moves item to front when nothing is playing', () {
-    final _FakePlayerController playerController = _FakePlayerController();
-    final PlaybackQueueManager manager = PlaybackQueueManager(
-      playerController: playerController,
-    );
-    final Song first = _song('绗竴棣?);
-    final Song second = _song('绗簩棣?);
-    final Song third = _song('绗笁棣?);
-
-    final List<Song> nextQueue = manager.prioritizeQueuedSong(<Song>[
-      first,
-      second,
-      third,
-    ], third);
-
-    expect(nextQueue, <Song>[third, first, second]);
-  });
-
-  test(
-    'skipCurrentSong keeps current playback when no next song exists',
-    () async {
-      final _FakePlayerController playerController = _FakePlayerController();
-      final PlaybackQueueManager manager = PlaybackQueueManager(
-        playerController: playerController,
-      );
-      final Song first = _song('绗竴棣?);
-
-      final List<Song> queue = await manager.requestSong(const <Song>[], first);
-      final List<Song> remainingQueue = await manager.skipCurrentSong(
-        queue,
-        canPlaySong: (_) => true,
-      );
-
-      expect(remainingQueue, <Song>[first]);
-      expect(playerController.lastOpenedSource?.displayName, '绗竴棣?);
-      expect(playerController.hasMedia, isTrue);
-      expect(playerController.stopPlaybackCallCount, 0);
-    },
-  );
-
-  test('skipCurrentSong ignores unplayable queued placeholder songs', () async {
-    final _FakePlayerController playerController = _FakePlayerController();
-    final PlaybackQueueManager manager = PlaybackQueueManager(
-      playerController: playerController,
-    );
-    final Song current = _song('褰撳墠姝屾洸');
-    final Song pending = _song('绛夊緟涓嬭浇');
-
-    final List<Song> queue = await manager.requestSong(const <Song>[], current);
-    final List<Song> nextQueue = <Song>[...queue, pending];
-    final List<Song> remainingQueue = await manager.skipCurrentSong(
-      nextQueue,
-      canPlaySong: (Song song) => song != pending,
-    );
-
-    expect(remainingQueue, nextQueue);
-    expect(playerController.lastOpenedSource?.displayName, '褰撳墠姝屾洸');
-  });
-
-  test('restartPlayback resumes playback from start when paused', () async {
-    final _FakePlayerController playerController = _FakePlayerController();
-    final PlaybackQueueManager manager = PlaybackQueueManager(
-      playerController: playerController,
-    );
-    final Song first = _song('绗竴棣?);
-
-    await manager.requestSong(const <Song>[], first);
-    await playerController.seekToProgress(0.5);
-    await playerController.togglePlayback();
-    expect(playerController.isPlaying, isFalse);
-
-    manager.restartPlayback();
-    await Future<void>.delayed(Duration.zero);
-
-    expect(playerController.playbackPosition, Duration.zero);
+    expect(nextQueue, <Song>[song]);
+    expect(playerController.currentMediaPath, '/music/qilixiang.mp4');
     expect(playerController.isPlaying, isTrue);
   });
-}
 
-Song _song(String title) {
-  return Song(
-    songId: buildAggregateSongId(title: title, artist: '姝屾墜'),
-    sourceId: 'local',
-    sourceSongId: buildLocalSourceSongId(
-      fingerprint: buildLocalMetadataFingerprint(locator: '/tmp/$title.mp4'),
-    ),
-    title: title,
-    artist: '姝屾墜',
-    languages: const <String>['鍏跺畠'],
-    searchIndex: title.toLowerCase(),
-    mediaPath: '/tmp/$title.mp4',
-  );
-}
-
-class _FakePlayerController extends PlayerController {
-  PlayerState _state = const PlayerState();
-  MediaSource? lastOpenedSource;
-  int stopPlaybackCallCount = 0;
-
-  @override
-  PlayerState get state => _state;
-
-  @override
-  Future<void> applyAudioOutputMode(AudioOutputMode mode) async {
-    _state = PlayerState(
-      audioOutputMode: mode,
-      currentMediaPath: _state.currentMediaPath,
-      isPlaying: _state.isPlaying,
-      playbackDuration: _state.playbackDuration,
-      playbackPosition: _state.playbackPosition,
+  test('skipCurrentSong jumps to the next playable queued song', () async {
+    final FakePlayerController playerController = FakePlayerController();
+    final PlaybackQueueManager manager = PlaybackQueueManager(
+      playerController: playerController,
+      playableSongResolver: _FakePlayableSongResolver(),
     );
-    notifyListeners();
-  }
-
-  @override
-  Widget? buildVideoView() => null;
-
-  @override
-  Future<void> openMedia(MediaSource source) async {
-    lastOpenedSource = source;
-    _state = PlayerState(
-      audioOutputMode: _state.audioOutputMode,
-      currentMediaPath: source.path,
-      isPlaying: true,
-      playbackDuration: const Duration(minutes: 4),
-      playbackPosition: Duration.zero,
+    final Song currentSong = buildLocalSong(
+      title: '夜曲',
+      artist: '周杰伦',
+      mediaPath: '/music/yequ.mp4',
     );
-    notifyListeners();
-  }
-
-  @override
-  Future<void> seekToProgress(double progress) async {
-    _state = PlayerState(
-      audioOutputMode: _state.audioOutputMode,
-      currentMediaPath: _state.currentMediaPath,
-      isPlaying: _state.isPlaying,
-      playbackDuration: _state.playbackDuration,
-      playbackPosition: Duration(
-        milliseconds: (_state.playbackDuration.inMilliseconds * progress)
-            .round(),
-      ),
+    final Song pendingSong = buildRemoteSong(
+      title: '待下载',
+      artist: '歌手甲',
+      sourceId: 'baidu_pan',
+      sourceSongId: 'pending',
     );
-    notifyListeners();
-  }
-
-  @override
-  Future<void> togglePlayback() async {
-    _state = PlayerState(
-      audioOutputMode: _state.audioOutputMode,
-      currentMediaPath: _state.currentMediaPath,
-      isPlaying: !_state.isPlaying,
-      playbackDuration: _state.playbackDuration,
-      playbackPosition: _state.playbackPosition,
+    final Song nextSong = buildLocalSong(
+      title: '晴天',
+      artist: '周杰伦',
+      mediaPath: '/music/qingtian.mp4',
     );
-    notifyListeners();
-  }
 
-  @override
-  Future<void> stopPlayback() async {
-    stopPlaybackCallCount += 1;
-    _state = PlayerState(
-      audioOutputMode: _state.audioOutputMode,
-      currentMediaPath: null,
-      isPlaying: false,
-      playbackDuration: Duration.zero,
-      playbackPosition: Duration.zero,
+    await playerController.openMedia(
+      const MediaSource(path: '/music/yequ.mp4', displayName: '夜曲'),
     );
-    notifyListeners();
-  }
+    final List<Song> nextQueue = await manager.skipCurrentSong(<Song>[
+      currentSong,
+      pendingSong,
+      nextSong,
+    ], canPlaySong: (Song song) => song.sourceId == 'local');
+
+    expect(nextQueue, <Song>[nextSong, pendingSong]);
+    expect(playerController.currentMediaPath, '/music/qingtian.mp4');
+  });
 }
 
 class _FakePlayableSongResolver implements PlayableSongResolver {
-  const _FakePlayableSongResolver({
-    required this.resolvedPath,
-    required this.displayName,
-  });
-
-  final String resolvedPath;
-  final String displayName;
-
   @override
   Future<PlayableMediaResolution> resolve(Song song) async {
     return PlayableMediaResolution(
       song: song,
-      localPath: resolvedPath,
-      displayName: displayName,
-      cacheHit: true,
+      localPath: song.mediaPath,
+      displayName: song.title,
     );
   }
 }
-

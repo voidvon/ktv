@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -502,15 +503,34 @@ class _LocalDirectorySettingsPage extends StatelessWidget {
 
   final SettingsController controller;
 
+  bool get _usesImportedLocalLibrary =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: controller,
       builder: (BuildContext context, _) {
+        final String pageTitle = _usesImportedLocalLibrary ? '本地文件' : '本地目录';
+        final String introText = _usesImportedLocalLibrary
+            ? 'iPhone 和 iPad 不支持像桌面端那样直接挂载本地目录。请选择要导入到应用内的视频文件，导入后会在应用内建立本地歌库，再次导入会继续追加到当前歌库。'
+            : '配置本地目录后，点歌页会基于这个目录建立扫描范围。重新选择后会覆盖当前使用的本地目录。';
+        final String currentPathTitle = _usesImportedLocalLibrary
+            ? '应用内歌库目录'
+            : '当前目录';
+        final String emptyPathText = _usesImportedLocalLibrary
+            ? '当前还没有导入本地视频文件。'
+            : '当前还没有配置本地目录。';
+        final IconData actionIcon = _usesImportedLocalLibrary
+            ? Icons.file_upload_rounded
+            : Icons.folder_open_rounded;
+        final String actionLabel = controller.isPickingDirectory
+            ? (_usesImportedLocalLibrary ? '导入中' : '选择中')
+            : (_usesImportedLocalLibrary ? '导入文件' : '选择目录');
         return Scaffold(
           backgroundColor: const Color(0xFF0A0014),
           appBar: AppBar(
-            title: const Text('本地目录'),
+            title: Text(pageTitle),
             backgroundColor: Colors.transparent,
           ),
           body: SafeArea(
@@ -520,10 +540,7 @@ class _LocalDirectorySettingsPage extends StatelessWidget {
                 child: ListView(
                   padding: const EdgeInsets.all(24),
                   children: <Widget>[
-                    const Text(
-                      '配置本地目录后，点歌页会基于这个目录建立扫描范围。重新选择后会覆盖当前使用的本地目录。',
-                      style: TextStyle(height: 1.5),
-                    ),
+                    Text(introText, style: const TextStyle(height: 1.5)),
                     const SizedBox(height: 18),
                     Container(
                       width: double.infinity,
@@ -535,16 +552,16 @@ class _LocalDirectorySettingsPage extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          const Text(
-                            '当前目录',
-                            style: TextStyle(
+                          Text(
+                            currentPathTitle,
+                            style: const TextStyle(
                               color: Color(0xFF1D1230),
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                           const SizedBox(height: 8),
                           SelectableText(
-                            controller.currentDirectoryPath ?? '当前还没有配置本地目录。',
+                            controller.currentDirectoryPath ?? emptyPathText,
                             style: const TextStyle(
                               color: Color(0xFF6B5D7C),
                               height: 1.5,
@@ -570,10 +587,8 @@ class _LocalDirectorySettingsPage extends StatelessWidget {
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFFFF6E67),
                       ),
-                      icon: const Icon(Icons.folder_open_rounded),
-                      label: Text(
-                        controller.isPickingDirectory ? '选择中' : '选择目录',
-                      ),
+                      icon: Icon(actionIcon),
+                      label: Text(actionLabel),
                     ),
                     if (controller.errorMessage != null) ...<Widget>[
                       const SizedBox(height: 16),

@@ -1,39 +1,35 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:maimai_ktv/features/media_library/data/song_metadata_parser.dart';
 
 void main() {
   const SongMetadataParser parser = SongMetadataParser();
 
-  test('parseFileName extracts artist title language and tags', () {
+  test('parses artist, title, language, and tags from filenames', () {
     final ParsedSongMetadata metadata = parser.parseFileName(
-      '鍛ㄦ澃浼?闈掕姳鐡?鍥借-娴佽.mp4',
+      '周杰伦-青花瓷-国语-Live.mp4',
     );
 
-    expect(metadata.artist, '鍛ㄦ澃浼?);
-    expect(metadata.title, '闈掕姳鐡?);
-    expect(metadata.languages, <String>['鍥借']);
-    expect(metadata.tags, <String>['娴佽']);
+    expect(metadata.artist, '周杰伦');
+    expect(metadata.title, '青花瓷');
+    expect(metadata.languages, <String>['国语']);
+    expect(metadata.tags, <String>['Live']);
   });
 
-  test('parseFileName keeps hyphenated artist aliases', () {
+  test('keeps whitelisted hyphenated artist names intact', () {
     final ParsedSongMetadata metadata = parser.parseFileName(
-      'A-Lin-缁欐垜涓€涓悊鐢卞繕璁?鍥借.mp4',
+      'A-Lin-给我一个理由忘记-国语.mv',
     );
 
     expect(metadata.artist, 'A-Lin');
-    expect(metadata.title, '缁欐垜涓€涓悊鐢卞繕璁?);
-    expect(metadata.languages, <String>['鍥借']);
+    expect(metadata.title, '给我一个理由忘记');
+    expect(metadata.languages, <String>['国语']);
   });
 
-  test('parseFileName strips trailing copy noise from suffix keywords', () {
-    final ParsedSongMetadata metadata = parser.parseFileName(
-      'Beyond-娴烽様澶╃┖-鍥借-娴佽-鍓湰(2).mp4',
-    );
+  test('falls back to an unknown artist for single-segment names', () {
+    final ParsedSongMetadata metadata = parser.parseFileName('青花瓷.mp4');
 
-    expect(metadata.artist, 'Beyond');
-    expect(metadata.title, '娴烽様澶╃┖');
-    expect(metadata.languages, <String>['鍥借']);
-    expect(metadata.tags, <String>['娴佽']);
+    expect(metadata.artist, '未识别歌手');
+    expect(metadata.title, '青花瓷');
+    expect(metadata.languages, <String>['其它']);
   });
 }
-

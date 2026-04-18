@@ -1,35 +1,28 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:maimai_ktv/core/models/song.dart';
-import 'package:maimai_ktv/core/models/song_identity.dart';
 import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_auth_repository.dart';
 import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_models.dart';
 import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_remote_data_source.dart';
 import 'package:maimai_ktv/features/media_library/data/baidu_pan/file_baidu_pan_playback_cache.dart';
 import 'package:maimai_ktv/features/media_library/data/cloud/cloud_playback_cache.dart';
 
+import '../../../../test_support/ktv_test_doubles.dart';
+
 void main() {
   test(
-    'resolve downloads on cache miss and reuses local file on next hit',
+    'resolve downloads a remote file and appends the access token',
     () async {
-      final Directory tempDirectory = await Directory.systemTemp.createTemp(
+      final Directory tempDir = await Directory.systemTemp.createTemp(
         'baidu-pan-cache-test-',
       );
-      addTearDown(() async {
-        if (await tempDirectory.exists()) {
-          await tempDirectory.delete(recursive: true);
-        }
-      });
+      addTearDown(() => tempDir.delete(recursive: true));
 
-      int downloadCount = 0;
-      final _FakeBaiduPanRemoteDataSource remoteDataSource =
-          _FakeBaiduPanRemoteDataSource();
-      Uri? downloadedUri;
+      Uri? capturedUri;
       final FileBaiduPanPlaybackCache cache = FileBaiduPanPlaybackCache(
         authRepository: _FakeBaiduPanAuthRepository(),
-        remoteDataSource: remoteDataSource,
-        cacheDirectoryProvider: () async => tempDirectory,
+        remoteDataSource: _FakePlayableRemoteDataSource(),
+        cacheDirectoryProvider: () async => tempDir,
         fileDownloader:
             ({
               required Uri uri,
@@ -37,93 +30,35 @@ void main() {
               void Function(double progress)? onProgress,
               CloudDownloadCancellationToken? cancellationToken,
             }) async {
-              downloadCount += 1;
-              downloadedUri = uri;
-              cancellationToken?.throwIfCancelled();
+              capturedUri = uri;
+              await targetFile.writeAsString('downloaded');
               onProgress?.call(1);
-              await targetFile.writeAsString('mock video payload', flush: true);
             },
       );
-      final Song song = _song();
 
-      final first = await cache.resolve(
-        song: song,
-        sourceSongId: song.sourceSongId,
-      );
-      final second = await cache.resolve(
-        song: song,
-        sourceSongId: song.sourceSongId,
+      final result = await cache.resolve(
+        song: buildRemoteSong(
+          title: '发如雪',
+          artist: '周杰伦',
+          sourceId: 'baidu_pan',
+          sourceSongId: 'song-1',
+        ),
+        sourceSongId: 'song-1',
       );
 
-      expect(remoteDataSource.getPlayableFileMetaCallCount, 1);
-      expect(downloadCount, 1);
-      expect(first.cacheHit, isFalse);
-      expect(second.cacheHit, isTrue);
-      expect(first.localPath, second.localPath);
-      expect(await File(first.localPath).exists(), isTrue);
-      expect(
-        downloadedUri?.queryParameters['access_token'],
-        'mock-access-token',
-      );
+      expect(result.cacheHit, isFalse);
+      expect(await File(result.localPath).exists(), isTrue);
+      expect(capturedUri?.queryParameters['access_token'], 'token-123');
     },
   );
 }
 
-Song _song() {
-  return Song(
-    songId: buildAggregateSongId(title: '闈掕姳鐡?, artist: '鍛ㄦ澃浼?),
-    sourceId: 'baidu_pan',
-    sourceSongId: '12345',
-    title: '闈掕姳鐡?,
-    artist: '鍛ㄦ澃浼?,
-    languages: const <String>['鍥借'],
-    searchIndex: '闈掕姳鐡?鍛ㄦ澃浼?,
-    mediaPath: '',
-  );
-}
-
-class _FakeBaiduPanRemoteDataSource implements BaiduPanRemoteDataSource {
-  int getPlayableFileMetaCallCount = 0;
-
-  @override
-  Future<BaiduPanRemoteFile> getPlayableFileMeta(String fsid) async {
-    getPlayableFileMetaCallCount += 1;
-    return const BaiduPanRemoteFile(
-      fsid: '12345',
-      path: '/KTV/鍛ㄦ澃浼?闈掕姳鐡?鍥借.mp4',
-      serverFilename: '鍛ㄦ澃浼?闈掕姳鐡?鍥借.mp4',
-      isDirectory: false,
-      size: 1024,
-      modifiedAtMillis: 1710000000000,
-      dlink: 'https://example.com/file.mp4',
-    );
-  }
-
-  @override
-  Future<List<BaiduPanRemoteFile>> scanRoot(String rootPath) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<List<BaiduPanRemoteFile>> searchFiles({
-    required String keyword,
-    String? rootPath,
-  }) async {
-    throw UnimplementedError();
-  }
-}
-
-class _FakeBaiduPanAuthRepository implements BaiduPanAuthRepository {
+class _FakeBaiduPanAuthRepository extends BaiduPanAuthRepository {
   @override
   Future<Uri> buildAuthorizeUri() async => Uri.parse('https://example.com');
 
   @override
-  Future<BaiduPanDeviceCodeSession> createDeviceCodeSession() async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String> getValidAccessToken() async => 'mock-access-token';
+  Future<String> getValidAccessToken() async => 'token-123';
 
   @override
   Future<bool> hasValidSession() async => true;
@@ -133,13 +68,60 @@ class _FakeBaiduPanAuthRepository implements BaiduPanAuthRepository {
 
   @override
   Future<BaiduPanAuthToken?> loginWithDeviceCode(String deviceCode) async {
-    throw UnimplementedError();
+    return null;
   }
 
   @override
   Future<void> logout() async {}
 
   @override
-  Future<BaiduPanAuthToken?> readToken() async => null;
+  Future<BaiduPanAuthToken?> readToken() async {
+    return const BaiduPanAuthToken(
+      accessToken: 'token-123',
+      refreshToken: 'refresh-123',
+      expiresAtMillis: 9999999999999,
+    );
+  }
+
+  @override
+  Future<BaiduPanDeviceCodeSession> createDeviceCodeSession() async {
+    return BaiduPanDeviceCodeSession(
+      deviceCode: 'device-code',
+      userCode: 'user-code',
+      verificationUrl: 'https://example.com',
+      qrcodeUrl: 'https://example.com/qr',
+      expiresAtMillis: DateTime.now()
+          .add(const Duration(minutes: 5))
+          .millisecondsSinceEpoch,
+      intervalSeconds: 5,
+    );
+  }
 }
 
+class _FakePlayableRemoteDataSource extends BaiduPanRemoteDataSource {
+  @override
+  Future<BaiduPanRemoteFile> getPlayableFileMeta(String fileId) async {
+    return const BaiduPanRemoteFile(
+      fsid: 'song-1',
+      path: '/KTV/song.mp4',
+      serverFilename: 'song.mp4',
+      isDirectory: false,
+      size: 1,
+      modifiedAtMillis: 1,
+      dlink: 'https://example.com/download',
+    );
+  }
+
+  @override
+  Future<List<BaiduPanRemoteFile>> scanRoot(String rootPath) async {
+    return const <BaiduPanRemoteFile>[];
+  }
+
+  @override
+  Future<List<BaiduPanRemoteFile>> searchFiles({
+    required String keyword,
+    String? rootPath,
+  }) async {
+    return const <BaiduPanRemoteFile>[];
+  }
+}

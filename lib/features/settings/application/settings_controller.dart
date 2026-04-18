@@ -50,7 +50,7 @@ class SettingsController extends ChangeNotifier {
     } catch (error) {
       _setPickingState(
         isPickingDirectory: true,
-        errorMessage: '系统目录选择器没有成功启动：$error',
+        errorMessage: '系统文件选择器没有成功启动：$error',
       );
       return null;
     } finally {

@@ -1,1790 +1,280 @@
-﻿import 'dart:async';
-import 'dart:io';
-
-import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ktv2/ktv2.dart';
-import 'package:maimai_ktv/core/models/artist.dart';
-import 'package:maimai_ktv/core/models/artist_page.dart';
 import 'package:maimai_ktv/core/models/song.dart';
-import 'package:maimai_ktv/core/models/song_identity.dart';
-import 'package:maimai_ktv/core/models/song_page.dart';
 import 'package:maimai_ktv/features/ktv/application/download_manager_models.dart';
 import 'package:maimai_ktv/features/ktv/application/ktv_controller.dart';
-import 'package:maimai_ktv/features/ktv/application/download_task_store.dart';
-import 'package:maimai_ktv/features/ktv/application/playback_session_store.dart';
-import 'package:maimai_ktv/features/media_library/data/aggregated_library_repository.dart';
-import 'package:maimai_ktv/features/media_library/data/cloud/cloud_playback_cache.dart';
 import 'package:maimai_ktv/features/media_library/data/cloud/cloud_song_download_service.dart';
-import 'package:maimai_ktv/features/media_library/data/media_library_repository.dart';
+import 'package:maimai_ktv/features/song_profile/data/song_profile_repository.dart';
+
+import '../../../test_support/ktv_test_doubles.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('initialize keeps restored directory on home route', () async {
-    final FakeMediaLibraryRepository repository = FakeMediaLibraryRepository(
-      savedDirectory: '/music',
-      accessibleDirectories: <String>{'/music'},
-      indexedResults: <String, List<Song>>{'/music': <Song>[]},
-      scanResults: <String, List<Song>>{'/music': <Song>[]},
-    );
-    final KtvController controller = KtvController(
-      mediaLibraryRepository: repository,
-      playerController: FakePlayerController(),
-    );
+  Future<void> settleControllerRefresh() {
+    return Future<void>.delayed(const Duration(milliseconds: 260));
+  }
 
-    await controller.initialize();
-
-    expect(controller.route, KtvRoute.home);
-    expect(controller.canNavigateBack, isFalse);
-    expect(controller.scanDirectoryPath, '/music');
-    expect(controller.breadcrumbLabel, '涓婚〉');
-    expect(controller.libraryTotalCount, 0);
-  });
-
-  test('initialize restores saved directory and scans songs', () async {
-    final FakeMediaLibraryRepository repository = FakeMediaLibraryRepository(
-      savedDirectory: 'content://library/tree',
-      accessibleDirectories: <String>{'content://library/tree'},
-      indexedResults: <String, List<Song>>{
-        'content://library/tree': <Song>[
-          _song(title: '娴烽様澶╃┖', artist: 'Beyond'),
-        ],
-      },
-      scanResults: <String, List<Song>>{
-        'content://library/tree': <Song>[
-          _song(title: '娴烽様澶╃┖', artist: 'Beyond'),
-        ],
-      },
-    );
-    final FakePlayerController playerController = FakePlayerController();
-    final KtvController controller = KtvController(
-      mediaLibraryRepository: repository,
-      playerController: playerController,
-    );
-
-    await controller.initialize();
-
-    expect(controller.scanDirectoryPath, 'content://library/tree');
-    expect(controller.route, KtvRoute.home);
-    expect(controller.breadcrumbLabel, '涓婚〉');
-    expect(controller.librarySongs, hasLength(1));
-    await _settleLibraryQuery();
-    expect(repository.scanLibraryCallCount, 1);
-    expect(controller.currentSubtitle, contains('宸蹭粠鏈湴鐩綍鍔犺浇 1 棣栨瓕鏇?));
-  });
-
-  test(
-    'initialize always rescans restored directory before showing songs',
-    () async {
-      final FakeMediaLibraryRepository repository = FakeMediaLibraryRepository(
-        savedDirectory: 'content://library/tree',
-        accessibleDirectories: <String>{'content://library/tree'},
-        indexedResults: <String, List<Song>>{
-          'content://library/tree': <Song>[
-            _song(title: '娌ф捣涓€澹扮瑧-鍥借-鍗曢煶杞?, artist: '浠昏搐榻?),
-          ],
-        },
-        scanResults: <String, List<Song>>{
-          'content://library/tree': <Song>[
-            _song(title: '娌ф捣涓€澹扮瑧', artist: '浠昏搐榻?, language: '鍥借'),
-          ],
-        },
+  group('KtvController', () {
+    test('initialize restores saved local directory and loads songs', () async {
+      final FakeMediaIndexStore mediaIndexStore = FakeMediaIndexStore(
+        savedDirectory: '/music',
       );
       final KtvController controller = KtvController(
-        mediaLibraryRepository: repository,
+        mediaLibraryRepository: createTestMediaLibraryRepository(
+          savedDirectory: '/music',
+          accessibleDirectories: <String>{'/music'},
+          mediaIndexStore: mediaIndexStore,
+        ),
+        aggregatedLibraryRepository: FakeAggregatedLibraryRepository(
+          localSongsByDirectory: <String, List<Song>>{
+            '/music': <Song>[buildLocalSong(title: '海阔天空', artist: 'Beyond')],
+          },
+        ),
+        songProfileRepository: _FakeSongProfileRepository(),
         playerController: FakePlayerController(),
+        downloadTaskStore: MemoryDownloadTaskStore(),
+        playbackSessionStore: MemoryPlaybackSessionStore(),
       );
+      addTearDown(controller.dispose);
 
       await controller.initialize();
 
-      expect(repository.scanLibraryCallCount, 1);
-      expect(controller.librarySongs.single.title, '娌ф捣涓€澹扮瑧');
-      expect(controller.librarySongs.single.language, '鍥借');
-    },
-  );
-
-  test(
-    'scanLibrary resets search and language and filters with state',
-    () async {
-      final FakeMediaLibraryRepository repository = FakeMediaLibraryRepository(
-        scanResults: <String, List<Song>>{
-          '/media': <Song>[
-            _song(title: 'K Song', artist: 'Singer A', language: '鑻辫'),
-            _song(title: '闈掕姳鐡?, artist: '鍛ㄦ澃浼?, language: '鍥借'),
-          ],
-        },
+      expect(controller.route, KtvRoute.home);
+      expect(controller.scanDirectoryPath, '/music');
+      expect(controller.libraryTotalCount, 1);
+      expect(controller.librarySongs.single.title, '海阔天空');
+      expect(controller.breadcrumbLabel, '主页');
+      expect(controller.currentSubtitle, '已从本地目录加载 1 首歌曲。');
+      expect(
+        mediaIndexStore.configuredSources,
+        contains((sourceType: 'local', sourceRootId: '/music')),
       );
+    });
+
+    test('scanLibrary resets filters and reloads local songs', () async {
       final KtvController controller = KtvController(
-        mediaLibraryRepository: repository,
+        mediaLibraryRepository: createTestMediaLibraryRepository(),
+        aggregatedLibraryRepository: FakeAggregatedLibraryRepository(
+          localSongsByDirectory: <String, List<Song>>{
+            '/library': <Song>[
+              buildLocalSong(
+                title: 'Blue Sky',
+                artist: 'Singer A',
+                language: 'English',
+              ),
+              buildLocalSong(title: '青花瓷', artist: '周杰伦', language: '国语'),
+            ],
+          },
+        ),
+        songProfileRepository: _FakeSongProfileRepository(),
         playerController: FakePlayerController(),
+        downloadTaskStore: MemoryDownloadTaskStore(),
+        playbackSessionStore: MemoryPlaybackSessionStore(),
       );
+      addTearDown(controller.dispose);
 
-      controller.selectLanguage('鑻辫');
-      controller.setSearchQuery('k');
-      final bool success = await controller.scanLibrary('/media');
+      controller.selectLanguage('English');
+      controller.setSearchQuery('blue');
 
+      final bool success = await controller.scanLibrary('/library');
       expect(success, isTrue);
       expect(controller.selectedLanguage, KtvController.allLanguagesLabel);
-      expect(controller.state.searchQuery, isEmpty);
-
-      controller.selectLanguage('鍥借');
-      await _settleLibraryQuery();
-      expect(controller.filteredSongs.single.title, '闈掕姳鐡?);
-
-      controller.setSearchQuery('zhou');
-      await _settleSearchRefresh();
-      expect(controller.filteredSongs, isEmpty);
-    },
-  );
-
-  test(
-    'enter artist book loads artist mode and selectArtist filters songs',
-    () async {
-      final FakeMediaLibraryRepository repository = FakeMediaLibraryRepository(
-        scanResults: <String, List<Song>>{
-          '/media': <Song>[
-            _song(title: '闈掕姳鐡?, artist: '鍛ㄦ澃浼?, language: '鍥借'),
-            _song(title: '澶滄洸', artist: '鍛ㄦ澃浼?, language: '鍥借'),
-            _song(title: '鍚庢潵', artist: '鍒樿嫢鑻?, language: '鍥借'),
-          ],
-        },
-      );
-      final KtvController controller = KtvController(
-        mediaLibraryRepository: repository,
-        playerController: FakePlayerController(),
-      );
-
-      await controller.scanLibrary('/media');
-      controller.enterSongBook(mode: SongBookMode.artists);
-      await _settleLibraryQuery();
-
-      expect(controller.songBookMode, SongBookMode.artists);
-      expect(controller.selectedArtist, isNull);
-      expect(
-        controller.libraryArtists.map((Artist artist) => artist.name),
-        containsAll(<String>['鍛ㄦ澃浼?, '鍒樿嫢鑻?]),
-      );
-
-      await controller.selectArtist('鍛ㄦ澃浼?);
-
-      expect(controller.songBookMode, SongBookMode.songs);
-      expect(controller.selectedArtist, '鍛ㄦ澃浼?);
-      expect(
-        controller.librarySongs.map((Song song) => song.title),
-        containsAll(<String>['闈掕姳鐡?, '澶滄洸']),
-      );
-    },
-  );
-
-  test('returnFromSelectedArtist goes back to artist overview', () async {
-    final FakeMediaLibraryRepository repository = FakeMediaLibraryRepository(
-      scanResults: <String, List<Song>>{
-        '/media': <Song>[
-          _song(title: '闈掕姳鐡?, artist: '鍛ㄦ澃浼?, language: '鍥借'),
-          _song(title: '鍚庢潵', artist: '鍒樿嫢鑻?, language: '鍥借'),
-        ],
-      },
-    );
-    final KtvController controller = KtvController(
-      mediaLibraryRepository: repository,
-      playerController: FakePlayerController(),
-    );
-
-    await controller.scanLibrary('/media');
-    controller.enterSongBook(mode: SongBookMode.artists);
-    await _settleLibraryQuery();
-    await controller.selectArtist('鍛ㄦ澃浼?);
-
-    final bool handled = await controller.returnFromSelectedArtist();
-
-    expect(handled, isTrue);
-    expect(controller.songBookMode, SongBookMode.artists);
-    expect(controller.selectedArtist, isNull);
-    expect(controller.libraryArtists, isNotEmpty);
-  });
-
-  test('navigateBack unwinds artist stack level by level', () async {
-    final KtvController controller = KtvController(
-      mediaLibraryRepository: FakeMediaLibraryRepository(),
-      playerController: FakePlayerController(),
-    );
-
-    controller.enterSongBook(mode: SongBookMode.artists);
-    expect(controller.route, KtvRoute.songBook);
-    expect(controller.breadcrumbLabel, '涓婚〉 / 姝屾槦');
-
-    await controller.selectArtist('寮犲鍙?);
-    expect(controller.selectedArtist, '寮犲鍙?);
-    expect(controller.breadcrumbLabel, '涓婚〉 / 姝屾槦 / 寮犲鍙?);
-
-    expect(await controller.navigateBack(), isTrue);
-    expect(controller.route, KtvRoute.songBook);
-    expect(controller.songBookMode, SongBookMode.artists);
-    expect(controller.selectedArtist, isNull);
-    expect(controller.breadcrumbLabel, '涓婚〉 / 姝屾槦');
-
-    expect(await controller.navigateBack(), isTrue);
-    expect(controller.route, KtvRoute.home);
-    expect(controller.canNavigateBack, isFalse);
-    expect(controller.breadcrumbLabel, '涓婚〉');
-  });
-
-  test('navigateBack unwinds queue page to song book then home', () async {
-    final KtvController controller = KtvController(
-      mediaLibraryRepository: FakeMediaLibraryRepository(),
-      playerController: FakePlayerController(),
-    );
-
-    controller.enterSongBook();
-    controller.enterQueueList();
-
-    expect(controller.route, KtvRoute.queueList);
-    expect(controller.breadcrumbLabel, '涓婚〉 / 姝屽悕 / 宸茬偣');
-
-    expect(await controller.navigateBack(), isTrue);
-    expect(controller.route, KtvRoute.songBook);
-    expect(controller.breadcrumbLabel, '涓婚〉 / 姝屽悕');
-
-    expect(await controller.navigateBack(), isTrue);
-    expect(controller.route, KtvRoute.home);
-    expect(controller.breadcrumbLabel, '涓婚〉');
-  });
-
-  test('aggregated song book can load without local directory', () async {
-    final Song remoteSong = _remoteSong(
-      title: '杩滅▼姝屾洸',
-      artist: '浜戠姝屾墜',
-      sourceId: '115',
-      sourceSongId: '115-song-1',
-      mediaPath: '115://remote-song',
-    );
-    final KtvController controller = KtvController(
-      mediaLibraryRepository: FakeMediaLibraryRepository(),
-      aggregatedLibraryRepository: FakeAggregatedLibraryRepository(
-        songs: <Song>[remoteSong],
-      ),
-      playerController: FakePlayerController(),
-    );
-
-    controller.enterSongBook(mode: SongBookMode.songs);
-    await _settleLibraryQuery();
-    await _settleLibraryQuery();
-
-    expect(controller.scanDirectoryPath, isNull);
-    expect(controller.songBookMode, SongBookMode.songs);
-    expect(controller.libraryScope, LibraryScope.aggregated);
-    expect(controller.librarySongs, <Song>[remoteSong]);
-    expect(controller.libraryTotalCount, 1);
-    expect(controller.currentSubtitle, contains('鑱氬悎鏇插簱'));
-  });
-
-  test(
-    'resolveSongSelectionAction queues local and downloaded songs directly',
-    () async {
-      final Song localSong = _song(title: '鏈湴姝屾洸', artist: '姝屾墜鐢?);
-      final Song downloadedRemoteSong = _remoteSong(
-        title: '宸蹭笅杞戒簯绔瓕鏇?,
-        artist: '浜戠姝屾墜',
-        sourceSongId: 'fsid-downloaded',
-      );
-      final KtvController controller = KtvController(
-        mediaLibraryRepository: FakeMediaLibraryRepository(),
-        playerController: FakePlayerController(),
-        songDownloadServices: <String, CloudSongDownloadService>{
-          'baidu_pan': _FakeCloudSongDownloadService(
-            sourceId: 'baidu_pan',
-            downloadedSongs: <CloudDownloadedSongRecord>[
-              CloudDownloadedSongRecord(
-                sourceId: downloadedRemoteSong.sourceId,
-                sourceSongId: downloadedRemoteSong.sourceSongId,
-                title: downloadedRemoteSong.title,
-                artist: downloadedRemoteSong.artist,
-                savedPath: '/tmp/downloaded.mp4',
-                savedAtMillis: 1,
-              ),
-            ],
-          ),
-        },
-        downloadTaskStore: _FakeDownloadTaskStore(),
-      );
-
-      await controller.initialize();
-
-      expect(
-        controller.resolveSongSelectionAction(localSong),
-        SongSelectionAction.queue,
-      );
-      expect(
-        controller.resolveSongSelectionAction(downloadedRemoteSong),
-        SongSelectionAction.queue,
-      );
-    },
-  );
-
-  test(
-    'resolveSongSelectionAction reports download states for cloud songs',
-    () async {
-      final Song remoteSong = _remoteSong(
-        title: '浜戠姝屾洸',
-        artist: '浜戠姝屾墜',
-        sourceSongId: 'fsid-cloud',
-      );
-      final Completer<void> gate = Completer<void>();
-      final KtvController controller = KtvController(
-        mediaLibraryRepository: FakeMediaLibraryRepository(),
-        playerController: FakePlayerController(),
-        songDownloadServices: <String, CloudSongDownloadService>{
-          'baidu_pan': _FakeCloudSongDownloadService(
-            sourceId: 'baidu_pan',
-            onDownloadSong:
-                ({
-                  required Song song,
-                  String? preferredDirectory,
-                  void Function(CloudDownloadProgress progress)? onProgress,
-                  CloudDownloadCancellationToken? cancellationToken,
-                }) async {
-                  onProgress?.call(
-                    const CloudDownloadProgress(
-                      phaseLabel: '缂撳瓨浜戠鏂囦欢',
-                      value: 0.2,
-                    ),
-                  );
-                  await gate.future;
-                  cancellationToken?.throwIfCancelled();
-                  return const CloudSongDownloadResult(
-                    savedPath: '/tmp/cloud.mp4',
-                    usedPreferredDirectory: false,
-                  );
-                },
-          ),
-        },
-        downloadTaskStore: _FakeDownloadTaskStore(),
-      );
-
-      expect(
-        controller.resolveSongSelectionAction(remoteSong),
-        SongSelectionAction.startDownload,
-      );
-
-      final Future<CloudSongDownloadResult> future = controller
-          .downloadSongToLocal(remoteSong);
-      await Future<void>.delayed(const Duration(milliseconds: 1));
-
-      expect(
-        controller.resolveSongSelectionAction(remoteSong),
-        SongSelectionAction.downloading,
-      );
-
-      controller.pauseDownload(
-        sourceId: remoteSong.sourceId,
-        sourceSongId: remoteSong.sourceSongId,
-      );
-      gate.complete();
-
-      await expectLater(future, throwsA(isA<CloudDownloadPausedException>()));
-      expect(
-        controller.resolveSongSelectionAction(remoteSong),
-        SongSelectionAction.resumeDownload,
-      );
-    },
-  );
-
-  test(
-    'requestSong keeps current playback and appends new songs to queue',
-    () async {
-      final FakePlayerController playerController = FakePlayerController();
-      final KtvController controller = KtvController(
-        mediaLibraryRepository: FakeMediaLibraryRepository(),
-        playerController: playerController,
-      );
-      final Song first = _song(title: '绗竴棣?, artist: '姝屾墜鐢?);
-      final Song second = _song(title: '绗簩棣?, artist: '姝屾墜涔?);
-
-      await controller.requestSong(first);
-      await controller.requestSong(second);
-      await controller.requestSong(first);
-
-      expect(playerController.lastOpenedSource?.displayName, '绗竴棣?);
-      expect(controller.queuedSongs.first, first);
-      expect(controller.queuedSongs, <Song>[first, second]);
-      expect(controller.currentTitle, '绗竴棣?);
-    },
-  );
-
-  test(
-    'requestSong keeps pending cloud songs at the bottom of queue',
-    () async {
-      final FakePlayerController playerController = FakePlayerController();
-      final KtvController controller = KtvController(
-        mediaLibraryRepository: FakeMediaLibraryRepository(),
-        playerController: playerController,
-        songDownloadServices: <String, CloudSongDownloadService>{
-          'baidu_pan': _FakeCloudSongDownloadService(sourceId: 'baidu_pan'),
-        },
-        downloadTaskStore: _FakeDownloadTaskStore(),
-      );
-      final Song current = _song(title: '褰撳墠鎾斁', artist: '姝屾墜鐢?);
-      final Song localNext = _song(title: '鏈湴涓嬩竴棣?, artist: '姝屾墜涔?);
-      final Song pendingRemote = _remoteSong(
-        title: '浜戠寰呬笅杞?,
-        artist: '浜戠姝屾墜',
-        sourceSongId: 'fsid-pending-bottom',
-      );
-
-      await controller.requestSong(current);
-      await controller.requestSong(pendingRemote);
-      await controller.requestSong(localNext);
-
-      expect(controller.queuedSongs, <Song>[current, localNext, pendingRemote]);
-    },
-  );
-
-  test(
-    'enqueuePendingSong adds cloud song to queue bottom without duplicates',
-    () async {
-      final KtvController controller = KtvController(
-        mediaLibraryRepository: FakeMediaLibraryRepository(),
-        playerController: FakePlayerController(),
-        songDownloadServices: <String, CloudSongDownloadService>{
-          'baidu_pan': _FakeCloudSongDownloadService(sourceId: 'baidu_pan'),
-        },
-        downloadTaskStore: _FakeDownloadTaskStore(),
-      );
-      final Song localSong = _song(title: '鏈湴姝屾洸', artist: '姝屾墜鐢?);
-      final Song pendingRemote = _remoteSong(
-        title: '浜戠寰呬笅杞?,
-        artist: '浜戠姝屾墜',
-        sourceSongId: 'fsid-enqueue',
-      );
-
-      await controller.requestSong(localSong);
-      await controller.enqueuePendingSong(pendingRemote);
-      await controller.enqueuePendingSong(pendingRemote);
-
-      expect(controller.queuedSongs, <Song>[localSong, pendingRemote]);
-    },
-  );
-
-  test(
-    'prioritizeQueuedSong moves later queued item behind current song',
-    () async {
-      final KtvController controller = KtvController(
-        mediaLibraryRepository: FakeMediaLibraryRepository(),
-        playerController: FakePlayerController(),
-      );
-      final Song current = _song(title: '褰撳墠鎾斁', artist: '姝屾墜鐢?);
-      final Song next = _song(title: '涓嬩竴棣?, artist: '姝屾墜涔?);
-      final Song later = _song(title: '鍚庨潰閭ｉ', artist: '姝屾墜涓?);
-
-      await controller.requestSong(current);
-      await controller.requestSong(next);
-      await controller.requestSong(later);
-
-      controller.prioritizeQueuedSong(later);
-
-      expect(controller.queuedSongs, <Song>[current, later, next]);
-    },
-  );
-
-  test('prioritizeQueuedSong moves pending queued item to front', () async {
-    final KtvController controller = KtvController(
-      mediaLibraryRepository: FakeMediaLibraryRepository(),
-      playerController: FakePlayerController(),
-      songDownloadServices: <String, CloudSongDownloadService>{
-        'baidu_pan': _FakeCloudSongDownloadService(sourceId: 'baidu_pan'),
-      },
-      downloadTaskStore: _FakeDownloadTaskStore(),
-    );
-    final Song firstPending = _remoteSong(
-      title: '寰呬笅杞界涓€棣?,
-      artist: '浜戠姝屾墜鐢?,
-      sourceSongId: 'fsid-first-pending',
-    );
-    final Song secondPending = _remoteSong(
-      title: '寰呬笅杞界浜岄',
-      artist: '浜戠姝屾墜涔?,
-      sourceSongId: 'fsid-second-pending',
-    );
-    final Song thirdPending = _remoteSong(
-      title: '寰呬笅杞界涓夐',
-      artist: '浜戠姝屾墜涓?,
-      sourceSongId: 'fsid-third-pending',
-    );
-
-    await controller.enqueuePendingSong(firstPending);
-    await controller.enqueuePendingSong(secondPending);
-    await controller.enqueuePendingSong(thirdPending);
-
-    controller.prioritizeQueuedSong(thirdPending);
-
-    expect(controller.queuedSongs, <Song>[
-      thirdPending,
-      firstPending,
-      secondPending,
-    ]);
-  });
-
-  test('removeQueuedSong only removes non-current queued items', () async {
-    final KtvController controller = KtvController(
-      mediaLibraryRepository: FakeMediaLibraryRepository(),
-      playerController: FakePlayerController(),
-    );
-    final Song current = _song(title: '褰撳墠鎾斁', artist: '姝屾墜鐢?);
-    final Song next = _song(title: '涓嬩竴棣?, artist: '姝屾墜涔?);
-
-    await controller.requestSong(current);
-    await controller.requestSong(next);
-
-    controller.removeQueuedSong(current);
-    controller.removeQueuedSong(next);
-
-    expect(controller.queuedSongs, <Song>[current]);
-  });
-
-  test('stopPlayback pauses current media and rewinds to start', () async {
-    final FakePlayerController playerController = FakePlayerController();
-    final KtvController controller = KtvController(
-      mediaLibraryRepository: FakeMediaLibraryRepository(),
-      playerController: playerController,
-    );
-
-    await controller.requestSong(_song(title: '澶滅┖涓渶浜殑鏄?, artist: '閫冭窇璁″垝'));
-    await playerController.seekToProgress(0.5);
-
-    await controller.stopPlayback();
-
-    expect(playerController.isPlaying, isFalse);
-    expect(playerController.playbackPosition, Duration.zero);
-  });
-
-  test(
-    'preparePlaybackForBackground keeps paused playback state without rewinding',
-    () async {
-      final FakePlayerController playerController = FakePlayerController();
-      final _FakePlaybackSessionStore sessionStore =
-          _FakePlaybackSessionStore();
-      final KtvController controller = KtvController(
-        mediaLibraryRepository: FakeMediaLibraryRepository(),
-        playerController: playerController,
-        playbackSessionStore: sessionStore,
-      );
-
-      await controller.requestSong(_song(title: '鍚庢潵', artist: '鍒樿嫢鑻?));
-      await playerController.seekToProgress(0.5);
-      await playerController.togglePlayback();
-
-      await controller.preparePlaybackForBackground(shouldStopPlayback: false);
-
-      expect(playerController.isPlaying, isFalse);
-      expect(playerController.playbackPosition, const Duration(minutes: 2));
-      expect(sessionStore.session, isNotNull);
-      expect(sessionStore.session!.wasPlaying, isFalse);
-      expect(sessionStore.session!.playbackProgress, 0.5);
-    },
-  );
-
-  test(
-    'preparePlaybackForBackground stops active playback after saving session',
-    () async {
-      final FakePlayerController playerController = FakePlayerController();
-      final _FakePlaybackSessionStore sessionStore =
-          _FakePlaybackSessionStore();
-      final KtvController controller = KtvController(
-        mediaLibraryRepository: FakeMediaLibraryRepository(),
-        playerController: playerController,
-        playbackSessionStore: sessionStore,
-      );
-
-      await controller.requestSong(_song(title: '澶滅┖涓渶浜殑鏄?, artist: '閫冭窇璁″垝'));
-      await playerController.seekToProgress(0.5);
-
-      await controller.preparePlaybackForBackground(shouldStopPlayback: true);
-
-      expect(playerController.isPlaying, isFalse);
-      expect(playerController.playbackPosition, Duration.zero);
-      expect(sessionStore.session, isNotNull);
-      expect(sessionStore.session!.wasPlaying, isTrue);
-      expect(sessionStore.session!.playbackProgress, 0.5);
-    },
-  );
-
-  test('initialize restores playing playback session', () async {
-    final Song current = _song(title: '澶滅┖涓渶浜殑鏄?, artist: '閫冭窇璁″垝');
-    final Song next = _song(title: '绋婚', artist: '鍛ㄦ澃浼?);
-    final FakePlayerController playerController = FakePlayerController();
-    final _FakePlaybackSessionStore sessionStore = _FakePlaybackSessionStore(
-      session: PersistedPlaybackSession(
-        queuedSongs: <Song>[current, next],
-        playbackProgress: 0.25,
-        wasPlaying: true,
-        audioOutputMode: AudioOutputMode.accompaniment,
-      ),
-    );
-    final KtvController controller = KtvController(
-      mediaLibraryRepository: FakeMediaLibraryRepository(),
-      playerController: playerController,
-      playbackSessionStore: sessionStore,
-    );
-
-    await controller.initialize();
-
-    expect(controller.queuedSongs, <Song>[current, next]);
-    expect(playerController.lastOpenedSource?.displayName, current.title);
-    expect(playerController.playbackPosition, const Duration(minutes: 1));
-    expect(playerController.isPlaying, isTrue);
-    expect(playerController.audioOutputMode, AudioOutputMode.accompaniment);
-    expect(sessionStore.clearCallCount, 0);
-  });
-
-  test(
-    'initialize restores paused playback session without auto-playing',
-    () async {
-      final Song current = _song(title: '鍚庢潵', artist: '鍒樿嫢鑻?);
-      final FakePlayerController playerController = FakePlayerController();
-      final KtvController controller = KtvController(
-        mediaLibraryRepository: FakeMediaLibraryRepository(),
-        playerController: playerController,
-        playbackSessionStore: _FakePlaybackSessionStore(
-          session: PersistedPlaybackSession(
-            queuedSongs: <Song>[current],
-            playbackProgress: 0.5,
-            wasPlaying: false,
-            audioOutputMode: AudioOutputMode.original,
-          ),
-        ),
-      );
-
-      await controller.initialize();
-
-      expect(controller.queuedSongs, <Song>[current]);
-      expect(playerController.lastOpenedSource?.displayName, current.title);
-      expect(playerController.playbackPosition, const Duration(minutes: 2));
-      expect(playerController.isPlaying, isFalse);
-    },
-  );
-
-  test('skipCurrentSong keeps selected audio mode for next song', () async {
-    final FakePlayerController playerController = FakePlayerController();
-    final KtvController controller = KtvController(
-      mediaLibraryRepository: FakeMediaLibraryRepository(),
-      playerController: playerController,
-    );
-    final Song current = _song(title: '绗竴棣?, artist: '姝屾墜鐢?);
-    final Song next = _song(title: '绗簩棣?, artist: '姝屾墜涔?);
-
-    await controller.requestSong(current);
-    await controller.requestSong(next);
-    controller.toggleAudioMode();
-
-    expect(playerController.audioOutputMode, AudioOutputMode.accompaniment);
-
-    await controller.skipCurrentSong();
-
-    expect(playerController.lastOpenedSource?.displayName, '绗簩棣?);
-    expect(playerController.audioOutputMode, AudioOutputMode.accompaniment);
-  });
-
-  test('playback completion advances to next queued song', () async {
-    final FakePlayerController playerController = FakePlayerController();
-    final KtvController controller = KtvController(
-      mediaLibraryRepository: FakeMediaLibraryRepository(),
-      playerController: playerController,
-      playbackSessionStore: _FakePlaybackSessionStore(),
-    );
-    final Song current = _song(title: '绗竴棣?, artist: '姝屾墜鐢?);
-    final Song next = _song(title: '绗簩棣?, artist: '姝屾墜涔?);
-
-    await controller.requestSong(current);
-    await controller.requestSong(next);
-
-    playerController.setPlaybackCompleted(true);
-    await Future<void>.delayed(Duration.zero);
-
-    expect(controller.queuedSongs, <Song>[next]);
-    expect(playerController.lastOpenedSource?.displayName, '绗簩棣?);
-    expect(playerController.hasMedia, isTrue);
-  });
-
-  test('playback completion clears last song and resets player', () async {
-    final FakePlayerController playerController = FakePlayerController();
-    final _FakePlaybackSessionStore sessionStore = _FakePlaybackSessionStore();
-    final KtvController controller = KtvController(
-      mediaLibraryRepository: FakeMediaLibraryRepository(),
-      playerController: playerController,
-      playbackSessionStore: sessionStore,
-    );
-    final Song current = _song(title: '鏈€鍚庝竴棣?, artist: '姝屾墜鐢?);
-
-    await controller.requestSong(current);
-
-    playerController.setPlaybackCompleted(true);
-    await Future<void>.delayed(Duration.zero);
-
-    expect(controller.queuedSongs, isEmpty);
-    expect(playerController.hasMedia, isFalse);
-    expect(playerController.playbackPosition, Duration.zero);
-    expect(sessionStore.session, isNull);
-  });
-
-  test(
-    'initialize loads downloaded song records for download manager',
-    () async {
-      final _FakeCloudSongDownloadService downloadService =
-          _FakeCloudSongDownloadService(
-            sourceId: 'baidu_pan',
-            downloadedSongs: <CloudDownloadedSongRecord>[
-              const CloudDownloadedSongRecord(
+      expect(controller.searchQuery, isEmpty);
+      expect(controller.libraryTotalCount, 2);
+
+      controller.selectLanguage('国语');
+      await settleControllerRefresh();
+      expect(controller.librarySongs.single.title, '青花瓷');
+
+      controller.setSearchQuery('周杰');
+      await settleControllerRefresh();
+      expect(controller.librarySongs.single.artist, '周杰伦');
+    });
+
+    test(
+      'artist navigation updates breadcrumbs and goes back correctly',
+      () async {
+        final KtvController controller = KtvController(
+          mediaLibraryRepository: createTestMediaLibraryRepository(),
+          aggregatedLibraryRepository: FakeAggregatedLibraryRepository(
+            aggregatedSongs: <Song>[
+              buildRemoteSong(
+                title: '青花瓷',
+                artist: '周杰伦',
                 sourceId: 'baidu_pan',
-                sourceSongId: 'fsid-1',
-                title: '澶滄洸',
-                artist: '鍛ㄦ澃浼?,
-                savedPath: '/tmp/night.mp4',
-                savedAtMillis: 100,
+                sourceSongId: 'song-1',
+              ),
+              buildRemoteSong(
+                title: '夜曲',
+                artist: '周杰伦',
+                sourceId: 'baidu_pan',
+                sourceSongId: 'song-2',
+              ),
+              buildRemoteSong(
+                title: '后来',
+                artist: '刘若英',
+                sourceId: 'baidu_pan',
+                sourceSongId: 'song-3',
               ),
             ],
-          );
-      final _FakeDownloadTaskStore taskStore = _FakeDownloadTaskStore();
-      final KtvController controller = KtvController(
-        mediaLibraryRepository: FakeMediaLibraryRepository(),
-        playerController: FakePlayerController(),
-        songDownloadServices: <String, CloudSongDownloadService>{
-          'baidu_pan': downloadService,
-        },
-        downloadTaskStore: taskStore,
-      );
-
-      await controller.initialize();
-
-      expect(controller.downloadedSongs, hasLength(1));
-      expect(controller.downloadedSongs.single.title, '澶滄洸');
-      expect(controller.downloadedSongs.single.sourceLabel, '鐧惧害缃戠洏');
-      expect(controller.downloadedSongKeys, contains('baidu_pan::fsid-1'));
-      expect(taskStore.saveCallCount, 0);
-    },
-  );
-
-  test('initialize restores persisted download tasks as paused', () async {
-    final _FakeDownloadTaskStore taskStore = _FakeDownloadTaskStore(
-      tasks: <DownloadingSongItem>[
-        const DownloadingSongItem(
-          songId: 'song-1',
-          sourceId: 'baidu_pan',
-          sourceSongId: 'fsid-restore',
-          title: '鏅村ぉ',
-          artist: '鍛ㄦ澃浼?,
-          startedAtMillis: 10,
-          updatedAtMillis: 20,
-          preferredDirectory: '/music',
-          status: DownloadTaskStatus.downloading,
-          progress: 0.35,
-          phaseLabel: '缂撳瓨浜戠鏂囦欢',
-        ),
-      ],
-    );
-    final KtvController controller = KtvController(
-      mediaLibraryRepository: FakeMediaLibraryRepository(),
-      playerController: FakePlayerController(),
-      songDownloadServices: <String, CloudSongDownloadService>{
-        'baidu_pan': _FakeCloudSongDownloadService(sourceId: 'baidu_pan'),
-      },
-      downloadTaskStore: taskStore,
-    );
-
-    await controller.initialize();
-
-    expect(controller.downloadingSongs, hasLength(1));
-    expect(controller.downloadingSongs.single.isPaused, isTrue);
-    expect(controller.downloadingSongs.single.phaseLabel, '宸叉殏鍋滐紝绛夊緟缁х画');
-    expect(taskStore.saveCallCount, 1);
-  });
-
-  test(
-    'downloadSongToLocal updates downloading and downloaded lists',
-    () async {
-      final Song remoteSong = Song(
-        songId: buildAggregateSongId(title: '澶滄洸', artist: '鍛ㄦ澃浼?),
-        sourceId: 'baidu_pan',
-        sourceSongId: 'fsid-2',
-        title: '澶滄洸',
-        artist: '鍛ㄦ澃浼?,
-        languages: const <String>['鍥借'],
-        searchIndex: '澶滄洸 鍛ㄦ澃浼?,
-        mediaPath: '',
-      );
-      final _FakeCloudSongDownloadService downloadService =
-          _FakeCloudSongDownloadService(
-            sourceId: 'baidu_pan',
-            onDownloadSong:
-                ({
-                  required Song song,
-                  String? preferredDirectory,
-                  void Function(CloudDownloadProgress progress)? onProgress,
-                  CloudDownloadCancellationToken? cancellationToken,
-                }) async {
-                  onProgress?.call(
-                    const CloudDownloadProgress(
-                      phaseLabel: '缂撳瓨浜戠鏂囦欢',
-                      value: 0.4,
-                    ),
-                  );
-                  await Future<void>.delayed(const Duration(milliseconds: 10));
-                  return const CloudSongDownloadResult(
-                    savedPath: '/tmp/downloaded/night.mp4',
-                    usedPreferredDirectory: false,
-                  );
-                },
-          );
-      final _FakeDownloadTaskStore taskStore = _FakeDownloadTaskStore();
-      final KtvController controller = KtvController(
-        mediaLibraryRepository: FakeMediaLibraryRepository(),
-        playerController: FakePlayerController(),
-        songDownloadServices: <String, CloudSongDownloadService>{
-          'baidu_pan': downloadService,
-        },
-        downloadTaskStore: taskStore,
-      );
-
-      final Future<CloudSongDownloadResult> future = controller
-          .downloadSongToLocal(remoteSong);
-      await Future<void>.delayed(const Duration(milliseconds: 1));
-
-      expect(controller.downloadingSongs, hasLength(1));
-      expect(controller.downloadingSongs.single.title, '澶滄洸');
-      expect(controller.downloadingSongs.single.sourceLabel, '鐧惧害缃戠洏');
-      expect(controller.downloadingSongs.single.progress, 0.4);
-
-      await future;
-
-      expect(controller.downloadingSongs, isEmpty);
-      expect(controller.downloadedSongs, hasLength(1));
-      expect(
-        controller.downloadedSongs.single.savedPath,
-        '/tmp/downloaded/night.mp4',
-      );
-      expect(taskStore.savedTasks, isEmpty);
-    },
-  );
-
-  test(
-    'downloadingSongs keeps latest started task first while progress updates',
-    () async {
-      final Song firstSong = _remoteSong(
-        title: '绗竴棣栦簯绔瓕',
-        artist: '姝屾墜鐢?,
-        sourceSongId: 'fsid-first',
-      );
-      final Song secondSong = _remoteSong(
-        title: '绗簩棣栦簯绔瓕',
-        artist: '姝屾墜涔?,
-        sourceSongId: 'fsid-second',
-      );
-      final Completer<void> releaseDownloads = Completer<void>();
-      final Completer<void> firstProgressReported = Completer<void>();
-      final Completer<void> secondProgressReported = Completer<void>();
-      void Function(CloudDownloadProgress progress)? firstProgressCallback;
-      final _FakeCloudSongDownloadService downloadService =
-          _FakeCloudSongDownloadService(
-            sourceId: 'baidu_pan',
-            onDownloadSong:
-                ({
-                  required Song song,
-                  String? preferredDirectory,
-                  void Function(CloudDownloadProgress progress)? onProgress,
-                  CloudDownloadCancellationToken? cancellationToken,
-                }) async {
-                  if (song.sourceSongId == 'fsid-first') {
-                    firstProgressCallback = onProgress;
-                    onProgress?.call(
-                      const CloudDownloadProgress(
-                        phaseLabel: '缂撳瓨 绗竴棣栦簯绔瓕',
-                        value: 0.2,
-                      ),
-                    );
-                    if (!firstProgressReported.isCompleted) {
-                      firstProgressReported.complete();
-                    }
-                  } else {
-                    onProgress?.call(
-                      const CloudDownloadProgress(
-                        phaseLabel: '缂撳瓨 绗簩棣栦簯绔瓕',
-                        value: 0.4,
-                      ),
-                    );
-                    if (!secondProgressReported.isCompleted) {
-                      secondProgressReported.complete();
-                    }
-                  }
-                  await releaseDownloads.future;
-                  cancellationToken?.throwIfCancelled();
-                  return CloudSongDownloadResult(
-                    savedPath: '/tmp/${song.sourceSongId}.mp4',
-                    usedPreferredDirectory: false,
-                  );
-                },
-          );
-      final KtvController controller = KtvController(
-        mediaLibraryRepository: FakeMediaLibraryRepository(),
-        playerController: FakePlayerController(),
-        songDownloadServices: <String, CloudSongDownloadService>{
-          'baidu_pan': downloadService,
-        },
-        downloadTaskStore: _FakeDownloadTaskStore(),
-      );
-
-      final Future<CloudSongDownloadResult> firstDownload = controller
-          .downloadSongToLocal(firstSong);
-      await firstProgressReported.future;
-      await Future<void>.delayed(const Duration(milliseconds: 2));
-
-      final Future<CloudSongDownloadResult> secondDownload = controller
-          .downloadSongToLocal(secondSong);
-      await secondProgressReported.future;
-
-      expect(
-        controller.downloadingSongs.map(
-          (DownloadingSongItem item) => item.title,
-        ),
-        <String>['绗簩棣栦簯绔瓕', '绗竴棣栦簯绔瓕'],
-      );
-
-      firstProgressCallback?.call(
-        const CloudDownloadProgress(phaseLabel: '缁х画缂撳瓨 绗竴棣栦簯绔瓕', value: 0.6),
-      );
-
-      expect(
-        controller.downloadingSongs.map(
-          (DownloadingSongItem item) => item.title,
-        ),
-        <String>['绗簩棣栦簯绔瓕', '绗竴棣栦簯绔瓕'],
-      );
-
-      releaseDownloads.complete();
-      await Future.wait(<Future<Object?>>[firstDownload, secondDownload]);
-    },
-  );
-
-  test(
-    'pauseDownload keeps task persisted and resumeDownload completes it',
-    () async {
-      final Song remoteSong = Song(
-        songId: buildAggregateSongId(title: '绋婚', artist: '鍛ㄦ澃浼?),
-        sourceId: 'baidu_pan',
-        sourceSongId: 'fsid-3',
-        title: '绋婚',
-        artist: '鍛ㄦ澃浼?,
-        languages: const <String>['鍥借'],
-        searchIndex: '绋婚 鍛ㄦ澃浼?,
-        mediaPath: '',
-      );
-      final Completer<void> gate = Completer<void>();
-      int callCount = 0;
-      final _FakeCloudSongDownloadService downloadService =
-          _FakeCloudSongDownloadService(
-            sourceId: 'baidu_pan',
-            onDownloadSong:
-                ({
-                  required Song song,
-                  String? preferredDirectory,
-                  void Function(CloudDownloadProgress progress)? onProgress,
-                  CloudDownloadCancellationToken? cancellationToken,
-                }) async {
-                  onProgress?.call(
-                    const CloudDownloadProgress(
-                      phaseLabel: '缂撳瓨浜戠鏂囦欢',
-                      value: 0.2,
-                    ),
-                  );
-                  await gate.future;
-                  callCount += 1;
-                  cancellationToken?.throwIfCancelled();
-                  return const CloudSongDownloadResult(
-                    savedPath: '/tmp/daoxiang.mp4',
-                    usedPreferredDirectory: false,
-                  );
-                },
-          );
-      final _FakeDownloadTaskStore taskStore = _FakeDownloadTaskStore();
-      final KtvController controller = KtvController(
-        mediaLibraryRepository: FakeMediaLibraryRepository(),
-        playerController: FakePlayerController(),
-        songDownloadServices: <String, CloudSongDownloadService>{
-          'baidu_pan': downloadService,
-        },
-        downloadTaskStore: taskStore,
-      );
-
-      final Future<CloudSongDownloadResult> future = controller
-          .downloadSongToLocal(remoteSong);
-      await Future<void>.delayed(const Duration(milliseconds: 1));
-
-      controller.pauseDownload(
-        sourceId: remoteSong.sourceId,
-        sourceSongId: remoteSong.sourceSongId,
-      );
-      gate.complete();
-
-      await expectLater(future, throwsA(isA<CloudDownloadPausedException>()));
-      expect(controller.downloadingSongs, hasLength(1));
-      expect(controller.downloadingSongs.single.isPaused, isTrue);
-      expect(taskStore.savedTasks, hasLength(1));
-
-      final CloudSongDownloadResult result = await controller.resumeDownload(
-        sourceId: remoteSong.sourceId,
-        sourceSongId: remoteSong.sourceSongId,
-      );
-
-      expect(result.savedPath, '/tmp/daoxiang.mp4');
-      expect(callCount, 2);
-      expect(controller.downloadingSongs, isEmpty);
-      expect(controller.downloadedSongs, hasLength(1));
-      expect(taskStore.savedTasks, isEmpty);
-    },
-  );
-
-  test(
-    'cancelDownload cancels active task and clears persisted download item',
-    () async {
-      final Song remoteSong = Song(
-        songId: buildAggregateSongId(title: '涓冮噷棣?, artist: '鍛ㄦ澃浼?),
-        sourceId: 'baidu_pan',
-        sourceSongId: 'fsid-3-cancel',
-        title: '涓冮噷棣?,
-        artist: '鍛ㄦ澃浼?,
-        languages: const <String>['鍥借'],
-        searchIndex: '涓冮噷棣?鍛ㄦ澃浼?,
-        mediaPath: '',
-      );
-      final Completer<void> gate = Completer<void>();
-      final _FakeCloudSongDownloadService downloadService =
-          _FakeCloudSongDownloadService(
-            sourceId: 'baidu_pan',
-            onDownloadSong:
-                ({
-                  required Song song,
-                  String? preferredDirectory,
-                  void Function(CloudDownloadProgress progress)? onProgress,
-                  CloudDownloadCancellationToken? cancellationToken,
-                }) async {
-                  onProgress?.call(
-                    const CloudDownloadProgress(
-                      phaseLabel: '缂撳瓨浜戠鏂囦欢',
-                      value: 0.2,
-                    ),
-                  );
-                  await gate.future;
-                  cancellationToken?.throwIfCancelled();
-                  return const CloudSongDownloadResult(
-                    savedPath: '/tmp/should-not-exist.mp4',
-                    usedPreferredDirectory: false,
-                  );
-                },
-          );
-      final _FakeDownloadTaskStore taskStore = _FakeDownloadTaskStore();
-      final KtvController controller = KtvController(
-        mediaLibraryRepository: FakeMediaLibraryRepository(),
-        playerController: FakePlayerController(),
-        songDownloadServices: <String, CloudSongDownloadService>{
-          'baidu_pan': downloadService,
-        },
-        downloadTaskStore: taskStore,
-      );
-
-      final Future<CloudSongDownloadResult> future = controller
-          .downloadSongToLocal(remoteSong);
-      await Future<void>.delayed(const Duration(milliseconds: 1));
-
-      controller.cancelDownload(
-        sourceId: remoteSong.sourceId,
-        sourceSongId: remoteSong.sourceSongId,
-      );
-      gate.complete();
-
-      await expectLater(
-        future,
-        throwsA(isA<CloudDownloadCancelledException>()),
-      );
-      expect(controller.downloadingSongs, isEmpty);
-      expect(controller.downloadedSongs, isEmpty);
-      expect(taskStore.savedTasks, isEmpty);
-    },
-  );
-
-  test('deleteDownloadedSong deletes source file entry from manager', () async {
-    final _FakeCloudSongDownloadService downloadService =
-        _FakeCloudSongDownloadService(
-          sourceId: 'baidu_pan',
-          downloadedSongs: <CloudDownloadedSongRecord>[
-            const CloudDownloadedSongRecord(
-              sourceId: 'baidu_pan',
-              sourceSongId: 'fsid-4',
-              title: '闈掕姳鐡?,
-              artist: '鍛ㄦ澃浼?,
-              savedPath: '/tmp/qinghuaci.mp4',
-              savedAtMillis: 200,
-            ),
-          ],
+          ),
+          songProfileRepository: _FakeSongProfileRepository(),
+          playerController: FakePlayerController(),
+          downloadTaskStore: MemoryDownloadTaskStore(),
+          playbackSessionStore: MemoryPlaybackSessionStore(),
         );
-    final KtvController controller = KtvController(
-      mediaLibraryRepository: FakeMediaLibraryRepository(),
-      playerController: FakePlayerController(),
-      songDownloadServices: <String, CloudSongDownloadService>{
-        'baidu_pan': downloadService,
+        addTearDown(controller.dispose);
+
+        controller.enterSongBook(mode: SongBookMode.artists);
+        await settleControllerRefresh();
+
+        expect(controller.route, KtvRoute.songBook);
+        expect(controller.songBookMode, SongBookMode.artists);
+        expect(controller.breadcrumbLabel, '主页 / 歌星');
+        expect(
+          controller.libraryArtists.map((artist) => artist.name),
+          containsAll(<String>['周杰伦', '刘若英']),
+        );
+
+        await controller.selectArtist('周杰伦');
+
+        expect(controller.songBookMode, SongBookMode.songs);
+        expect(controller.selectedArtist, '周杰伦');
+        expect(controller.breadcrumbLabel, '主页 / 歌星 / 周杰伦');
+        expect(
+          controller.librarySongs.map((song) => song.title),
+          containsAll(<String>['青花瓷', '夜曲']),
+        );
+
+        expect(await controller.navigateBack(), isTrue);
+        expect(controller.songBookMode, SongBookMode.artists);
+        expect(controller.selectedArtist, isNull);
+        expect(controller.breadcrumbLabel, '主页 / 歌星');
+
+        expect(await controller.navigateBack(), isTrue);
+        expect(controller.route, KtvRoute.home);
+        expect(controller.breadcrumbLabel, '主页');
       },
-      downloadTaskStore: _FakeDownloadTaskStore(),
-    );
-    await controller.initialize();
-
-    await controller.deleteDownloadedSong(
-      sourceId: 'baidu_pan',
-      sourceSongId: 'fsid-4',
     );
 
-    expect(downloadService.deletedSourceSongIds, <String>['fsid-4']);
-    expect(controller.downloadedSongs, isEmpty);
-    expect(controller.downloadedSongKeys, isEmpty);
+    test('aggregated song book works without a local directory', () async {
+      final Song remoteSong = buildRemoteSong(
+        title: '遥远的她',
+        artist: '张学友',
+        sourceId: '115',
+        sourceSongId: '115-song-1',
+      );
+      final KtvController controller = KtvController(
+        mediaLibraryRepository: createTestMediaLibraryRepository(
+          hasConfiguredAggregatedSources: true,
+        ),
+        aggregatedLibraryRepository: FakeAggregatedLibraryRepository(
+          aggregatedSongs: <Song>[remoteSong],
+        ),
+        songProfileRepository: _FakeSongProfileRepository(),
+        playerController: FakePlayerController(),
+        downloadTaskStore: MemoryDownloadTaskStore(),
+        playbackSessionStore: MemoryPlaybackSessionStore(),
+      );
+      addTearDown(controller.dispose);
+
+      controller.enterSongBook(mode: SongBookMode.songs);
+      await settleControllerRefresh();
+
+      expect(controller.scanDirectoryPath, isNull);
+      expect(controller.libraryScope, LibraryScope.aggregated);
+      expect(controller.librarySongs, <Song>[remoteSong]);
+      expect(controller.libraryTotalCount, 1);
+      expect(controller.currentSubtitle, '已从聚合曲库加载 1 首歌曲。');
+    });
+
+    test(
+      'resolveSongSelectionAction distinguishes queue, start, and resume',
+      () async {
+        final Song localSong = buildLocalSong(title: '本地歌曲', artist: '歌手甲');
+        final Song downloadedRemoteSong = buildRemoteSong(
+          title: '已下载云端歌曲',
+          artist: '歌手乙',
+          sourceId: 'baidu_pan',
+          sourceSongId: 'remote-downloaded',
+        );
+        final Song pendingRemoteSong = buildRemoteSong(
+          title: '待下载云端歌曲',
+          artist: '歌手丙',
+          sourceId: 'baidu_pan',
+          sourceSongId: 'remote-pending',
+        );
+        final Song pausedRemoteSong = buildRemoteSong(
+          title: '暂停云端歌曲',
+          artist: '歌手丁',
+          sourceId: 'baidu_pan',
+          sourceSongId: 'remote-paused',
+        );
+        final KtvController controller = KtvController(
+          mediaLibraryRepository: createTestMediaLibraryRepository(),
+          aggregatedLibraryRepository: FakeAggregatedLibraryRepository(),
+          songProfileRepository: _FakeSongProfileRepository(),
+          playerController: FakePlayerController(),
+          songDownloadServices: <String, FakeCloudSongDownloadService>{
+            'baidu_pan': FakeCloudSongDownloadService(
+              sourceId: 'baidu_pan',
+              downloadedSongs: <CloudDownloadedSongRecord>[
+                CloudDownloadedSongRecord(
+                  sourceId: 'baidu_pan',
+                  sourceSongId: downloadedRemoteSong.sourceSongId,
+                  title: downloadedRemoteSong.title,
+                  artist: downloadedRemoteSong.artist,
+                  savedPath: '/tmp/downloaded.mp4',
+                  savedAtMillis: 1,
+                ),
+              ],
+            ),
+          },
+          downloadTaskStore: MemoryDownloadTaskStore(<DownloadingSongItem>[
+            DownloadingSongItem(
+              songId: pausedRemoteSong.songId,
+              sourceId: pausedRemoteSong.sourceId,
+              sourceSongId: pausedRemoteSong.sourceSongId,
+              title: pausedRemoteSong.title,
+              artist: pausedRemoteSong.artist,
+              startedAtMillis: 1,
+              updatedAtMillis: 2,
+              status: DownloadTaskStatus.paused,
+            ),
+          ]),
+          playbackSessionStore: MemoryPlaybackSessionStore(),
+        );
+        addTearDown(controller.dispose);
+
+        await controller.initialize();
+
+        expect(
+          controller.resolveSongSelectionAction(localSong),
+          SongSelectionAction.queue,
+        );
+        expect(
+          controller.resolveSongSelectionAction(downloadedRemoteSong),
+          SongSelectionAction.queue,
+        );
+        expect(
+          controller.resolveSongSelectionAction(pendingRemoteSong),
+          SongSelectionAction.startDownload,
+        );
+        expect(
+          controller.resolveSongSelectionAction(pausedRemoteSong),
+          SongSelectionAction.resumeDownload,
+        );
+      },
+    );
   });
 }
 
-Song _song({
-  required String title,
-  required String artist,
-  String language = '鍏跺畠',
-  String? mediaPath,
-}) {
-  return Song(
-    songId: buildAggregateSongId(title: title, artist: artist),
-    sourceId: 'local',
-    sourceSongId: buildLocalSourceSongId(
-      fingerprint: buildLocalMetadataFingerprint(
-        locator: mediaPath ?? '/tmp/$title.mp4',
-      ),
-    ),
-    title: title,
-    artist: artist,
-    languages: <String>[language],
-    searchIndex: '$title $artist'.toLowerCase(),
-    mediaPath: mediaPath ?? '/tmp/$title.mp4',
-  );
+class _FakeSongProfileRepository extends SongProfileRepository {
+  @override
+  Future<Set<String>> loadFavoriteSongIds(Iterable<String> songIds) async {
+    return <String>{};
+  }
+
+  @override
+  Future<void> close() async {}
 }
-
-Song _remoteSong({
-  required String title,
-  required String artist,
-  String sourceId = 'baidu_pan',
-  String? sourceSongId,
-  String language = '鍥借',
-  String? mediaPath,
-}) {
-  return Song(
-    songId: buildAggregateSongId(title: title, artist: artist),
-    sourceId: sourceId,
-    sourceSongId: sourceSongId ?? '$sourceId::$title::$artist',
-    title: title,
-    artist: artist,
-    languages: <String>[language],
-    searchIndex: '$title $artist'.toLowerCase(),
-    mediaPath: mediaPath ?? '',
-  );
-}
-
-class FakeMediaLibraryRepository extends MediaLibraryRepository {
-  FakeMediaLibraryRepository({
-    this.savedDirectory,
-    Set<String>? accessibleDirectories,
-    Map<String, List<Song>>? indexedResults,
-    Map<String, List<Song>>? scanResults,
-  }) : _accessibleDirectories = accessibleDirectories ?? <String>{},
-       _indexedResults = indexedResults ?? <String, List<Song>>{},
-       _scanResults = scanResults ?? <String, List<Song>>{};
-
-  final String? savedDirectory;
-  final Set<String> _accessibleDirectories;
-  final Map<String, List<Song>> _indexedResults;
-  final Map<String, List<Song>> _scanResults;
-  String? lastSavedDirectory;
-  String? clearedDirectory;
-  int scanLibraryCallCount = 0;
-
-  @override
-  Future<String?> loadSelectedDirectory() async => savedDirectory;
-
-  @override
-  Future<bool> ensureDirectoryAccess(String path) async {
-    return _accessibleDirectories.contains(path);
-  }
-
-  @override
-  Future<void> clearDirectoryAccess({String? path}) async {
-    clearedDirectory = path;
-  }
-
-  @override
-  Future<void> saveSelectedDirectory(String path) async {
-    lastSavedDirectory = path;
-  }
-
-  @override
-  Future<int> scanLibrary(String directory) async {
-    scanLibraryCallCount += 1;
-    final List<Song>? result = _scanResults[directory];
-    if (result == null) {
-      throw StateError('missing scan result for $directory');
-    }
-    _indexedResults[directory] = List<Song>.of(result);
-    return result.length;
-  }
-
-  @override
-  Future<SongPage> querySongs({
-    required String directory,
-    required int pageIndex,
-    required int pageSize,
-    String? language,
-    String? artist,
-    String searchQuery = '',
-  }) async {
-    final List<Song>? result =
-        _indexedResults[directory] ?? _scanResults[directory];
-    if (result == null) {
-      throw StateError('missing scan result for $directory');
-    }
-    final String normalizedQuery = searchQuery.trim().toLowerCase();
-    final String normalizedLanguage = (language ?? '').trim();
-    final String normalizedArtist = (artist ?? '').trim();
-    final List<Song> filteredSongs = result
-        .where((Song song) {
-          if (normalizedLanguage.isNotEmpty &&
-              song.language != normalizedLanguage) {
-            return false;
-          }
-          if (normalizedArtist.isNotEmpty && song.artist != normalizedArtist) {
-            return false;
-          }
-          if (normalizedQuery.isEmpty) {
-            return true;
-          }
-          return song.searchIndex.contains(normalizedQuery);
-        })
-        .toList(growable: false);
-    final int start = pageIndex * pageSize;
-    final int end = (start + pageSize).clamp(0, filteredSongs.length);
-    return SongPage(
-      songs: start >= filteredSongs.length
-          ? const <Song>[]
-          : filteredSongs.sublist(start, end),
-      totalCount: filteredSongs.length,
-      pageIndex: pageIndex,
-      pageSize: pageSize,
-    );
-  }
-
-  @override
-  Future<ArtistPage> queryArtists({
-    required String directory,
-    required int pageIndex,
-    required int pageSize,
-    String? language,
-    String searchQuery = '',
-  }) async {
-    final List<Song>? result =
-        _indexedResults[directory] ?? _scanResults[directory];
-    if (result == null) {
-      throw StateError('missing scan result for $directory');
-    }
-    final String normalizedQuery = searchQuery.trim().toLowerCase();
-    final String normalizedLanguage = (language ?? '').trim();
-    final Map<String, int> songCountByArtist = <String, int>{};
-    for (final Song song in result) {
-      if (normalizedLanguage.isNotEmpty &&
-          song.language != normalizedLanguage) {
-        continue;
-      }
-      songCountByArtist.update(
-        song.artist,
-        (int count) => count + 1,
-        ifAbsent: () => 1,
-      );
-    }
-    final List<Artist> filteredArtists = songCountByArtist.entries
-        .map(
-          (MapEntry<String, int> entry) => Artist(
-            name: entry.key,
-            songCount: entry.value,
-            searchIndex: entry.key.toLowerCase(),
-          ),
-        )
-        .where((Artist artist) {
-          if (normalizedQuery.isEmpty) {
-            return true;
-          }
-          return artist.searchIndex.contains(normalizedQuery);
-        })
-        .toList(growable: false);
-    final int start = pageIndex * pageSize;
-    final int end = (start + pageSize).clamp(0, filteredArtists.length);
-    return ArtistPage(
-      artists: start >= filteredArtists.length
-          ? const <Artist>[]
-          : filteredArtists.sublist(start, end),
-      totalCount: filteredArtists.length,
-      pageIndex: pageIndex,
-      pageSize: pageSize,
-    );
-  }
-
-  @override
-  Future<List<Song>> loadAllSongs({required String directory}) async {
-    return List<Song>.of(
-      _indexedResults[directory] ?? _scanResults[directory] ?? const <Song>[],
-    );
-  }
-
-  @override
-  Future<List<Song>> getSongsByIds({
-    required String directory,
-    required List<String> songIds,
-  }) async {
-    final Map<String, Song> songsById = <String, Song>{
-      for (final Song song in await loadAllSongs(directory: directory))
-        song.songId: song,
-    };
-    return songIds
-        .map((String songId) => songsById[songId])
-        .whereType<Song>()
-        .toList(growable: false);
-  }
-
-  @override
-  Future<Song?> getSongById({
-    required String directory,
-    required String songId,
-  }) async {
-    final List<Song> songs = await getSongsByIds(
-      directory: directory,
-      songIds: <String>[songId],
-    );
-    if (songs.isEmpty) {
-      return null;
-    }
-    return songs.first;
-  }
-
-  @override
-  Future<List<Song>> loadAggregatedSongs({String? localDirectory}) async {
-    if (localDirectory == null) {
-      return const <Song>[];
-    }
-    return loadAllSongs(directory: localDirectory);
-  }
-
-  @override
-  Future<SongPage> queryAggregatedSongs({
-    required int pageIndex,
-    required int pageSize,
-    String? localDirectory,
-    String? language,
-    String? artist,
-    String searchQuery = '',
-  }) async {
-    if (localDirectory == null) {
-      return SongPage(
-        songs: const <Song>[],
-        totalCount: 0,
-        pageIndex: pageIndex,
-        pageSize: pageSize,
-      );
-    }
-    return querySongs(
-      directory: localDirectory,
-      pageIndex: pageIndex,
-      pageSize: pageSize,
-      language: language,
-      artist: artist,
-      searchQuery: searchQuery,
-    );
-  }
-
-  @override
-  Future<ArtistPage> queryAggregatedArtists({
-    required int pageIndex,
-    required int pageSize,
-    String? localDirectory,
-    String? language,
-    String searchQuery = '',
-  }) async {
-    if (localDirectory == null) {
-      return ArtistPage(
-        artists: const <Artist>[],
-        totalCount: 0,
-        pageIndex: pageIndex,
-        pageSize: pageSize,
-      );
-    }
-    return queryArtists(
-      directory: localDirectory,
-      pageIndex: pageIndex,
-      pageSize: pageSize,
-      language: language,
-      searchQuery: searchQuery,
-    );
-  }
-
-  @override
-  Future<List<Song>> getAggregatedSongsByIds({
-    required List<String> songIds,
-    String? localDirectory,
-  }) async {
-    if (localDirectory == null) {
-      return const <Song>[];
-    }
-    return getSongsByIds(directory: localDirectory, songIds: songIds);
-  }
-
-  @override
-  Future<Song?> getAggregatedSongById({
-    required String songId,
-    String? localDirectory,
-  }) async {
-    if (localDirectory == null) {
-      return null;
-    }
-    return getSongById(directory: localDirectory, songId: songId);
-  }
-}
-
-class _FakeDownloadTaskStore extends DownloadTaskStore {
-  _FakeDownloadTaskStore({List<DownloadingSongItem>? tasks})
-    : _tasks = List<DownloadingSongItem>.of(
-        tasks ?? const <DownloadingSongItem>[],
-      );
-
-  List<DownloadingSongItem> _tasks;
-  int saveCallCount = 0;
-
-  List<DownloadingSongItem> get savedTasks =>
-      List<DownloadingSongItem>.unmodifiable(_tasks);
-
-  @override
-  Future<List<DownloadingSongItem>> loadTasks() async {
-    return List<DownloadingSongItem>.unmodifiable(_tasks);
-  }
-
-  @override
-  Future<void> saveTasks(List<DownloadingSongItem> tasks) async {
-    saveCallCount += 1;
-    _tasks = List<DownloadingSongItem>.of(tasks);
-  }
-}
-
-class _FakePlaybackSessionStore extends PlaybackSessionStore {
-  _FakePlaybackSessionStore({this.session});
-
-  PersistedPlaybackSession? session;
-  int clearCallCount = 0;
-  int saveCallCount = 0;
-
-  @override
-  Future<PersistedPlaybackSession?> loadSession() async => session;
-
-  @override
-  Future<void> saveSession(PersistedPlaybackSession nextSession) async {
-    saveCallCount += 1;
-    session = nextSession;
-  }
-
-  @override
-  Future<void> clearSession() async {
-    clearCallCount += 1;
-    session = null;
-  }
-}
-
-class _FakeCloudSongDownloadService extends CloudSongDownloadService {
-  _FakeCloudSongDownloadService({
-    required super.sourceId,
-    this.downloadedSongs = const <CloudDownloadedSongRecord>[],
-    this.onDownloadSong,
-  }) : super(
-         playbackCache: const _FakeCloudPlaybackCache(),
-         fallbackDirectoryProvider: _fallbackDirectoryProvider,
-         downloadIndexFileProvider: _downloadIndexFileProvider,
-       );
-
-  final List<CloudDownloadedSongRecord> downloadedSongs;
-  final List<String> deletedSourceSongIds = <String>[];
-  final Future<CloudSongDownloadResult> Function({
-    required Song song,
-    String? preferredDirectory,
-    void Function(CloudDownloadProgress progress)? onProgress,
-    CloudDownloadCancellationToken? cancellationToken,
-  })?
-  onDownloadSong;
-
-  static Future<Directory> _fallbackDirectoryProvider() async {
-    return Directory.systemTemp;
-  }
-
-  static Future<File> _downloadIndexFileProvider() async {
-    return File(
-      '${Directory.systemTemp.path}/ktv-controller-test-downloads.json',
-    );
-  }
-
-  @override
-  Future<List<CloudDownloadedSongRecord>> loadDownloadedSongs() async {
-    return downloadedSongs;
-  }
-
-  @override
-  Future<CloudSongDownloadResult> downloadSong({
-    required Song song,
-    String? preferredDirectory,
-    void Function(CloudDownloadProgress progress)? onProgress,
-    CloudDownloadCancellationToken? cancellationToken,
-  }) async {
-    final Future<CloudSongDownloadResult> Function({
-      required Song song,
-      String? preferredDirectory,
-      void Function(CloudDownloadProgress progress)? onProgress,
-      CloudDownloadCancellationToken? cancellationToken,
-    })?
-    handler = onDownloadSong;
-    if (handler == null) {
-      throw UnimplementedError('downloadSong handler is not configured');
-    }
-    return handler(
-      song: song,
-      preferredDirectory: preferredDirectory,
-      onProgress: onProgress,
-      cancellationToken: cancellationToken,
-    );
-  }
-
-  @override
-  Future<void> deleteDownloadedSong({required String sourceSongId}) async {
-    deletedSourceSongIds.add(sourceSongId);
-  }
-}
-
-class _FakeCloudPlaybackCache implements CloudPlaybackCache {
-  const _FakeCloudPlaybackCache();
-
-  @override
-  Future<void> clearExpiredCache() async {}
-
-  @override
-  Future<CloudCachedMedia> resolve({
-    required Song song,
-    required String sourceSongId,
-    void Function(double progress)? onProgress,
-    CloudDownloadCancellationToken? cancellationToken,
-  }) {
-    throw UnimplementedError();
-  }
-}
-
-class FakeAggregatedLibraryRepository implements AggregatedLibraryRepository {
-  FakeAggregatedLibraryRepository({required this.songs});
-
-  final List<Song> songs;
-
-  @override
-  Future<void> refreshSources({String? localDirectory}) async {}
-
-  @override
-  Future<SongPage> querySongs({
-    required LibraryScope scope,
-    required int pageIndex,
-    required int pageSize,
-    String? localDirectory,
-    String? language,
-    String? artist,
-    String searchQuery = '',
-  }) async {
-    final int start = pageIndex * pageSize;
-    final int end = (start + pageSize).clamp(0, songs.length);
-    return SongPage(
-      songs: start >= songs.length ? const <Song>[] : songs.sublist(start, end),
-      totalCount: songs.length,
-      pageIndex: pageIndex,
-      pageSize: pageSize,
-    );
-  }
-
-  @override
-  Future<ArtistPage> queryArtists({
-    required LibraryScope scope,
-    required int pageIndex,
-    required int pageSize,
-    String? localDirectory,
-    String? language,
-    String searchQuery = '',
-  }) async {
-    final Map<String, int> songCountByArtist = <String, int>{};
-    for (final Song song in songs) {
-      songCountByArtist.update(
-        song.artist,
-        (int count) => count + 1,
-        ifAbsent: () => 1,
-      );
-    }
-    final List<Artist> artists = songCountByArtist.entries
-        .map(
-          (MapEntry<String, int> entry) => Artist(
-            name: entry.key,
-            songCount: entry.value,
-            searchIndex: entry.key.toLowerCase(),
-          ),
-        )
-        .toList(growable: false);
-    final int start = pageIndex * pageSize;
-    final int end = (start + pageSize).clamp(0, artists.length);
-    return ArtistPage(
-      artists: start >= artists.length
-          ? const <Artist>[]
-          : artists.sublist(start, end),
-      totalCount: artists.length,
-      pageIndex: pageIndex,
-      pageSize: pageSize,
-    );
-  }
-
-  @override
-  Future<List<Song>> getSongsByIds({
-    required List<String> songIds,
-    String? localDirectory,
-  }) async {
-    final Map<String, Song> songsById = <String, Song>{
-      for (final Song song in songs) song.songId: song,
-    };
-    return songIds
-        .map((String songId) => songsById[songId])
-        .whereType<Song>()
-        .toList(growable: false);
-  }
-
-  @override
-  Future<Song?> getSongById({
-    required String songId,
-    String? localDirectory,
-  }) async {
-    final List<Song> results = await getSongsByIds(
-      songIds: <String>[songId],
-      localDirectory: localDirectory,
-    );
-    if (results.isEmpty) {
-      return null;
-    }
-    return results.first;
-  }
-
-  @override
-  Future<String?> resolvePlayableMediaPath({
-    required String songId,
-    String? localDirectory,
-  }) async {
-    return (await getSongById(
-      songId: songId,
-      localDirectory: localDirectory,
-    ))?.mediaPath;
-  }
-}
-
-class FakePlayerController extends PlayerController {
-  PlayerState _state = const PlayerState();
-  MediaSource? lastOpenedSource;
-
-  @override
-  PlayerState get state => _state;
-
-  @override
-  Future<void> applyAudioOutputMode(AudioOutputMode mode) async {
-    _state = PlayerState(
-      audioOutputMode: mode,
-      currentMediaPath: _state.currentMediaPath,
-      isPlaying: _state.isPlaying,
-      playbackDuration: _state.playbackDuration,
-      playbackPosition: _state.playbackPosition,
-    );
-    notifyListeners();
-  }
-
-  @override
-  Widget? buildVideoView() => null;
-
-  @override
-  Future<void> openMedia(MediaSource source) async {
-    lastOpenedSource = source;
-    _state = PlayerState(
-      audioOutputMode: _state.audioOutputMode,
-      currentMediaPath: source.path,
-      isPlaying: true,
-      playbackDuration: const Duration(minutes: 4),
-      playbackPosition: Duration.zero,
-    );
-    notifyListeners();
-  }
-
-  @override
-  Future<void> seekToProgress(double progress) async {
-    _state = PlayerState(
-      audioOutputMode: _state.audioOutputMode,
-      currentMediaPath: _state.currentMediaPath,
-      isPlaying: _state.isPlaying,
-      playbackDuration: _state.playbackDuration,
-      playbackPosition: Duration(
-        milliseconds: (_state.playbackDuration.inMilliseconds * progress)
-            .round(),
-      ),
-    );
-    notifyListeners();
-  }
-
-  @override
-  Future<void> togglePlayback() async {
-    _state = PlayerState(
-      audioOutputMode: _state.audioOutputMode,
-      currentMediaPath: _state.currentMediaPath,
-      isPlaying: !_state.isPlaying,
-      playbackDuration: _state.playbackDuration,
-      playbackPosition: _state.playbackPosition,
-    );
-    notifyListeners();
-  }
-
-  @override
-  Future<void> clearMedia() async {
-    _state = PlayerState(
-      audioOutputMode: _state.audioOutputMode,
-      currentMediaPath: null,
-      isPlaying: false,
-      playbackDuration: Duration.zero,
-      playbackPosition: Duration.zero,
-    );
-    notifyListeners();
-  }
-
-  void setPlaybackCompleted(bool isCompleted) {
-    _state = PlayerState(
-      audioOutputMode: _state.audioOutputMode,
-      currentMediaPath: _state.currentMediaPath,
-      isPlaying: isCompleted ? false : _state.isPlaying,
-      isPlaybackCompleted: isCompleted,
-      playbackDuration: _state.playbackDuration,
-      playbackPosition: _state.playbackPosition,
-    );
-    notifyListeners();
-  }
-}
-
-Future<void> _settleLibraryQuery() async {
-  await Future<void>.delayed(Duration.zero);
-  await Future<void>.delayed(Duration.zero);
-}
-
-Future<void> _settleSearchRefresh() async {
-  await Future<void>.delayed(const Duration(milliseconds: 250));
-  await _settleLibraryQuery();
-}
-

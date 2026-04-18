@@ -1,55 +1,41 @@
-﻿import 'package:flutter_test/flutter_test.dart';
-import 'package:maimai_ktv/core/models/song_identity.dart';
 import 'package:maimai_ktv/core/models/song.dart';
-import 'package:maimai_ktv/features/ktv/application/ktv_controller.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:maimai_ktv/features/ktv/application/ktv_state.dart';
+
+import '../../../test_support/ktv_test_doubles.dart';
 
 void main() {
-  test('copyWith updates nested library and playback state compatibly', () {
+  test('copyWith updates nested library and playback fields together', () {
     final KtvState state = const KtvState().copyWith(
       searchQuery: 'jay',
       scanDirectoryPath: '/music',
-      libraryTotalCount: 8,
-      libraryPageSongs: <Song>[
-        Song(
-          songId: buildAggregateSongId(title: '澶滄洸', artist: '鍛ㄦ澃浼?),
-          sourceId: 'local',
-          sourceSongId: buildLocalSourceSongId(
-            fingerprint: buildLocalMetadataFingerprint(
-              locator: '/music/yequ.mp4',
-            ),
-          ),
-          title: '澶滄洸',
-          artist: '鍛ㄦ澃浼?,
-          languages: <String>['鍥借'],
-          searchIndex: 'yequ zhoujielun',
-          mediaPath: '/music/yequ.mp4',
-        ),
-      ],
+      libraryTotalCount: 2,
+      libraryPageSongs: <Song>[buildLocalSong(title: '夜曲', artist: '周杰伦')],
+      queuedSongs: <Song>[buildLocalSong(title: '青花瓷', artist: '周杰伦')],
+    );
+
+    expect(state.searchQuery, 'jay');
+    expect(state.scanDirectoryPath, '/music');
+    expect(state.libraryTotalCount, 2);
+    expect(state.libraryPageSongs.single.title, '夜曲');
+    expect(state.queuedSongs.single.title, '青花瓷');
+  });
+
+  test('current subtitle reflects queue and library scope', () {
+    final KtvState state = const KtvState().copyWith(
+      libraryScope: LibraryScope.aggregated,
+      libraryTotalCount: 3,
       queuedSongs: <Song>[
-        Song(
-          songId: buildAggregateSongId(title: '闈掕姳鐡?, artist: '鍛ㄦ澃浼?),
-          sourceId: 'local',
-          sourceSongId: buildLocalSourceSongId(
-            fingerprint: buildLocalMetadataFingerprint(
-              locator: '/music/qinghuaci.mp4',
-            ),
-          ),
-          title: '闈掕姳鐡?,
-          artist: '鍛ㄦ澃浼?,
-          languages: <String>['鍥借'],
-          searchIndex: 'qinghuaci zhoujielun',
-          mediaPath: '/music/qinghuaci.mp4',
+        buildRemoteSong(
+          title: '后来',
+          artist: '刘若英',
+          sourceId: 'baidu_pan',
+          sourceSongId: 'song-1',
         ),
       ],
     );
 
-    expect(state.library.searchQuery, 'jay');
-    expect(state.searchQuery, 'jay');
-    expect(state.library.scanDirectoryPath, '/music');
-    expect(state.library.totalCount, 8);
-    expect(state.playback.queuedSongs, hasLength(1));
-    expect(state.queuedSongs.single.title, '闈掕姳鐡?);
-    expect(state.libraryPageSongs.single.title, '澶滄洸');
+    expect(state.currentTitle, '后来');
+    expect(state.currentSubtitle, '刘若英 · 已从聚合曲库加载 3 首');
   });
 }
-

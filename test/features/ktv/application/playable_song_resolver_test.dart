@@ -1,86 +1,64 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:maimai_ktv/core/models/song.dart';
-import 'package:maimai_ktv/core/models/song_identity.dart';
 import 'package:maimai_ktv/features/ktv/application/playable_song_resolver.dart';
-import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_playback_cache.dart';
 import 'package:maimai_ktv/features/media_library/data/cloud/cloud_playback_cache.dart';
 
+import '../../../test_support/ktv_test_doubles.dart';
+
 void main() {
-  test('local song uses media path directly', () async {
-    final DefaultPlayableSongResolver resolver =
-        const DefaultPlayableSongResolver();
-    final Song song = _song(
-      title: '闈掕姳鐡?,
-      sourceId: 'local',
-      sourceSongId: 'local-1',
-      mediaPath: '/tmp/qinghua.mp4',
+  test('resolves local songs directly from their media path', () async {
+    final Song song = buildLocalSong(
+      title: '晴天',
+      artist: '周杰伦',
+      mediaPath: '/music/qingtian.mp4',
     );
+    const DefaultPlayableSongResolver resolver = DefaultPlayableSongResolver();
 
-    final PlayableMediaResolution media = await resolver.resolve(song);
+    final PlayableMediaResolution result = await resolver.resolve(song);
 
-    expect(media.localPath, '/tmp/qinghua.mp4');
-    expect(media.displayName, '闈掕姳鐡?);
-    expect(media.cacheHit, isFalse);
+    expect(result.localPath, '/music/qingtian.mp4');
+    expect(result.displayName, '晴天');
+    expect(result.cacheHit, isFalse);
   });
 
-  test('baidu pan song resolves from playback cache', () async {
-    final _FakeBaiduPanPlaybackCache cache = _FakeBaiduPanPlaybackCache();
+  test('uses a configured cloud playback cache for remote songs', () async {
+    final Song song = buildRemoteSong(
+      title: '搁浅',
+      artist: '周杰伦',
+      sourceId: '115',
+      sourceSongId: '115-song-1',
+    );
     final DefaultPlayableSongResolver resolver = DefaultPlayableSongResolver(
-      baiduPanPlaybackCache: cache,
-    );
-    final Song song = _song(
-      title: '澶滄洸',
-      sourceId: 'baidu_pan',
-      sourceSongId: 'fsid-88',
-      mediaPath: '',
+      cloudPlaybackCaches: <String, CloudPlaybackCache>{
+        '115': const _FakeCloudPlaybackCache(),
+      },
     );
 
-    final PlayableMediaResolution media = await resolver.resolve(song);
+    final PlayableMediaResolution result = await resolver.resolve(song);
 
-    expect(cache.lastSourceSongId, 'fsid-88');
-    expect(media.localPath, '/cache/yequ.mp4');
-    expect(media.displayName, '缂撳瓨澶滄洸');
-    expect(media.cacheHit, isTrue);
+    expect(result.localPath, '/tmp/cloud-cache.mp4');
+    expect(result.displayName, 'cloud-cache.mp4');
+    expect(result.cacheHit, isTrue);
   });
 }
 
-Song _song({
-  required String title,
-  required String sourceId,
-  required String sourceSongId,
-  required String mediaPath,
-}) {
-  return Song(
-    songId: buildAggregateSongId(title: title, artist: '鍛ㄦ澃浼?),
-    sourceId: sourceId,
-    sourceSongId: sourceSongId,
-    title: title,
-    artist: '鍛ㄦ澃浼?,
-    languages: const <String>['鍥借'],
-    searchIndex: title.toLowerCase(),
-    mediaPath: mediaPath,
-  );
-}
-
-class _FakeBaiduPanPlaybackCache implements BaiduPanPlaybackCache {
-  String? lastSourceSongId;
+class _FakeCloudPlaybackCache implements CloudPlaybackCache {
+  const _FakeCloudPlaybackCache();
 
   @override
-  Future<void> clearExpiredCache() async {}
-
-  @override
-  Future<BaiduPanCachedMedia> resolve({
+  Future<CloudCachedMedia> resolve({
     required Song song,
     required String sourceSongId,
     void Function(double progress)? onProgress,
     CloudDownloadCancellationToken? cancellationToken,
   }) async {
-    lastSourceSongId = sourceSongId;
-    return const BaiduPanCachedMedia(
-      localPath: '/cache/yequ.mp4',
-      displayName: '缂撳瓨澶滄洸',
+    return const CloudCachedMedia(
+      localPath: '/tmp/cloud-cache.mp4',
+      displayName: 'cloud-cache.mp4',
       cacheHit: true,
     );
   }
-}
 
+  @override
+  Future<void> clearExpiredCache() async {}
+}

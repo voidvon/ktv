@@ -3,20 +3,25 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'android_storage_data_source.dart';
+import 'ios_local_media_import_data_source.dart';
 import 'media_index_store.dart';
 
 class ScanDirectoryDataSource {
   ScanDirectoryDataSource({
     AndroidStorageDataSource? androidStorageDataSource,
+    IosLocalMediaImportDataSource? iosLocalMediaImportDataSource,
     MediaIndexStore? mediaIndexStore,
   }) : _androidStorageDataSource =
            androidStorageDataSource ?? AndroidStorageDataSource(),
+       _iosLocalMediaImportDataSource =
+           iosLocalMediaImportDataSource ?? IosLocalMediaImportDataSource(),
        _mediaIndexStore = mediaIndexStore ?? MediaIndexStore();
 
   static const MethodChannel _macosChannel = MethodChannel(
     'com.app0122.maimai.app/macos_directory_picker',
   );
   final AndroidStorageDataSource _androidStorageDataSource;
+  final IosLocalMediaImportDataSource _iosLocalMediaImportDataSource;
   final MediaIndexStore _mediaIndexStore;
 
   Future<String?> pickDirectory({String? initialDirectory}) async {
@@ -36,6 +41,12 @@ class ScanDirectoryDataSource {
         return null;
       }
       return selectedPath;
+    }
+
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      return _iosLocalMediaImportDataSource.importFiles(
+        initialDirectory: initialDirectory,
+      );
     }
 
     return getDirectoryPath(initialDirectory: initialDirectory);
@@ -62,4 +73,3 @@ class ScanDirectoryDataSource {
     return _mediaIndexStore.loadSelectedDirectory();
   }
 }
-

@@ -1,0 +1,4 @@
+// Tracked iOS app settings. Update the values below for signed archives.
+APP_BUNDLE_IDENTIFIER = com.app0122.maimai.app
+APP_CODE_SIGN_STYLE = Automatic
+APPLE_DEVELOPMENT_TEAM =
