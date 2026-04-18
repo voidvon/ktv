@@ -1,4 +1,4 @@
-import Cocoa
+﻿import Cocoa
 import FlutterMacOS
 
 class MainFlutterWindow: NSWindow {
@@ -18,7 +18,7 @@ class MainFlutterWindow: NSWindow {
 
   private func configureDirectoryPickerChannel(for flutterViewController: FlutterViewController) {
     let channel = FlutterMethodChannel(
-      name: "ktv2_example/macos_directory_picker",
+      name: "com.app0122.maimai.app/macos_directory_picker",
       binaryMessenger: flutterViewController.engine.binaryMessenger
     )
     directoryPickerChannel = channel
@@ -51,9 +51,9 @@ class MainFlutterWindow: NSWindow {
       }
 
       let openPanel = NSOpenPanel()
-      openPanel.title = "选择媒体目录"
-      openPanel.message = "请选择要扫描的歌曲目录"
-      openPanel.prompt = "选择目录"
+      openPanel.title = "閫夋嫨濯掍綋鐩綍"
+      openPanel.message = "璇烽€夋嫨瑕佹壂鎻忕殑姝屾洸鐩綍"
+      openPanel.prompt = "閫夋嫨鐩綍"
       openPanel.canChooseFiles = false
       openPanel.canChooseDirectories = true
       openPanel.allowsMultipleSelection = false
@@ -80,3 +80,4 @@ class MainFlutterWindow: NSWindow {
     }
   }
 }
+

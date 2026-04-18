@@ -1,12 +1,12 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ktv2_example/features/media_library/data/baidu_pan/baidu_pan_api_client.dart';
-import 'package:ktv2_example/features/media_library/data/baidu_pan/baidu_pan_auth_repository.dart';
-import 'package:ktv2_example/features/media_library/data/baidu_pan/baidu_pan_models.dart';
-import 'package:ktv2_example/features/media_library/data/baidu_pan/baidu_pan_source_config_store.dart';
-import 'package:ktv2_example/features/settings/application/baidu_pan_settings_controller.dart';
+import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_api_client.dart';
+import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_auth_repository.dart';
+import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_models.dart';
+import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_source_config_store.dart';
+import 'package:maimai_ktv/features/settings/application/baidu_pan_settings_controller.dart';
 
 void main() {
   setUp(() {
@@ -23,7 +23,7 @@ void main() {
           config: const BaiduPanSourceConfig(
             sourceRootId: 'baidu_pan:/KTV',
             rootPath: '/KTV',
-            displayName: '百度网盘',
+            displayName: '鐧惧害缃戠洏',
           ),
         );
     final _FakeBaiduPanAuthRepository authRepository =
@@ -56,7 +56,7 @@ void main() {
     expect(controller.isAuthorized, isTrue);
     expect(controller.authorizeUrlText, 'https://example.com/login');
     expect(controller.appId, '122751914');
-    expect(controller.accountDisplayName, '测试账号');
+    expect(controller.accountDisplayName, '娴嬭瘯璐﹀彿');
     expect(controller.quotaSummary, isNotNull);
     expect(controller.rootPath, '/KTV');
     expect(controller.errorMessage, isNull);
@@ -190,7 +190,7 @@ void main() {
 
       expect(controller.isAuthorized, isFalse);
       expect(controller.deviceCodeSession, isNotNull);
-      expect(controller.errorMessage, '百度网盘登录已过期，请重新扫码登录。');
+      expect(controller.errorMessage, '鐧惧害缃戠洏鐧诲綍宸茶繃鏈燂紝璇烽噸鏂版壂鐮佺櫥褰曘€?);
     },
   );
 
@@ -227,7 +227,7 @@ void main() {
 
       expect(controller.isAuthorized, isFalse);
       expect(controller.accountDisplayName, isNull);
-      expect(controller.errorMessage, '百度网盘登录已过期，请重新扫码登录。');
+      expect(controller.errorMessage, '鐧惧害缃戠洏鐧诲綍宸茶繃鏈燂紝璇烽噸鏂版壂鐮佺櫥褰曘€?);
       expect(authRepository.logoutCallCount, 1);
     },
   );
@@ -250,7 +250,7 @@ void main() {
     final bool saved = await controller.saveSettings(rootPath: ' ');
 
     expect(saved, isFalse);
-    expect(controller.errorMessage, contains('歌曲根目录'));
+    expect(controller.errorMessage, contains('姝屾洸鏍圭洰褰?));
   });
 
   test('saveSettings persists source config only', () async {
@@ -333,7 +333,7 @@ void main() {
     expect(success, isTrue);
     expect(authRepository.lastLoginCode, 'sample-code');
     expect(controller.isAuthorized, isTrue);
-    expect(controller.accountDisplayName, '测试账号');
+    expect(controller.accountDisplayName, '娴嬭瘯璐﹀彿');
   });
 
   test('logout clears authorized state', () async {
@@ -473,7 +473,7 @@ class _FakeBaiduPanApiClient implements BaiduPanApiClient {
     }
     return const BaiduPanUserInfo(
       uk: '12345',
-      displayName: '测试账号',
+      displayName: '娴嬭瘯璐﹀彿',
       avatarUrl: 'https://example.com/avatar.png',
     );
   }
@@ -537,3 +537,4 @@ class _FakeBaiduPanSourceConfigStore implements BaiduPanSourceConfigStore {
     savedConfig = config;
   }
 }
+

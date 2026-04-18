@@ -1,9 +1,9 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'dart:convert';
 
 import 'package:lpinyin/lpinyin.dart';
 import 'package:path/path.dart' as path;
-import 'package:ktv2_example/core/media/supported_video_formats.dart';
+import 'package:maimai_ktv/core/media/supported_video_formats.dart';
 
 import '../../../core/models/song_identity.dart';
 import 'media_index_store.dart';
@@ -22,7 +22,7 @@ class MediaLibraryDataSource {
   }) async {
     final Directory directory = Directory(rootPath);
     if (!await directory.exists()) {
-      throw FileSystemException('媒体库目录不存在', rootPath);
+      throw FileSystemException('濯掍綋搴撶洰褰曚笉瀛樺湪', rootPath);
     }
 
     final List<LibrarySong> songs = <LibrarySong>[];
@@ -169,7 +169,7 @@ class LibrarySong {
     required this.modifiedAtMillis,
     required this.sourceFingerprint,
     required this.extension,
-    this.languages = const <String>['其它'],
+    this.languages = const <String>['鍏跺畠'],
     this.tags = const <String>[],
   });
 
@@ -224,3 +224,4 @@ String _buildPinyinInitials(String source) {
   ).toLowerCase();
   return initials.replaceAll(RegExp(r'[^a-z0-9]'), '');
 }
+

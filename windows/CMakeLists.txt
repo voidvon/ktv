@@ -1,10 +1,12 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
-project(ktv2_example LANGUAGES CXX)
+project(mai_ktv LANGUAGES CXX)
 
-# The name of the executable created for the application. Change this to change
-# the on-disk name of your application.
-set(BINARY_NAME "ktv2_example")
+# Internal target name used by CMake. Keep this ASCII-safe.
+set(BINARY_NAME "maimai_ktv")
+
+# Final executable file name shown on disk.
+set(EXECUTABLE_NAME "麦麦KTV")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class QrImageSaveDataSource {
-  static const MethodChannel _channel = MethodChannel('ktv2_example/qr_image');
+  static const MethodChannel _channel = MethodChannel(
+    'com.app0122.maimai.app/qr_image',
+  );
 
   const QrImageSaveDataSource();
 

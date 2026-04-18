@@ -1,5 +1,5 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:ktv2_example/features/ktv/application/download_manager_models.dart';
+﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:maimai_ktv/features/ktv/application/download_manager_models.dart';
 
 void main() {
   test('retryable network errors are auto retried', () {
@@ -10,7 +10,7 @@ void main() {
       isTrue,
     );
     expect(
-      isRetryableDownloadErrorMessage('HttpException: 百度网盘下载失败: 503'),
+      isRetryableDownloadErrorMessage('HttpException: 鐧惧害缃戠洏涓嬭浇澶辫触: 503'),
       isTrue,
     );
     expect(
@@ -18,8 +18,8 @@ void main() {
         songId: 'song-1',
         sourceId: 'baidu_pan',
         sourceSongId: 'fsid-1',
-        title: '夜曲',
-        artist: '周杰伦',
+        title: '澶滄洸',
+        artist: '鍛ㄦ澃浼?,
         startedAtMillis: 1,
         updatedAtMillis: 2,
         status: DownloadTaskStatus.failed,
@@ -31,15 +31,15 @@ void main() {
 
   test('non-network errors are not auto retried', () {
     expect(
-      isRetryableDownloadErrorMessage('StateError: 百度网盘歌曲 song-1 缺少可下载 dlink'),
+      isRetryableDownloadErrorMessage('StateError: 鐧惧害缃戠洏姝屾洸 song-1 缂哄皯鍙笅杞?dlink'),
       isFalse,
     );
     expect(
-      isRetryableDownloadErrorMessage('HttpException: 百度网盘下载失败: 401'),
+      isRetryableDownloadErrorMessage('HttpException: 鐧惧害缃戠洏涓嬭浇澶辫触: 401'),
       isFalse,
     );
     expect(
-      isRetryableDownloadErrorMessage('HttpException: 百度网盘下载失败: 404'),
+      isRetryableDownloadErrorMessage('HttpException: 鐧惧害缃戠洏涓嬭浇澶辫触: 404'),
       isFalse,
     );
     expect(
@@ -47,12 +47,12 @@ void main() {
         songId: 'song-2',
         sourceId: 'baidu_pan',
         sourceSongId: 'fsid-2',
-        title: '晴天',
-        artist: '周杰伦',
+        title: '鏅村ぉ',
+        artist: '鍛ㄦ澃浼?,
         startedAtMillis: 1,
         updatedAtMillis: 2,
         status: DownloadTaskStatus.failed,
-        errorMessage: 'StateError: baidu_pan 下载服务未启用',
+        errorMessage: 'StateError: baidu_pan 涓嬭浇鏈嶅姟鏈惎鐢?,
       ).isAutoRetryableFailure,
       isFalse,
     );
@@ -61,22 +61,22 @@ void main() {
   test('authorization errors are classified for foreground notice', () {
     expect(
       isAuthorizationDownloadErrorMessage(
-        'BaiduPanUnauthorizedException: 百度网盘未授权',
+        'BaiduPanUnauthorizedException: 鐧惧害缃戠洏鏈巿鏉?,
       ),
       isTrue,
     );
     expect(
       isAuthorizationDownloadErrorMessage(
-        'BaiduPanTokenExpiredException: 百度网盘授权已过期',
+        'BaiduPanTokenExpiredException: 鐧惧害缃戠洏鎺堟潈宸茶繃鏈?,
       ),
       isTrue,
     );
     expect(
-      isAuthorizationDownloadErrorMessage('HttpException: 百度网盘下载失败: 401'),
+      isAuthorizationDownloadErrorMessage('HttpException: 鐧惧害缃戠洏涓嬭浇澶辫触: 401'),
       isTrue,
     );
     expect(
-      isAuthorizationDownloadErrorMessage('HttpException: 百度网盘下载失败: 403'),
+      isAuthorizationDownloadErrorMessage('HttpException: 鐧惧害缃戠洏涓嬭浇澶辫触: 403'),
       isFalse,
     );
     expect(
@@ -84,18 +84,18 @@ void main() {
         songId: 'song-3',
         sourceId: 'baidu_pan',
         sourceSongId: 'fsid-3',
-        title: '青花瓷',
-        artist: '周杰伦',
+        title: '闈掕姳鐡?,
+        artist: '鍛ㄦ澃浼?,
         startedAtMillis: 1,
         updatedAtMillis: 2,
         status: DownloadTaskStatus.failed,
-        errorMessage: 'BaiduPanUnauthorizedException: 百度网盘未授权',
+        errorMessage: 'BaiduPanUnauthorizedException: 鐧惧害缃戠洏鏈巿鏉?,
       ).isAuthorizationFailure,
       isTrue,
     );
     expect(
       isAuthorizationDownloadErrorMessage(
-        'StateError: 百度网盘歌曲 song-1 缺少可下载 dlink',
+        'StateError: 鐧惧害缃戠洏姝屾洸 song-1 缂哄皯鍙笅杞?dlink',
       ),
       isFalse,
     );
@@ -104,38 +104,39 @@ void main() {
   test('download error summary hides raw url and exception details', () {
     expect(
       buildDownloadErrorSummary(
-        'HttpException: 百度网盘接口返回异常: 503 https://pan.baidu.com/rest/2.0/xpan/file?access_token=abc',
-        fallback: '下载失败',
+        'HttpException: 鐧惧害缃戠洏鎺ュ彛杩斿洖寮傚父: 503 https://pan.baidu.com/rest/2.0/xpan/file?access_token=abc',
+        fallback: '涓嬭浇澶辫触',
       ),
-      '下载失败，请稍后重试',
+      '涓嬭浇澶辫触锛岃绋嶅悗閲嶈瘯',
     );
     expect(
       buildDownloadErrorSummary(
-        'BaiduPanUnauthorizedException: 百度网盘未授权',
-        fallback: '下载失败',
+        'BaiduPanUnauthorizedException: 鐧惧害缃戠洏鏈巿鏉?,
+        fallback: '涓嬭浇澶辫触',
       ),
-      '登录已失效，请重新登录',
+      '鐧诲綍宸插け鏁堬紝璇烽噸鏂扮櫥褰?,
     );
     expect(
       buildDownloadErrorSummary(
-        'StateError: 百度网盘歌曲 song-1 缺少可下载 dlink',
-        fallback: '下载失败',
+        'StateError: 鐧惧害缃戠洏姝屾洸 song-1 缂哄皯鍙笅杞?dlink',
+        fallback: '涓嬭浇澶辫触',
       ),
-      '下载失败，文件不可用',
+      '涓嬭浇澶辫触锛屾枃浠朵笉鍙敤',
     );
     expect(
       buildDownloadErrorSummary(
-        'BaiduPanDownloadForbiddenException: 百度网盘下载被拒绝',
-        fallback: '下载失败',
+        'BaiduPanDownloadForbiddenException: 鐧惧害缃戠洏涓嬭浇琚嫆缁?,
+        fallback: '涓嬭浇澶辫触',
       ),
-      '下载失败，文件不可用',
+      '涓嬭浇澶辫触锛屾枃浠朵笉鍙敤',
     );
     expect(
       buildDownloadErrorSummary(
-        'StateError: baidu_pan 下载服务未启用',
-        fallback: '下载失败',
+        'StateError: baidu_pan 涓嬭浇鏈嶅姟鏈惎鐢?,
+        fallback: '涓嬭浇澶辫触',
       ),
-      '下载失败，下载服务不可用',
+      '涓嬭浇澶辫触锛屼笅杞芥湇鍔′笉鍙敤',
     );
   });
 }
+

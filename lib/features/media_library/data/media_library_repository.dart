@@ -11,18 +11,39 @@ import 'media_library_data_source.dart';
 import 'scan_directory_data_source.dart';
 
 class MediaLibraryRepository {
-  MediaLibraryRepository({
+  factory MediaLibraryRepository({
     MediaLibraryDataSource? mediaLibraryDataSource,
     ScanDirectoryDataSource? scanDirectoryDataSource,
     AndroidStorageDataSource? androidStorageDataSource,
     MediaIndexStore? mediaIndexStore,
-  }) : _mediaLibraryDataSource =
-           mediaLibraryDataSource ?? MediaLibraryDataSource(),
-       _scanDirectoryDataSource =
-           scanDirectoryDataSource ?? ScanDirectoryDataSource(),
-       _androidStorageDataSource =
-           androidStorageDataSource ?? AndroidStorageDataSource(),
-       _mediaIndexStore = mediaIndexStore ?? MediaIndexStore();
+  }) {
+    final MediaIndexStore resolvedMediaIndexStore =
+        mediaIndexStore ?? MediaIndexStore();
+    final AndroidStorageDataSource resolvedAndroidStorageDataSource =
+        androidStorageDataSource ?? AndroidStorageDataSource();
+    return MediaLibraryRepository._(
+      mediaLibraryDataSource:
+          mediaLibraryDataSource ?? MediaLibraryDataSource(),
+      scanDirectoryDataSource:
+          scanDirectoryDataSource ??
+          ScanDirectoryDataSource(
+            androidStorageDataSource: resolvedAndroidStorageDataSource,
+            mediaIndexStore: resolvedMediaIndexStore,
+          ),
+      androidStorageDataSource: resolvedAndroidStorageDataSource,
+      mediaIndexStore: resolvedMediaIndexStore,
+    );
+  }
+
+  MediaLibraryRepository._({
+    required MediaLibraryDataSource mediaLibraryDataSource,
+    required ScanDirectoryDataSource scanDirectoryDataSource,
+    required AndroidStorageDataSource androidStorageDataSource,
+    required MediaIndexStore mediaIndexStore,
+  }) : _mediaLibraryDataSource = mediaLibraryDataSource,
+       _scanDirectoryDataSource = scanDirectoryDataSource,
+       _androidStorageDataSource = androidStorageDataSource,
+       _mediaIndexStore = mediaIndexStore;
 
   final MediaLibraryDataSource _mediaLibraryDataSource;
   final ScanDirectoryDataSource _scanDirectoryDataSource;

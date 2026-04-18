@@ -1,12 +1,12 @@
-import 'dart:io';
+﻿import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ktv2_example/core/models/song.dart';
-import 'package:ktv2_example/core/models/song_identity.dart';
-import 'package:ktv2_example/features/media_library/data/baidu_pan/baidu_pan_playback_cache.dart';
-import 'package:ktv2_example/features/media_library/data/baidu_pan/baidu_pan_song_download_service.dart';
-import 'package:ktv2_example/features/media_library/data/cloud/cloud_playback_cache.dart';
-import 'package:ktv2_example/features/media_library/data/cloud/cloud_song_download_service.dart';
+import 'package:maimai_ktv/core/models/song.dart';
+import 'package:maimai_ktv/core/models/song_identity.dart';
+import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_playback_cache.dart';
+import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_song_download_service.dart';
+import 'package:maimai_ktv/features/media_library/data/cloud/cloud_playback_cache.dart';
+import 'package:maimai_ktv/features/media_library/data/cloud/cloud_song_download_service.dart';
 
 void main() {
   test(
@@ -44,12 +44,12 @@ void main() {
         downloadIndexFileProvider: () async => indexFile,
       );
       final Song song = Song(
-        songId: buildAggregateSongId(title: '夜曲', artist: '周杰伦'),
+        songId: buildAggregateSongId(title: '澶滄洸', artist: '鍛ㄦ澃浼?),
         sourceId: 'baidu_pan',
         sourceSongId: 'fsid-1',
-        title: '夜曲',
-        artist: '周杰伦',
-        languages: const <String>['国语'],
+        title: '澶滄洸',
+        artist: '鍛ㄦ澃浼?,
+        languages: const <String>['鍥借'],
         searchIndex: 'yequ zhoujielun',
         mediaPath: '',
       );
@@ -61,7 +61,7 @@ void main() {
 
       expect(result.usedPreferredDirectory, isTrue);
       expect(await File(result.savedPath).readAsString(), 'video-payload');
-      expect(result.savedPath, contains('周杰伦 - 夜曲'));
+      expect(result.savedPath, contains('鍛ㄦ澃浼?- 澶滄洸'));
       expect(
         await service.loadDownloadedSourceSongIds(),
         contains(song.sourceSongId),
@@ -71,8 +71,8 @@ void main() {
       expect(records, hasLength(1));
       expect(records.single.sourceId, 'baidu_pan');
       expect(records.single.sourceSongId, song.sourceSongId);
-      expect(records.single.title, '夜曲');
-      expect(records.single.artist, '周杰伦');
+      expect(records.single.title, '澶滄洸');
+      expect(records.single.artist, '鍛ㄦ澃浼?);
       expect(records.single.savedPath, result.savedPath);
     },
   );
@@ -135,7 +135,7 @@ void main() {
     final File cachedFile = File('${sourceDirectory.path}/cached_song.mp4');
     await cachedFile.writeAsString('video-payload', flush: true);
     final File partialFile = File(
-      '${targetDirectory.path}/周杰伦 - 夜曲.mp4.download',
+      '${targetDirectory.path}/鍛ㄦ澃浼?- 澶滄洸.mp4.download',
     );
     await partialFile.writeAsString('video-', flush: true);
     final File indexFile = File('${storeDirectory.path}/downloaded_songs.json');
@@ -145,12 +145,12 @@ void main() {
       downloadIndexFileProvider: () async => indexFile,
     );
     final Song song = Song(
-      songId: buildAggregateSongId(title: '夜曲', artist: '周杰伦'),
+      songId: buildAggregateSongId(title: '澶滄洸', artist: '鍛ㄦ澃浼?),
       sourceId: 'baidu_pan',
       sourceSongId: 'fsid-resume',
-      title: '夜曲',
-      artist: '周杰伦',
-      languages: const <String>['国语'],
+      title: '澶滄洸',
+      artist: '鍛ㄦ澃浼?,
+      languages: const <String>['鍥借'],
       searchIndex: 'yequ zhoujielun',
       mediaPath: '',
     );
@@ -187,3 +187,4 @@ class _FakeBaiduPanPlaybackCache implements BaiduPanPlaybackCache {
     );
   }
 }
+

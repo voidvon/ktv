@@ -9,7 +9,7 @@ import '../../../core/models/song_page.dart';
 
 class AndroidStorageDataSource {
   static const MethodChannel _channel = MethodChannel(
-    'ktv2_example/android_storage',
+    'com.app0122.maimai.app/android_storage',
   );
 
   bool isDocumentTreeUri(String path) => path.startsWith('content://');

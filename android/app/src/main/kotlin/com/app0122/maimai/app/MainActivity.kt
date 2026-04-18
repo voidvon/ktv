@@ -1,4 +1,4 @@
-package com.ktv.player.ktv2_example
+package com.app0122.maimai.app
 
 import android.app.Activity
 import android.content.ActivityNotFoundException
@@ -123,14 +123,14 @@ private val tagKeywordMappings =
 
 class MainActivity : FlutterActivity() {
     private companion object {
-        const val preferencesName = "ktv2_example_prefs"
+        const val preferencesName = "com.app0122.maimai.app_prefs"
         const val selectedDirectoryKey = "selected_directory_uri"
         const val videoPickerRequestCode = 9021
         const val directoryPickerRequestCode = 9022
-        const val videoPickerChannel = "ktv2_example/video_picker"
-        const val androidStorageChannel = "ktv2_example/android_storage"
-        const val orientationChannel = "ktv2_example/orientation"
-        const val qrImageChannel = "ktv2_example/qr_image"
+        const val videoPickerChannel = "com.app0122.maimai.app/video_picker"
+        const val androidStorageChannel = "com.app0122.maimai.app/android_storage"
+        const val orientationChannel = "com.app0122.maimai.app/orientation"
+        const val qrImageChannel = "com.app0122.maimai.app/qr_image"
         val supportedExtensions =
             setOf(
                 "3g2",

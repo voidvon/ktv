@@ -1,22 +1,22 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ktv2/ktv2.dart';
-import 'package:ktv2_example/core/models/artist.dart';
-import 'package:ktv2_example/core/models/artist_page.dart';
-import 'package:ktv2_example/core/models/song.dart';
-import 'package:ktv2_example/core/models/song_identity.dart';
-import 'package:ktv2_example/core/models/song_page.dart';
-import 'package:ktv2_example/features/ktv/application/download_manager_models.dart';
-import 'package:ktv2_example/features/ktv/application/ktv_controller.dart';
-import 'package:ktv2_example/features/ktv/application/download_task_store.dart';
-import 'package:ktv2_example/features/ktv/application/playback_session_store.dart';
-import 'package:ktv2_example/features/media_library/data/aggregated_library_repository.dart';
-import 'package:ktv2_example/features/media_library/data/cloud/cloud_playback_cache.dart';
-import 'package:ktv2_example/features/media_library/data/cloud/cloud_song_download_service.dart';
-import 'package:ktv2_example/features/media_library/data/media_library_repository.dart';
+import 'package:maimai_ktv/core/models/artist.dart';
+import 'package:maimai_ktv/core/models/artist_page.dart';
+import 'package:maimai_ktv/core/models/song.dart';
+import 'package:maimai_ktv/core/models/song_identity.dart';
+import 'package:maimai_ktv/core/models/song_page.dart';
+import 'package:maimai_ktv/features/ktv/application/download_manager_models.dart';
+import 'package:maimai_ktv/features/ktv/application/ktv_controller.dart';
+import 'package:maimai_ktv/features/ktv/application/download_task_store.dart';
+import 'package:maimai_ktv/features/ktv/application/playback_session_store.dart';
+import 'package:maimai_ktv/features/media_library/data/aggregated_library_repository.dart';
+import 'package:maimai_ktv/features/media_library/data/cloud/cloud_playback_cache.dart';
+import 'package:maimai_ktv/features/media_library/data/cloud/cloud_song_download_service.dart';
+import 'package:maimai_ktv/features/media_library/data/media_library_repository.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -38,7 +38,7 @@ void main() {
     expect(controller.route, KtvRoute.home);
     expect(controller.canNavigateBack, isFalse);
     expect(controller.scanDirectoryPath, '/music');
-    expect(controller.breadcrumbLabel, '主页');
+    expect(controller.breadcrumbLabel, '涓婚〉');
     expect(controller.libraryTotalCount, 0);
   });
 
@@ -48,12 +48,12 @@ void main() {
       accessibleDirectories: <String>{'content://library/tree'},
       indexedResults: <String, List<Song>>{
         'content://library/tree': <Song>[
-          _song(title: '海阔天空', artist: 'Beyond'),
+          _song(title: '娴烽様澶╃┖', artist: 'Beyond'),
         ],
       },
       scanResults: <String, List<Song>>{
         'content://library/tree': <Song>[
-          _song(title: '海阔天空', artist: 'Beyond'),
+          _song(title: '娴烽様澶╃┖', artist: 'Beyond'),
         ],
       },
     );
@@ -67,11 +67,11 @@ void main() {
 
     expect(controller.scanDirectoryPath, 'content://library/tree');
     expect(controller.route, KtvRoute.home);
-    expect(controller.breadcrumbLabel, '主页');
+    expect(controller.breadcrumbLabel, '涓婚〉');
     expect(controller.librarySongs, hasLength(1));
     await _settleLibraryQuery();
     expect(repository.scanLibraryCallCount, 1);
-    expect(controller.currentSubtitle, contains('已从本地目录加载 1 首歌曲'));
+    expect(controller.currentSubtitle, contains('宸蹭粠鏈湴鐩綍鍔犺浇 1 棣栨瓕鏇?));
   });
 
   test(
@@ -82,12 +82,12 @@ void main() {
         accessibleDirectories: <String>{'content://library/tree'},
         indexedResults: <String, List<Song>>{
           'content://library/tree': <Song>[
-            _song(title: '沧海一声笑-国语-单音轨', artist: '任贤齐'),
+            _song(title: '娌ф捣涓€澹扮瑧-鍥借-鍗曢煶杞?, artist: '浠昏搐榻?),
           ],
         },
         scanResults: <String, List<Song>>{
           'content://library/tree': <Song>[
-            _song(title: '沧海一声笑', artist: '任贤齐', language: '国语'),
+            _song(title: '娌ф捣涓€澹扮瑧', artist: '浠昏搐榻?, language: '鍥借'),
           ],
         },
       );
@@ -99,8 +99,8 @@ void main() {
       await controller.initialize();
 
       expect(repository.scanLibraryCallCount, 1);
-      expect(controller.librarySongs.single.title, '沧海一声笑');
-      expect(controller.librarySongs.single.language, '国语');
+      expect(controller.librarySongs.single.title, '娌ф捣涓€澹扮瑧');
+      expect(controller.librarySongs.single.language, '鍥借');
     },
   );
 
@@ -110,8 +110,8 @@ void main() {
       final FakeMediaLibraryRepository repository = FakeMediaLibraryRepository(
         scanResults: <String, List<Song>>{
           '/media': <Song>[
-            _song(title: 'K Song', artist: 'Singer A', language: '英语'),
-            _song(title: '青花瓷', artist: '周杰伦', language: '国语'),
+            _song(title: 'K Song', artist: 'Singer A', language: '鑻辫'),
+            _song(title: '闈掕姳鐡?, artist: '鍛ㄦ澃浼?, language: '鍥借'),
           ],
         },
       );
@@ -120,7 +120,7 @@ void main() {
         playerController: FakePlayerController(),
       );
 
-      controller.selectLanguage('英语');
+      controller.selectLanguage('鑻辫');
       controller.setSearchQuery('k');
       final bool success = await controller.scanLibrary('/media');
 
@@ -128,9 +128,9 @@ void main() {
       expect(controller.selectedLanguage, KtvController.allLanguagesLabel);
       expect(controller.state.searchQuery, isEmpty);
 
-      controller.selectLanguage('国语');
+      controller.selectLanguage('鍥借');
       await _settleLibraryQuery();
-      expect(controller.filteredSongs.single.title, '青花瓷');
+      expect(controller.filteredSongs.single.title, '闈掕姳鐡?);
 
       controller.setSearchQuery('zhou');
       await _settleSearchRefresh();
@@ -144,9 +144,9 @@ void main() {
       final FakeMediaLibraryRepository repository = FakeMediaLibraryRepository(
         scanResults: <String, List<Song>>{
           '/media': <Song>[
-            _song(title: '青花瓷', artist: '周杰伦', language: '国语'),
-            _song(title: '夜曲', artist: '周杰伦', language: '国语'),
-            _song(title: '后来', artist: '刘若英', language: '国语'),
+            _song(title: '闈掕姳鐡?, artist: '鍛ㄦ澃浼?, language: '鍥借'),
+            _song(title: '澶滄洸', artist: '鍛ㄦ澃浼?, language: '鍥借'),
+            _song(title: '鍚庢潵', artist: '鍒樿嫢鑻?, language: '鍥借'),
           ],
         },
       );
@@ -163,16 +163,16 @@ void main() {
       expect(controller.selectedArtist, isNull);
       expect(
         controller.libraryArtists.map((Artist artist) => artist.name),
-        containsAll(<String>['周杰伦', '刘若英']),
+        containsAll(<String>['鍛ㄦ澃浼?, '鍒樿嫢鑻?]),
       );
 
-      await controller.selectArtist('周杰伦');
+      await controller.selectArtist('鍛ㄦ澃浼?);
 
       expect(controller.songBookMode, SongBookMode.songs);
-      expect(controller.selectedArtist, '周杰伦');
+      expect(controller.selectedArtist, '鍛ㄦ澃浼?);
       expect(
         controller.librarySongs.map((Song song) => song.title),
-        containsAll(<String>['青花瓷', '夜曲']),
+        containsAll(<String>['闈掕姳鐡?, '澶滄洸']),
       );
     },
   );
@@ -181,8 +181,8 @@ void main() {
     final FakeMediaLibraryRepository repository = FakeMediaLibraryRepository(
       scanResults: <String, List<Song>>{
         '/media': <Song>[
-          _song(title: '青花瓷', artist: '周杰伦', language: '国语'),
-          _song(title: '后来', artist: '刘若英', language: '国语'),
+          _song(title: '闈掕姳鐡?, artist: '鍛ㄦ澃浼?, language: '鍥借'),
+          _song(title: '鍚庢潵', artist: '鍒樿嫢鑻?, language: '鍥借'),
         ],
       },
     );
@@ -194,7 +194,7 @@ void main() {
     await controller.scanLibrary('/media');
     controller.enterSongBook(mode: SongBookMode.artists);
     await _settleLibraryQuery();
-    await controller.selectArtist('周杰伦');
+    await controller.selectArtist('鍛ㄦ澃浼?);
 
     final bool handled = await controller.returnFromSelectedArtist();
 
@@ -212,22 +212,22 @@ void main() {
 
     controller.enterSongBook(mode: SongBookMode.artists);
     expect(controller.route, KtvRoute.songBook);
-    expect(controller.breadcrumbLabel, '主页 / 歌星');
+    expect(controller.breadcrumbLabel, '涓婚〉 / 姝屾槦');
 
-    await controller.selectArtist('张学友');
-    expect(controller.selectedArtist, '张学友');
-    expect(controller.breadcrumbLabel, '主页 / 歌星 / 张学友');
+    await controller.selectArtist('寮犲鍙?);
+    expect(controller.selectedArtist, '寮犲鍙?);
+    expect(controller.breadcrumbLabel, '涓婚〉 / 姝屾槦 / 寮犲鍙?);
 
     expect(await controller.navigateBack(), isTrue);
     expect(controller.route, KtvRoute.songBook);
     expect(controller.songBookMode, SongBookMode.artists);
     expect(controller.selectedArtist, isNull);
-    expect(controller.breadcrumbLabel, '主页 / 歌星');
+    expect(controller.breadcrumbLabel, '涓婚〉 / 姝屾槦');
 
     expect(await controller.navigateBack(), isTrue);
     expect(controller.route, KtvRoute.home);
     expect(controller.canNavigateBack, isFalse);
-    expect(controller.breadcrumbLabel, '主页');
+    expect(controller.breadcrumbLabel, '涓婚〉');
   });
 
   test('navigateBack unwinds queue page to song book then home', () async {
@@ -240,21 +240,21 @@ void main() {
     controller.enterQueueList();
 
     expect(controller.route, KtvRoute.queueList);
-    expect(controller.breadcrumbLabel, '主页 / 歌名 / 已点');
+    expect(controller.breadcrumbLabel, '涓婚〉 / 姝屽悕 / 宸茬偣');
 
     expect(await controller.navigateBack(), isTrue);
     expect(controller.route, KtvRoute.songBook);
-    expect(controller.breadcrumbLabel, '主页 / 歌名');
+    expect(controller.breadcrumbLabel, '涓婚〉 / 姝屽悕');
 
     expect(await controller.navigateBack(), isTrue);
     expect(controller.route, KtvRoute.home);
-    expect(controller.breadcrumbLabel, '主页');
+    expect(controller.breadcrumbLabel, '涓婚〉');
   });
 
   test('aggregated song book can load without local directory', () async {
     final Song remoteSong = _remoteSong(
-      title: '远程歌曲',
-      artist: '云端歌手',
+      title: '杩滅▼姝屾洸',
+      artist: '浜戠姝屾墜',
       sourceId: '115',
       sourceSongId: '115-song-1',
       mediaPath: '115://remote-song',
@@ -276,16 +276,16 @@ void main() {
     expect(controller.libraryScope, LibraryScope.aggregated);
     expect(controller.librarySongs, <Song>[remoteSong]);
     expect(controller.libraryTotalCount, 1);
-    expect(controller.currentSubtitle, contains('聚合曲库'));
+    expect(controller.currentSubtitle, contains('鑱氬悎鏇插簱'));
   });
 
   test(
     'resolveSongSelectionAction queues local and downloaded songs directly',
     () async {
-      final Song localSong = _song(title: '本地歌曲', artist: '歌手甲');
+      final Song localSong = _song(title: '鏈湴姝屾洸', artist: '姝屾墜鐢?);
       final Song downloadedRemoteSong = _remoteSong(
-        title: '已下载云端歌曲',
-        artist: '云端歌手',
+        title: '宸蹭笅杞戒簯绔瓕鏇?,
+        artist: '浜戠姝屾墜',
         sourceSongId: 'fsid-downloaded',
       );
       final KtvController controller = KtvController(
@@ -326,8 +326,8 @@ void main() {
     'resolveSongSelectionAction reports download states for cloud songs',
     () async {
       final Song remoteSong = _remoteSong(
-        title: '云端歌曲',
-        artist: '云端歌手',
+        title: '浜戠姝屾洸',
+        artist: '浜戠姝屾墜',
         sourceSongId: 'fsid-cloud',
       );
       final Completer<void> gate = Completer<void>();
@@ -346,7 +346,7 @@ void main() {
                 }) async {
                   onProgress?.call(
                     const CloudDownloadProgress(
-                      phaseLabel: '缓存云端文件',
+                      phaseLabel: '缂撳瓨浜戠鏂囦欢',
                       value: 0.2,
                     ),
                   );
@@ -398,17 +398,17 @@ void main() {
         mediaLibraryRepository: FakeMediaLibraryRepository(),
         playerController: playerController,
       );
-      final Song first = _song(title: '第一首', artist: '歌手甲');
-      final Song second = _song(title: '第二首', artist: '歌手乙');
+      final Song first = _song(title: '绗竴棣?, artist: '姝屾墜鐢?);
+      final Song second = _song(title: '绗簩棣?, artist: '姝屾墜涔?);
 
       await controller.requestSong(first);
       await controller.requestSong(second);
       await controller.requestSong(first);
 
-      expect(playerController.lastOpenedSource?.displayName, '第一首');
+      expect(playerController.lastOpenedSource?.displayName, '绗竴棣?);
       expect(controller.queuedSongs.first, first);
       expect(controller.queuedSongs, <Song>[first, second]);
-      expect(controller.currentTitle, '第一首');
+      expect(controller.currentTitle, '绗竴棣?);
     },
   );
 
@@ -424,11 +424,11 @@ void main() {
         },
         downloadTaskStore: _FakeDownloadTaskStore(),
       );
-      final Song current = _song(title: '当前播放', artist: '歌手甲');
-      final Song localNext = _song(title: '本地下一首', artist: '歌手乙');
+      final Song current = _song(title: '褰撳墠鎾斁', artist: '姝屾墜鐢?);
+      final Song localNext = _song(title: '鏈湴涓嬩竴棣?, artist: '姝屾墜涔?);
       final Song pendingRemote = _remoteSong(
-        title: '云端待下载',
-        artist: '云端歌手',
+        title: '浜戠寰呬笅杞?,
+        artist: '浜戠姝屾墜',
         sourceSongId: 'fsid-pending-bottom',
       );
 
@@ -451,10 +451,10 @@ void main() {
         },
         downloadTaskStore: _FakeDownloadTaskStore(),
       );
-      final Song localSong = _song(title: '本地歌曲', artist: '歌手甲');
+      final Song localSong = _song(title: '鏈湴姝屾洸', artist: '姝屾墜鐢?);
       final Song pendingRemote = _remoteSong(
-        title: '云端待下载',
-        artist: '云端歌手',
+        title: '浜戠寰呬笅杞?,
+        artist: '浜戠姝屾墜',
         sourceSongId: 'fsid-enqueue',
       );
 
@@ -473,9 +473,9 @@ void main() {
         mediaLibraryRepository: FakeMediaLibraryRepository(),
         playerController: FakePlayerController(),
       );
-      final Song current = _song(title: '当前播放', artist: '歌手甲');
-      final Song next = _song(title: '下一首', artist: '歌手乙');
-      final Song later = _song(title: '后面那首', artist: '歌手丙');
+      final Song current = _song(title: '褰撳墠鎾斁', artist: '姝屾墜鐢?);
+      final Song next = _song(title: '涓嬩竴棣?, artist: '姝屾墜涔?);
+      final Song later = _song(title: '鍚庨潰閭ｉ', artist: '姝屾墜涓?);
 
       await controller.requestSong(current);
       await controller.requestSong(next);
@@ -497,18 +497,18 @@ void main() {
       downloadTaskStore: _FakeDownloadTaskStore(),
     );
     final Song firstPending = _remoteSong(
-      title: '待下载第一首',
-      artist: '云端歌手甲',
+      title: '寰呬笅杞界涓€棣?,
+      artist: '浜戠姝屾墜鐢?,
       sourceSongId: 'fsid-first-pending',
     );
     final Song secondPending = _remoteSong(
-      title: '待下载第二首',
-      artist: '云端歌手乙',
+      title: '寰呬笅杞界浜岄',
+      artist: '浜戠姝屾墜涔?,
       sourceSongId: 'fsid-second-pending',
     );
     final Song thirdPending = _remoteSong(
-      title: '待下载第三首',
-      artist: '云端歌手丙',
+      title: '寰呬笅杞界涓夐',
+      artist: '浜戠姝屾墜涓?,
       sourceSongId: 'fsid-third-pending',
     );
 
@@ -530,8 +530,8 @@ void main() {
       mediaLibraryRepository: FakeMediaLibraryRepository(),
       playerController: FakePlayerController(),
     );
-    final Song current = _song(title: '当前播放', artist: '歌手甲');
-    final Song next = _song(title: '下一首', artist: '歌手乙');
+    final Song current = _song(title: '褰撳墠鎾斁', artist: '姝屾墜鐢?);
+    final Song next = _song(title: '涓嬩竴棣?, artist: '姝屾墜涔?);
 
     await controller.requestSong(current);
     await controller.requestSong(next);
@@ -549,7 +549,7 @@ void main() {
       playerController: playerController,
     );
 
-    await controller.requestSong(_song(title: '夜空中最亮的星', artist: '逃跑计划'));
+    await controller.requestSong(_song(title: '澶滅┖涓渶浜殑鏄?, artist: '閫冭窇璁″垝'));
     await playerController.seekToProgress(0.5);
 
     await controller.stopPlayback();
@@ -570,7 +570,7 @@ void main() {
         playbackSessionStore: sessionStore,
       );
 
-      await controller.requestSong(_song(title: '后来', artist: '刘若英'));
+      await controller.requestSong(_song(title: '鍚庢潵', artist: '鍒樿嫢鑻?));
       await playerController.seekToProgress(0.5);
       await playerController.togglePlayback();
 
@@ -596,7 +596,7 @@ void main() {
         playbackSessionStore: sessionStore,
       );
 
-      await controller.requestSong(_song(title: '夜空中最亮的星', artist: '逃跑计划'));
+      await controller.requestSong(_song(title: '澶滅┖涓渶浜殑鏄?, artist: '閫冭窇璁″垝'));
       await playerController.seekToProgress(0.5);
 
       await controller.preparePlaybackForBackground(shouldStopPlayback: true);
@@ -610,8 +610,8 @@ void main() {
   );
 
   test('initialize restores playing playback session', () async {
-    final Song current = _song(title: '夜空中最亮的星', artist: '逃跑计划');
-    final Song next = _song(title: '稻香', artist: '周杰伦');
+    final Song current = _song(title: '澶滅┖涓渶浜殑鏄?, artist: '閫冭窇璁″垝');
+    final Song next = _song(title: '绋婚', artist: '鍛ㄦ澃浼?);
     final FakePlayerController playerController = FakePlayerController();
     final _FakePlaybackSessionStore sessionStore = _FakePlaybackSessionStore(
       session: PersistedPlaybackSession(
@@ -640,7 +640,7 @@ void main() {
   test(
     'initialize restores paused playback session without auto-playing',
     () async {
-      final Song current = _song(title: '后来', artist: '刘若英');
+      final Song current = _song(title: '鍚庢潵', artist: '鍒樿嫢鑻?);
       final FakePlayerController playerController = FakePlayerController();
       final KtvController controller = KtvController(
         mediaLibraryRepository: FakeMediaLibraryRepository(),
@@ -670,8 +670,8 @@ void main() {
       mediaLibraryRepository: FakeMediaLibraryRepository(),
       playerController: playerController,
     );
-    final Song current = _song(title: '第一首', artist: '歌手甲');
-    final Song next = _song(title: '第二首', artist: '歌手乙');
+    final Song current = _song(title: '绗竴棣?, artist: '姝屾墜鐢?);
+    final Song next = _song(title: '绗簩棣?, artist: '姝屾墜涔?);
 
     await controller.requestSong(current);
     await controller.requestSong(next);
@@ -681,7 +681,7 @@ void main() {
 
     await controller.skipCurrentSong();
 
-    expect(playerController.lastOpenedSource?.displayName, '第二首');
+    expect(playerController.lastOpenedSource?.displayName, '绗簩棣?);
     expect(playerController.audioOutputMode, AudioOutputMode.accompaniment);
   });
 
@@ -692,8 +692,8 @@ void main() {
       playerController: playerController,
       playbackSessionStore: _FakePlaybackSessionStore(),
     );
-    final Song current = _song(title: '第一首', artist: '歌手甲');
-    final Song next = _song(title: '第二首', artist: '歌手乙');
+    final Song current = _song(title: '绗竴棣?, artist: '姝屾墜鐢?);
+    final Song next = _song(title: '绗簩棣?, artist: '姝屾墜涔?);
 
     await controller.requestSong(current);
     await controller.requestSong(next);
@@ -702,7 +702,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     expect(controller.queuedSongs, <Song>[next]);
-    expect(playerController.lastOpenedSource?.displayName, '第二首');
+    expect(playerController.lastOpenedSource?.displayName, '绗簩棣?);
     expect(playerController.hasMedia, isTrue);
   });
 
@@ -714,7 +714,7 @@ void main() {
       playerController: playerController,
       playbackSessionStore: sessionStore,
     );
-    final Song current = _song(title: '最后一首', artist: '歌手甲');
+    final Song current = _song(title: '鏈€鍚庝竴棣?, artist: '姝屾墜鐢?);
 
     await controller.requestSong(current);
 
@@ -737,8 +737,8 @@ void main() {
               const CloudDownloadedSongRecord(
                 sourceId: 'baidu_pan',
                 sourceSongId: 'fsid-1',
-                title: '夜曲',
-                artist: '周杰伦',
+                title: '澶滄洸',
+                artist: '鍛ㄦ澃浼?,
                 savedPath: '/tmp/night.mp4',
                 savedAtMillis: 100,
               ),
@@ -757,8 +757,8 @@ void main() {
       await controller.initialize();
 
       expect(controller.downloadedSongs, hasLength(1));
-      expect(controller.downloadedSongs.single.title, '夜曲');
-      expect(controller.downloadedSongs.single.sourceLabel, '百度网盘');
+      expect(controller.downloadedSongs.single.title, '澶滄洸');
+      expect(controller.downloadedSongs.single.sourceLabel, '鐧惧害缃戠洏');
       expect(controller.downloadedSongKeys, contains('baidu_pan::fsid-1'));
       expect(taskStore.saveCallCount, 0);
     },
@@ -771,14 +771,14 @@ void main() {
           songId: 'song-1',
           sourceId: 'baidu_pan',
           sourceSongId: 'fsid-restore',
-          title: '晴天',
-          artist: '周杰伦',
+          title: '鏅村ぉ',
+          artist: '鍛ㄦ澃浼?,
           startedAtMillis: 10,
           updatedAtMillis: 20,
           preferredDirectory: '/music',
           status: DownloadTaskStatus.downloading,
           progress: 0.35,
-          phaseLabel: '缓存云端文件',
+          phaseLabel: '缂撳瓨浜戠鏂囦欢',
         ),
       ],
     );
@@ -795,7 +795,7 @@ void main() {
 
     expect(controller.downloadingSongs, hasLength(1));
     expect(controller.downloadingSongs.single.isPaused, isTrue);
-    expect(controller.downloadingSongs.single.phaseLabel, '已暂停，等待继续');
+    expect(controller.downloadingSongs.single.phaseLabel, '宸叉殏鍋滐紝绛夊緟缁х画');
     expect(taskStore.saveCallCount, 1);
   });
 
@@ -803,13 +803,13 @@ void main() {
     'downloadSongToLocal updates downloading and downloaded lists',
     () async {
       final Song remoteSong = Song(
-        songId: buildAggregateSongId(title: '夜曲', artist: '周杰伦'),
+        songId: buildAggregateSongId(title: '澶滄洸', artist: '鍛ㄦ澃浼?),
         sourceId: 'baidu_pan',
         sourceSongId: 'fsid-2',
-        title: '夜曲',
-        artist: '周杰伦',
-        languages: const <String>['国语'],
-        searchIndex: '夜曲 周杰伦',
+        title: '澶滄洸',
+        artist: '鍛ㄦ澃浼?,
+        languages: const <String>['鍥借'],
+        searchIndex: '澶滄洸 鍛ㄦ澃浼?,
         mediaPath: '',
       );
       final _FakeCloudSongDownloadService downloadService =
@@ -824,7 +824,7 @@ void main() {
                 }) async {
                   onProgress?.call(
                     const CloudDownloadProgress(
-                      phaseLabel: '缓存云端文件',
+                      phaseLabel: '缂撳瓨浜戠鏂囦欢',
                       value: 0.4,
                     ),
                   );
@@ -850,8 +850,8 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 1));
 
       expect(controller.downloadingSongs, hasLength(1));
-      expect(controller.downloadingSongs.single.title, '夜曲');
-      expect(controller.downloadingSongs.single.sourceLabel, '百度网盘');
+      expect(controller.downloadingSongs.single.title, '澶滄洸');
+      expect(controller.downloadingSongs.single.sourceLabel, '鐧惧害缃戠洏');
       expect(controller.downloadingSongs.single.progress, 0.4);
 
       await future;
@@ -870,13 +870,13 @@ void main() {
     'downloadingSongs keeps latest started task first while progress updates',
     () async {
       final Song firstSong = _remoteSong(
-        title: '第一首云端歌',
-        artist: '歌手甲',
+        title: '绗竴棣栦簯绔瓕',
+        artist: '姝屾墜鐢?,
         sourceSongId: 'fsid-first',
       );
       final Song secondSong = _remoteSong(
-        title: '第二首云端歌',
-        artist: '歌手乙',
+        title: '绗簩棣栦簯绔瓕',
+        artist: '姝屾墜涔?,
         sourceSongId: 'fsid-second',
       );
       final Completer<void> releaseDownloads = Completer<void>();
@@ -897,7 +897,7 @@ void main() {
                     firstProgressCallback = onProgress;
                     onProgress?.call(
                       const CloudDownloadProgress(
-                        phaseLabel: '缓存 第一首云端歌',
+                        phaseLabel: '缂撳瓨 绗竴棣栦簯绔瓕',
                         value: 0.2,
                       ),
                     );
@@ -907,7 +907,7 @@ void main() {
                   } else {
                     onProgress?.call(
                       const CloudDownloadProgress(
-                        phaseLabel: '缓存 第二首云端歌',
+                        phaseLabel: '缂撳瓨 绗簩棣栦簯绔瓕',
                         value: 0.4,
                       ),
                     );
@@ -945,18 +945,18 @@ void main() {
         controller.downloadingSongs.map(
           (DownloadingSongItem item) => item.title,
         ),
-        <String>['第二首云端歌', '第一首云端歌'],
+        <String>['绗簩棣栦簯绔瓕', '绗竴棣栦簯绔瓕'],
       );
 
       firstProgressCallback?.call(
-        const CloudDownloadProgress(phaseLabel: '继续缓存 第一首云端歌', value: 0.6),
+        const CloudDownloadProgress(phaseLabel: '缁х画缂撳瓨 绗竴棣栦簯绔瓕', value: 0.6),
       );
 
       expect(
         controller.downloadingSongs.map(
           (DownloadingSongItem item) => item.title,
         ),
-        <String>['第二首云端歌', '第一首云端歌'],
+        <String>['绗簩棣栦簯绔瓕', '绗竴棣栦簯绔瓕'],
       );
 
       releaseDownloads.complete();
@@ -968,13 +968,13 @@ void main() {
     'pauseDownload keeps task persisted and resumeDownload completes it',
     () async {
       final Song remoteSong = Song(
-        songId: buildAggregateSongId(title: '稻香', artist: '周杰伦'),
+        songId: buildAggregateSongId(title: '绋婚', artist: '鍛ㄦ澃浼?),
         sourceId: 'baidu_pan',
         sourceSongId: 'fsid-3',
-        title: '稻香',
-        artist: '周杰伦',
-        languages: const <String>['国语'],
-        searchIndex: '稻香 周杰伦',
+        title: '绋婚',
+        artist: '鍛ㄦ澃浼?,
+        languages: const <String>['鍥借'],
+        searchIndex: '绋婚 鍛ㄦ澃浼?,
         mediaPath: '',
       );
       final Completer<void> gate = Completer<void>();
@@ -991,7 +991,7 @@ void main() {
                 }) async {
                   onProgress?.call(
                     const CloudDownloadProgress(
-                      phaseLabel: '缓存云端文件',
+                      phaseLabel: '缂撳瓨浜戠鏂囦欢',
                       value: 0.2,
                     ),
                   );
@@ -1046,13 +1046,13 @@ void main() {
     'cancelDownload cancels active task and clears persisted download item',
     () async {
       final Song remoteSong = Song(
-        songId: buildAggregateSongId(title: '七里香', artist: '周杰伦'),
+        songId: buildAggregateSongId(title: '涓冮噷棣?, artist: '鍛ㄦ澃浼?),
         sourceId: 'baidu_pan',
         sourceSongId: 'fsid-3-cancel',
-        title: '七里香',
-        artist: '周杰伦',
-        languages: const <String>['国语'],
-        searchIndex: '七里香 周杰伦',
+        title: '涓冮噷棣?,
+        artist: '鍛ㄦ澃浼?,
+        languages: const <String>['鍥借'],
+        searchIndex: '涓冮噷棣?鍛ㄦ澃浼?,
         mediaPath: '',
       );
       final Completer<void> gate = Completer<void>();
@@ -1068,7 +1068,7 @@ void main() {
                 }) async {
                   onProgress?.call(
                     const CloudDownloadProgress(
-                      phaseLabel: '缓存云端文件',
+                      phaseLabel: '缂撳瓨浜戠鏂囦欢',
                       value: 0.2,
                     ),
                   );
@@ -1118,8 +1118,8 @@ void main() {
             const CloudDownloadedSongRecord(
               sourceId: 'baidu_pan',
               sourceSongId: 'fsid-4',
-              title: '青花瓷',
-              artist: '周杰伦',
+              title: '闈掕姳鐡?,
+              artist: '鍛ㄦ澃浼?,
               savedPath: '/tmp/qinghuaci.mp4',
               savedAtMillis: 200,
             ),
@@ -1149,7 +1149,7 @@ void main() {
 Song _song({
   required String title,
   required String artist,
-  String language = '其它',
+  String language = '鍏跺畠',
   String? mediaPath,
 }) {
   return Song(
@@ -1173,7 +1173,7 @@ Song _remoteSong({
   required String artist,
   String sourceId = 'baidu_pan',
   String? sourceSongId,
-  String language = '国语',
+  String language = '鍥借',
   String? mediaPath,
 }) {
   return Song(
@@ -1787,3 +1787,4 @@ Future<void> _settleSearchRefresh() async {
   await Future<void>.delayed(const Duration(milliseconds: 250));
   await _settleLibraryQuery();
 }
+

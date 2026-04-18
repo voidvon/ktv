@@ -1,5 +1,5 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:ktv2_example/features/ktv/presentation/ktv_search_coordinator.dart';
+﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:maimai_ktv/features/ktv/presentation/ktv_search_coordinator.dart';
 
 void main() {
   testWidgets('syncFromQuery updates text without re-emitting query changes', (
@@ -11,9 +11,9 @@ void main() {
     );
     addTearDown(coordinator.dispose);
 
-    coordinator.syncFromQuery('周杰伦');
+    coordinator.syncFromQuery('鍛ㄦ澃浼?);
 
-    expect(coordinator.controller.text, '周杰伦');
+    expect(coordinator.controller.text, '鍛ㄦ澃浼?);
     expect(emittedQueries, isEmpty);
   });
 
@@ -35,3 +35,4 @@ void main() {
     expect(coordinator.controller.text, isEmpty);
   });
 }
+

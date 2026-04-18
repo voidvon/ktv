@@ -1,11 +1,11 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ktv2_example/features/media_library/data/baidu_pan/baidu_pan_auth_store.dart';
-import 'package:ktv2_example/features/media_library/data/baidu_pan/baidu_pan_models.dart';
-import 'package:ktv2_example/features/media_library/data/baidu_pan/baidu_pan_oauth_repository.dart';
+import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_auth_store.dart';
+import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_models.dart';
+import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_oauth_repository.dart';
 
 void main() {
   test('buildAuthorizeUri includes expected baidu oauth params', () async {
@@ -294,3 +294,4 @@ class _FakeResponseData {
   final int statusCode;
   final List<int> payload;
 }
+

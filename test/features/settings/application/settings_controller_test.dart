@@ -1,6 +1,6 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:ktv2_example/features/media_library/data/media_library_repository.dart';
-import 'package:ktv2_example/features/settings/application/settings_controller.dart';
+﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:maimai_ktv/features/media_library/data/media_library_repository.dart';
+import 'package:maimai_ktv/features/settings/application/settings_controller.dart';
 
 void main() {
   test('pickDirectory updates selected path when access is granted', () async {
@@ -35,7 +35,7 @@ void main() {
 
       expect(directory, isNull);
       expect(controller.currentDirectoryPath, isNull);
-      expect(controller.errorMessage, contains('读取授权'));
+      expect(controller.errorMessage, contains('璇诲彇鎺堟潈'));
       expect(controller.isPickingDirectory, isFalse);
     },
   );
@@ -81,3 +81,4 @@ class FakeMediaLibraryRepository extends MediaLibraryRepository {
     return _accessibleDirectories.contains(path);
   }
 }
+

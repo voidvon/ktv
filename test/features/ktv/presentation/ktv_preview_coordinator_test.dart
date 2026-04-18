@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ktv2/ktv2.dart';
-import 'package:ktv2_example/features/ktv/application/ktv_controller.dart';
-import 'package:ktv2_example/features/ktv/application/preview_fullscreen_delegate.dart';
-import 'package:ktv2_example/features/ktv/presentation/ktv_preview_coordinator.dart';
+import 'package:maimai_ktv/features/ktv/application/ktv_controller.dart';
+import 'package:maimai_ktv/features/ktv/application/preview_fullscreen_delegate.dart';
+import 'package:maimai_ktv/features/ktv/presentation/ktv_preview_coordinator.dart';
 
 void main() {
   testWidgets('preview coordinator exposes preview surface and inert sync', (
@@ -79,3 +79,4 @@ class FakePreviewFullscreenDelegate extends PreviewFullscreenDelegate {
     values.add(enabled);
   }
 }
+

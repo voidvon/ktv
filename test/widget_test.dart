@@ -1,17 +1,17 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ktv2/ktv2.dart';
-import 'package:ktv2_example/core/models/artist.dart';
-import 'package:ktv2_example/core/models/song.dart';
-import 'package:ktv2_example/core/models/song_identity.dart';
-import 'package:ktv2_example/features/ktv/application/download_manager_models.dart';
-import 'package:ktv2_example/features/ktv/application/ktv_controller.dart';
-import 'package:ktv2_example/features/ktv/presentation/songbook_contracts.dart';
-import 'package:ktv2_example/features/ktv/presentation/songbook_page.dart';
-import 'package:ktv2_example/features/ktv/presentation/songbook_right_column_widgets.dart';
-import 'package:ktv2_example/features/ktv/presentation/shared_widgets.dart';
-import 'package:ktv2_example/features/player/presentation/player_progress_bar.dart';
-import 'package:ktv2_example/main.dart';
+import 'package:maimai_ktv/core/models/artist.dart';
+import 'package:maimai_ktv/core/models/song.dart';
+import 'package:maimai_ktv/core/models/song_identity.dart';
+import 'package:maimai_ktv/features/ktv/application/download_manager_models.dart';
+import 'package:maimai_ktv/features/ktv/application/ktv_controller.dart';
+import 'package:maimai_ktv/features/ktv/presentation/songbook_contracts.dart';
+import 'package:maimai_ktv/features/ktv/presentation/songbook_page.dart';
+import 'package:maimai_ktv/features/ktv/presentation/songbook_right_column_widgets.dart';
+import 'package:maimai_ktv/features/ktv/presentation/shared_widgets.dart';
+import 'package:maimai_ktv/features/player/presentation/player_progress_bar.dart';
+import 'package:maimai_ktv/main.dart';
 
 void main() {
   SongBookCallbacks buildSongBookCallbacks() {
@@ -48,10 +48,10 @@ void main() {
   ) async {
     await tester.pumpWidget(const KtvApp());
 
-    expect(find.text('麦麦KTV'), findsOneWidget);
-    expect(find.text('歌名'), findsOneWidget);
-    expect(find.text('设置'), findsAtLeastNWidgets(1));
-    expect(find.text('首页预览区'), findsNothing);
+    expect(find.text('楹﹂害KTV'), findsOneWidget);
+    expect(find.text('姝屽悕'), findsOneWidget);
+    expect(find.text('璁剧疆'), findsAtLeastNWidgets(1));
+    expect(find.text('棣栭〉棰勮鍖?), findsNothing);
     expect(find.byType(Slider), findsOneWidget);
   });
 
@@ -60,12 +60,12 @@ void main() {
   ) async {
     await tester.pumpWidget(const KtvApp());
 
-    await tester.tap(find.text('设置').first);
+    await tester.tap(find.text('璁剧疆').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('设置'), findsOneWidget);
-    expect(find.text('本地目录'), findsOneWidget);
-    expect(find.text('百度网盘'), findsOneWidget);
+    expect(find.text('璁剧疆'), findsOneWidget);
+    expect(find.text('鏈湴鐩綍'), findsOneWidget);
+    expect(find.text('鐧惧害缃戠洏'), findsOneWidget);
   });
 
   testWidgets('opens queued songs page from home toolbar', (
@@ -73,12 +73,12 @@ void main() {
   ) async {
     await tester.pumpWidget(const KtvApp());
 
-    await tester.tap(find.text('已点0').first);
+    await tester.tap(find.text('宸茬偣0').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('主页 / 已点'), findsOneWidget);
-    expect(find.text('当前还没有已点歌曲，点歌后会在这里显示。'), findsOneWidget);
-    expect(find.text('搜索已点歌曲 / 歌手'), findsOneWidget);
+    expect(find.text('涓婚〉 / 宸茬偣'), findsOneWidget);
+    expect(find.text('褰撳墠杩樻病鏈夊凡鐐规瓕鏇诧紝鐐规瓕鍚庝細鍦ㄨ繖閲屾樉绀恒€?), findsOneWidget);
+    expect(find.text('鎼滅储宸茬偣姝屾洸 / 姝屾墜'), findsOneWidget);
   });
 
   testWidgets('renders compact song book without layout exceptions', (
@@ -93,10 +93,10 @@ void main() {
 
     await tester.pumpWidget(const KtvApp());
 
-    await tester.tap(find.text('歌名'));
+    await tester.tap(find.text('姝屽悕'));
     await tester.pumpAndSettle();
 
-    expect(find.text('请先在设置里配置数据源，配置完成后这里会展示聚合曲库。'), findsOneWidget);
+    expect(find.text('璇峰厛鍦ㄨ缃噷閰嶇疆鏁版嵁婧愶紝閰嶇疆瀹屾垚鍚庤繖閲屼細灞曠ず鑱氬悎鏇插簱銆?), findsOneWidget);
   });
 
   testWidgets('renders landscape song book without layout exceptions', (
@@ -111,11 +111,11 @@ void main() {
 
     await tester.pumpWidget(const KtvApp());
 
-    await tester.tap(find.text('歌名'));
+    await tester.tap(find.text('姝屽悕'));
     await tester.pumpAndSettle();
 
-    expect(find.text('主页 / 歌名'), findsOneWidget);
-    expect(find.text('请先在设置里配置数据源，配置完成后这里会展示聚合曲库。'), findsOneWidget);
+    expect(find.text('涓婚〉 / 姝屽悕'), findsOneWidget);
+    expect(find.text('璇峰厛鍦ㄨ缃噷閰嶇疆鏁版嵁婧愶紝閰嶇疆瀹屾垚鍚庤繖閲屼細灞曠ず鑱氬悎鏇插簱銆?), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -144,22 +144,22 @@ void main() {
                 songBookMode: SongBookMode.artists,
                 libraryScope: LibraryScope.aggregated,
                 selectedArtist: null,
-                breadcrumbLabel: '主页 / 歌星',
+                breadcrumbLabel: '涓婚〉 / 姝屾槦',
               ),
               library: SongBookLibraryViewModel(
                 searchQuery: '',
-                selectedLanguage: '全部',
+                selectedLanguage: '鍏ㄩ儴',
                 songs: <Song>[],
                 artists: <Artist>[
-                  Artist(name: '周杰伦', songCount: 12, searchIndex: 'zhoujielun'),
-                  Artist(name: '刘若英', songCount: 8, searchIndex: 'liuruoying'),
+                  Artist(name: '鍛ㄦ澃浼?, songCount: 12, searchIndex: 'zhoujielun'),
+                  Artist(name: '鍒樿嫢鑻?, songCount: 8, searchIndex: 'liuruoying'),
                   Artist(
-                    name: '张学友',
+                    name: '寮犲鍙?,
                     songCount: 15,
                     searchIndex: 'zhangxueyou',
                   ),
                   Artist(name: 'A-Lin', songCount: 6, searchIndex: 'a-lin'),
-                  Artist(name: '邓紫棋', songCount: 10, searchIndex: 'dengziqi'),
+                  Artist(name: '閭撶传妫?, songCount: 10, searchIndex: 'dengziqi'),
                   Artist(name: 'Beyond', songCount: 9, searchIndex: 'beyond'),
                 ],
                 favoriteSongIds: <String>[],
@@ -210,9 +210,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('主页 / 歌星'), findsOneWidget);
-    expect(find.text('周杰伦'), findsAtLeastNWidgets(1));
-    expect(find.text('刘若英'), findsAtLeastNWidgets(1));
+    expect(find.text('涓婚〉 / 姝屾槦'), findsOneWidget);
+    expect(find.text('鍛ㄦ澃浼?), findsAtLeastNWidgets(1));
+    expect(find.text('鍒樿嫢鑻?), findsAtLeastNWidgets(1));
     expect(tester.takeException(), isNull);
   });
 
@@ -233,57 +233,57 @@ void main() {
                   songBookMode: SongBookMode.songs,
                   libraryScope: LibraryScope.aggregated,
                   selectedArtist: null,
-                  breadcrumbLabel: '主页 / 歌名',
+                  breadcrumbLabel: '涓婚〉 / 姝屽悕',
                 ),
                 library: SongBookLibraryViewModel(
                   searchQuery: '',
-                  selectedLanguage: '全部',
+                  selectedLanguage: '鍏ㄩ儴',
                   songs: <Song>[
                     Song(
-                      songId: buildAggregateSongId(title: '青花瓷', artist: '周杰伦'),
+                      songId: buildAggregateSongId(title: '闈掕姳鐡?, artist: '鍛ㄦ澃浼?),
                       sourceId: 'local',
                       sourceSongId: buildLocalSourceSongId(
                         fingerprint: buildLocalMetadataFingerprint(
                           locator: '/tmp/1.mp4',
                         ),
                       ),
-                      title: '青花瓷',
-                      artist: '周杰伦',
-                      languages: <String>['国语'],
+                      title: '闈掕姳鐡?,
+                      artist: '鍛ㄦ澃浼?,
+                      languages: <String>['鍥借'],
                       searchIndex: 'qinghuaci zhoujielun',
                       mediaPath: '/tmp/1.mp4',
                     ),
                     Song(
-                      songId: buildAggregateSongId(title: '夜曲', artist: '周杰伦'),
+                      songId: buildAggregateSongId(title: '澶滄洸', artist: '鍛ㄦ澃浼?),
                       sourceId: 'local',
                       sourceSongId: buildLocalSourceSongId(
                         fingerprint: buildLocalMetadataFingerprint(
                           locator: '/tmp/2.mp4',
                         ),
                       ),
-                      title: '夜曲',
-                      artist: '周杰伦',
-                      languages: <String>['国语'],
+                      title: '澶滄洸',
+                      artist: '鍛ㄦ澃浼?,
+                      languages: <String>['鍥借'],
                       searchIndex: 'yequ zhoujielun',
                       mediaPath: '/tmp/2.mp4',
                     ),
                     Song(
-                      songId: buildAggregateSongId(title: '后来', artist: '刘若英'),
+                      songId: buildAggregateSongId(title: '鍚庢潵', artist: '鍒樿嫢鑻?),
                       sourceId: 'local',
                       sourceSongId: buildLocalSourceSongId(
                         fingerprint: buildLocalMetadataFingerprint(
                           locator: '/tmp/3.mp4',
                         ),
                       ),
-                      title: '后来',
-                      artist: '刘若英',
-                      languages: <String>['国语'],
+                      title: '鍚庢潵',
+                      artist: '鍒樿嫢鑻?,
+                      languages: <String>['鍥借'],
                       searchIndex: 'houlai liuruoying',
                       mediaPath: '/tmp/3.mp4',
                     ),
                     Song(
                       songId: buildAggregateSongId(
-                        title: '海阔天空',
+                        title: '娴烽様澶╃┖',
                         artist: 'Beyond',
                       ),
                       sourceId: 'local',
@@ -292,9 +292,9 @@ void main() {
                           locator: '/tmp/4.mp4',
                         ),
                       ),
-                      title: '海阔天空',
+                      title: '娴烽様澶╃┖',
                       artist: 'Beyond',
-                      languages: <String>['粤语'],
+                      languages: <String>['绮よ'],
                       searchIndex: 'haikuotiankong beyond',
                       mediaPath: '/tmp/4.mp4',
                     ),
@@ -388,17 +388,17 @@ void main() {
                       songBookMode: SongBookMode.songs,
                       libraryScope: LibraryScope.aggregated,
                       selectedArtist: null,
-                      breadcrumbLabel: '主页 / 歌名',
+                      breadcrumbLabel: '涓婚〉 / 姝屽悕',
                     ),
                     library: SongBookLibraryViewModel(
                       searchQuery: '',
-                      selectedLanguage: '全部',
+                      selectedLanguage: '鍏ㄩ儴',
                       songs: List<Song>.generate(
                         9,
                         (int index) => Song(
                           songId: buildAggregateSongId(
-                            title: '歌曲$index',
-                            artist: '歌手$index',
+                            title: '姝屾洸$index',
+                            artist: '姝屾墜$index',
                           ),
                           sourceId: 'local',
                           sourceSongId: buildLocalSourceSongId(
@@ -406,9 +406,9 @@ void main() {
                               locator: '/tmp/$index.mp4',
                             ),
                           ),
-                          title: '歌曲$index',
-                          artist: '歌手$index',
-                          languages: const <String>['国语'],
+                          title: '姝屾洸$index',
+                          artist: '姝屾墜$index',
+                          languages: const <String>['鍥借'],
                           searchIndex: 'gequ$index geshou$index',
                           mediaPath: '/tmp/$index.mp4',
                         ),
@@ -502,17 +502,17 @@ void main() {
                   songBookMode: SongBookMode.songs,
                   libraryScope: LibraryScope.aggregated,
                   selectedArtist: null,
-                  breadcrumbLabel: '主页 / 歌名',
+                  breadcrumbLabel: '涓婚〉 / 姝屽悕',
                 ),
                 library: SongBookLibraryViewModel(
                   searchQuery: '',
-                  selectedLanguage: '全部',
+                  selectedLanguage: '鍏ㄩ儴',
                   songs: List<Song>.generate(
                     6,
                     (int index) => Song(
                       songId: buildAggregateSongId(
-                        title: '歌曲$index',
-                        artist: '歌手$index',
+                        title: '姝屾洸$index',
+                        artist: '姝屾墜$index',
                       ),
                       sourceId: 'local',
                       sourceSongId: buildLocalSourceSongId(
@@ -520,9 +520,9 @@ void main() {
                           locator: '/tmp/song_$index.mp4',
                         ),
                       ),
-                      title: '歌曲$index',
-                      artist: '歌手$index',
-                      languages: const <String>['国语'],
+                      title: '姝屾洸$index',
+                      artist: '姝屾墜$index',
+                      languages: const <String>['鍥借'],
                       searchIndex: 'gequ$index geshou$index',
                       mediaPath: '/tmp/song_$index.mp4',
                     ),
@@ -577,35 +577,35 @@ void main() {
                   songBookMode: SongBookMode.artists,
                   libraryScope: LibraryScope.aggregated,
                   selectedArtist: null,
-                  breadcrumbLabel: '主页 / 歌星',
+                  breadcrumbLabel: '涓婚〉 / 姝屾槦',
                 ),
                 library: SongBookLibraryViewModel(
                   searchQuery: '',
-                  selectedLanguage: '全部',
+                  selectedLanguage: '鍏ㄩ儴',
                   songs: <Song>[],
                   artists: <Artist>[
                     Artist(
-                      name: '周杰伦',
+                      name: '鍛ㄦ澃浼?,
                       songCount: 12,
                       searchIndex: 'zhoujielun',
                     ),
                     Artist(
-                      name: '林俊杰',
+                      name: '鏋椾繆鏉?,
                       songCount: 10,
                       searchIndex: 'linjunjie',
                     ),
                     Artist(
-                      name: '张学友',
+                      name: '寮犲鍙?,
                       songCount: 8,
                       searchIndex: 'zhangxueyou',
                     ),
                     Artist(
-                      name: '刘若英',
+                      name: '鍒樿嫢鑻?,
                       songCount: 6,
                       searchIndex: 'liuruoying',
                     ),
-                    Artist(name: '陈奕迅', songCount: 9, searchIndex: 'chenyixun'),
-                    Artist(name: '孙燕姿', songCount: 7, searchIndex: 'sunyanzi'),
+                    Artist(name: '闄堝杩?, songCount: 9, searchIndex: 'chenyixun'),
+                    Artist(name: '瀛欑嚂濮?, songCount: 7, searchIndex: 'sunyanzi'),
                   ],
                   favoriteSongIds: <String>[],
                   downloadableSourceIds: <String>{},
@@ -655,46 +655,46 @@ void main() {
                     songBookMode: SongBookMode.artists,
                     libraryScope: LibraryScope.aggregated,
                     selectedArtist: null,
-                    breadcrumbLabel: '主页 / 歌星',
+                    breadcrumbLabel: '涓婚〉 / 姝屾槦',
                   ),
                   library: SongBookLibraryViewModel(
                     searchQuery: '',
-                    selectedLanguage: '全部',
+                    selectedLanguage: '鍏ㄩ儴',
                     songs: <Song>[],
                     artists: <Artist>[
                       Artist(
-                        name: '周杰伦',
+                        name: '鍛ㄦ澃浼?,
                         songCount: 12,
                         searchIndex: 'zhoujielun',
                       ),
                       Artist(
-                        name: '林俊杰',
+                        name: '鏋椾繆鏉?,
                         songCount: 10,
                         searchIndex: 'linjunjie',
                       ),
                       Artist(
-                        name: '张学友',
+                        name: '寮犲鍙?,
                         songCount: 8,
                         searchIndex: 'zhangxueyou',
                       ),
                       Artist(
-                        name: '刘若英',
+                        name: '鍒樿嫢鑻?,
                         songCount: 6,
                         searchIndex: 'liuruoying',
                       ),
                       Artist(
-                        name: '陈奕迅',
+                        name: '闄堝杩?,
                         songCount: 9,
                         searchIndex: 'chenyixun',
                       ),
                       Artist(
-                        name: '孙燕姿',
+                        name: '瀛欑嚂濮?,
                         songCount: 7,
                         searchIndex: 'sunyanzi',
                       ),
-                      Artist(name: '王菲', songCount: 5, searchIndex: 'wangfei'),
+                      Artist(name: '鐜嬭彶', songCount: 5, searchIndex: 'wangfei'),
                       Artist(
-                        name: '五月天',
+                        name: '浜旀湀澶?,
                         songCount: 11,
                         searchIndex: 'wuyuetian',
                       ),
@@ -773,12 +773,12 @@ void main() {
     'cloud songs show status icon instead of clickable download button',
     (WidgetTester tester) async {
       final Song song = Song(
-        songId: buildAggregateSongId(title: '云端歌曲', artist: '云端歌手'),
+        songId: buildAggregateSongId(title: '浜戠姝屾洸', artist: '浜戠姝屾墜'),
         sourceId: 'baidu_pan',
         sourceSongId: 'fsid-cloud-icon',
-        title: '云端歌曲',
-        artist: '云端歌手',
-        languages: const <String>['国语'],
+        title: '浜戠姝屾洸',
+        artist: '浜戠姝屾墜',
+        languages: const <String>['鍥借'],
         searchIndex: 'cloud song',
         mediaPath: '',
       );
@@ -792,7 +792,7 @@ void main() {
                 height: 64,
                 child: SongTile(
                   title: song.title,
-                  subtitle: '${song.artist} · ${song.language}',
+                  subtitle: '${song.artist} 路 ${song.language}',
                   trailing: const Icon(Icons.cloud_rounded),
                 ),
               ),
@@ -811,28 +811,28 @@ void main() {
     'queued song tile reuses shared text style and shows queue actions',
     (WidgetTester tester) async {
       final Song librarySong = Song(
-        songId: buildAggregateSongId(title: '点歌列表歌曲', artist: '歌手甲'),
+        songId: buildAggregateSongId(title: '鐐规瓕鍒楄〃姝屾洸', artist: '姝屾墜鐢?),
         sourceId: 'local',
         sourceSongId: buildLocalSourceSongId(
           fingerprint: buildLocalMetadataFingerprint(
             locator: '/tmp/library.mp4',
           ),
         ),
-        title: '点歌列表歌曲',
-        artist: '歌手甲',
-        languages: const <String>['国语'],
+        title: '鐐规瓕鍒楄〃姝屾洸',
+        artist: '姝屾墜鐢?,
+        languages: const <String>['鍥借'],
         searchIndex: 'library song',
         mediaPath: '/tmp/library.mp4',
       );
       final Song queuedSong = Song(
-        songId: buildAggregateSongId(title: '已点列表歌曲', artist: '歌手乙'),
+        songId: buildAggregateSongId(title: '宸茬偣鍒楄〃姝屾洸', artist: '姝屾墜涔?),
         sourceId: 'local',
         sourceSongId: buildLocalSourceSongId(
           fingerprint: buildLocalMetadataFingerprint(locator: '/tmp/queue.mp4'),
         ),
-        title: '已点列表歌曲',
-        artist: '歌手乙',
-        languages: const <String>['国语'],
+        title: '宸茬偣鍒楄〃姝屾洸',
+        artist: '姝屾墜涔?,
+        languages: const <String>['鍥借'],
         searchIndex: 'queued song',
         mediaPath: '/tmp/queue.mp4',
       );
@@ -847,7 +847,7 @@ void main() {
                   height: 64,
                   child: SongTile(
                     title: librarySong.title,
-                    subtitle: '${librarySong.artist} · ${librarySong.language}',
+                    subtitle: '${librarySong.artist} 路 ${librarySong.language}',
                     trailing: SongTileIconButton(
                       icon: Icons.favorite_border_rounded,
                       onPressed: () {},
@@ -861,7 +861,7 @@ void main() {
                   child: SongTile(
                     title: queuedSong.title,
                     subtitle:
-                        '${queuedSong.artist} · ${queuedSong.language} · 队列 2',
+                        '${queuedSong.artist} 路 ${queuedSong.language} 路 闃熷垪 2',
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
@@ -885,11 +885,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final Text libraryTitle = tester.widget<Text>(find.text('点歌列表歌曲'));
-      final Text queuedTitle = tester.widget<Text>(find.text('已点列表歌曲'));
-      final Text librarySubtitle = tester.widget<Text>(find.text('歌手甲 · 国语'));
+      final Text libraryTitle = tester.widget<Text>(find.text('鐐规瓕鍒楄〃姝屾洸'));
+      final Text queuedTitle = tester.widget<Text>(find.text('宸茬偣鍒楄〃姝屾洸'));
+      final Text librarySubtitle = tester.widget<Text>(find.text('姝屾墜鐢?路 鍥借'));
       final Text queuedSubtitle = tester.widget<Text>(
-        find.text('歌手乙 · 国语 · 队列 2'),
+        find.text('姝屾墜涔?路 鍥借 路 闃熷垪 2'),
       );
 
       expect(queuedTitle.style?.fontSize, libraryTitle.style?.fontSize);
@@ -909,12 +909,12 @@ void main() {
     WidgetTester tester,
   ) async {
     final Song song = Song(
-      songId: buildAggregateSongId(title: '下载中的云端歌曲', artist: '云端歌手'),
+      songId: buildAggregateSongId(title: '涓嬭浇涓殑浜戠姝屾洸', artist: '浜戠姝屾墜'),
       sourceId: 'baidu_pan',
       sourceSongId: 'fsid-cloud-progress',
-      title: '下载中的云端歌曲',
-      artist: '云端歌手',
-      languages: const <String>['国语'],
+      title: '涓嬭浇涓殑浜戠姝屾洸',
+      artist: '浜戠姝屾墜',
+      languages: const <String>['鍥借'],
       searchIndex: 'downloading cloud song',
       mediaPath: '',
     );
@@ -928,7 +928,7 @@ void main() {
               height: 64,
               child: SongTile(
                 title: song.title,
-                subtitle: '${song.artist} · ${song.language}',
+                subtitle: '${song.artist} 路 ${song.language}',
                 downloadProgress: 0.4,
                 progressKey: ValueKey<String>(
                   'song-download-progress-${song.songId}',
@@ -964,13 +964,13 @@ void main() {
     addTearDown(searchController.dispose);
 
     final Song pausedSong = Song(
-      songId: buildAggregateSongId(title: '暂停下载歌曲', artist: '云端歌手'),
+      songId: buildAggregateSongId(title: '鏆傚仠涓嬭浇姝屾洸', artist: '浜戠姝屾墜'),
       sourceId: 'baidu_pan',
       sourceSongId: 'fsid-paused',
-      title: '暂停下载歌曲',
-      artist: '云端歌手',
-      languages: const <String>['国语'],
-      searchIndex: '暂停下载歌曲 云端歌手',
+      title: '鏆傚仠涓嬭浇姝屾洸',
+      artist: '浜戠姝屾墜',
+      languages: const <String>['鍥借'],
+      searchIndex: '鏆傚仠涓嬭浇姝屾洸 浜戠姝屾墜',
       mediaPath: '',
     );
 
@@ -986,11 +986,11 @@ void main() {
                 songBookMode: SongBookMode.songs,
                 libraryScope: LibraryScope.aggregated,
                 selectedArtist: null,
-                breadcrumbLabel: '主页 / 已点',
+                breadcrumbLabel: '涓婚〉 / 宸茬偣',
               ),
               library: SongBookLibraryViewModel(
                 searchQuery: '',
-                selectedLanguage: '全部',
+                selectedLanguage: '鍏ㄩ儴',
                 songs: const <Song>[],
                 artists: const <Artist>[],
                 favoriteSongIds: const <String>[],
@@ -1024,7 +1024,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('云端歌手 · 国语 · 已暂停'), findsOneWidget);
+    expect(find.text('浜戠姝屾墜 路 鍥借 路 宸叉殏鍋?), findsOneWidget);
     expect(
       find.byKey(
         ValueKey<String>('song-download-progress-${pausedSong.songId}'),
@@ -1049,13 +1049,13 @@ void main() {
     addTearDown(searchController.dispose);
 
     final Song failedSong = Song(
-      songId: buildAggregateSongId(title: '失败下载歌曲', artist: '云端歌手'),
+      songId: buildAggregateSongId(title: '澶辫触涓嬭浇姝屾洸', artist: '浜戠姝屾墜'),
       sourceId: 'baidu_pan',
       sourceSongId: 'fsid-failed',
-      title: '失败下载歌曲',
-      artist: '云端歌手',
-      languages: const <String>['国语'],
-      searchIndex: '失败下载歌曲 云端歌手',
+      title: '澶辫触涓嬭浇姝屾洸',
+      artist: '浜戠姝屾墜',
+      languages: const <String>['鍥借'],
+      searchIndex: '澶辫触涓嬭浇姝屾洸 浜戠姝屾墜',
       mediaPath: '',
     );
 
@@ -1071,11 +1071,11 @@ void main() {
                 songBookMode: SongBookMode.songs,
                 libraryScope: LibraryScope.aggregated,
                 selectedArtist: null,
-                breadcrumbLabel: '主页 / 已点',
+                breadcrumbLabel: '涓婚〉 / 宸茬偣',
               ),
               library: SongBookLibraryViewModel(
                 searchQuery: '',
-                selectedLanguage: '全部',
+                selectedLanguage: '鍏ㄩ儴',
                 songs: const <Song>[],
                 artists: const <Artist>[],
                 favoriteSongIds: const <String>[],
@@ -1109,7 +1109,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('云端歌手 · 国语 · 下载失败'), findsOneWidget);
+    expect(find.text('浜戠姝屾墜 路 鍥借 路 涓嬭浇澶辫触'), findsOneWidget);
     expect(
       find.byKey(
         ValueKey<String>('song-download-progress-${failedSong.songId}'),
@@ -1134,13 +1134,13 @@ void main() {
       addTearDown(searchController.dispose);
 
       final Song pausedSong = Song(
-        songId: buildAggregateSongId(title: '可继续下载歌曲', artist: '云端歌手'),
+        songId: buildAggregateSongId(title: '鍙户缁笅杞芥瓕鏇?, artist: '浜戠姝屾墜'),
         sourceId: 'baidu_pan',
         sourceSongId: 'fsid-resume-tap',
-        title: '可继续下载歌曲',
-        artist: '云端歌手',
-        languages: const <String>['国语'],
-        searchIndex: '可继续下载歌曲 云端歌手',
+        title: '鍙户缁笅杞芥瓕鏇?,
+        artist: '浜戠姝屾墜',
+        languages: const <String>['鍥借'],
+        searchIndex: '鍙户缁笅杞芥瓕鏇?浜戠姝屾墜',
         mediaPath: '',
       );
       int requestCallCount = 0;
@@ -1158,11 +1158,11 @@ void main() {
                   songBookMode: SongBookMode.songs,
                   libraryScope: LibraryScope.aggregated,
                   selectedArtist: null,
-                  breadcrumbLabel: '主页 / 已点',
+                  breadcrumbLabel: '涓婚〉 / 宸茬偣',
                 ),
                 library: SongBookLibraryViewModel(
                   searchQuery: '',
-                  selectedLanguage: '全部',
+                  selectedLanguage: '鍏ㄩ儴',
                   songs: const <Song>[],
                   artists: const <Artist>[],
                   favoriteSongIds: const <String>[],
@@ -1224,7 +1224,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('可继续下载歌曲'));
+      await tester.tap(find.text('鍙户缁笅杞芥瓕鏇?));
       await tester.pumpAndSettle();
 
       expect(requestCallCount, 1);
@@ -1249,17 +1249,17 @@ void main() {
                   songBookMode: SongBookMode.songs,
                   libraryScope: LibraryScope.aggregated,
                   selectedArtist: null,
-                  breadcrumbLabel: '主页 / 歌名',
+                  breadcrumbLabel: '涓婚〉 / 姝屽悕',
                 ),
                 library: SongBookLibraryViewModel(
                   searchQuery: '',
-                  selectedLanguage: '全部',
+                  selectedLanguage: '鍏ㄩ儴',
                   songs: List<Song>.generate(
                     11,
                     (int index) => Song(
                       songId: buildAggregateSongId(
-                        title: '歌曲$index',
-                        artist: '歌手$index',
+                        title: '姝屾洸$index',
+                        artist: '姝屾墜$index',
                       ),
                       sourceId: 'local',
                       sourceSongId: buildLocalSourceSongId(
@@ -1267,9 +1267,9 @@ void main() {
                           locator: '/tmp/phone_song_$index.mp4',
                         ),
                       ),
-                      title: '歌曲$index',
-                      artist: '歌手$index',
-                      languages: const <String>['国语'],
+                      title: '姝屾洸$index',
+                      artist: '姝屾墜$index',
+                      languages: const <String>['鍥借'],
                       searchIndex: 'gequ$index geshou$index',
                       mediaPath: '/tmp/phone_song_$index.mp4',
                     ),
@@ -1313,22 +1313,22 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('preview-tap-target')));
     await tester.pumpAndSettle();
 
-    expect(find.text('返回点歌'), findsNothing);
+    expect(find.text('杩斿洖鐐规瓕'), findsNothing);
 
     final Finder fullscreenScaffold = find.byType(Scaffold).last;
     await tester.tapAt(tester.getCenter(fullscreenScaffold));
     await tester.pumpAndSettle();
 
-    expect(find.text('返回点歌'), findsOneWidget);
-    expect(find.text('伴唱'), findsAtLeastNWidgets(1));
-    expect(find.text('播放'), findsAtLeastNWidgets(1));
-    expect(find.text('重唱'), findsAtLeastNWidgets(1));
-    expect(find.text('切歌'), findsAtLeastNWidgets(1));
+    expect(find.text('杩斿洖鐐规瓕'), findsOneWidget);
+    expect(find.text('浼村敱'), findsAtLeastNWidgets(1));
+    expect(find.text('鎾斁'), findsAtLeastNWidgets(1));
+    expect(find.text('閲嶅敱'), findsAtLeastNWidgets(1));
+    expect(find.text('鍒囨瓕'), findsAtLeastNWidgets(1));
 
     await tester.tapAt(tester.getCenter(fullscreenScaffold));
     await tester.pumpAndSettle();
 
-    expect(find.text('返回点歌'), findsNothing);
+    expect(find.text('杩斿洖鐐规瓕'), findsNothing);
   });
 
   testWidgets('tapping non-fullscreen progress bar does not enter fullscreen', (
@@ -1343,7 +1343,7 @@ void main() {
     await tester.tapAt(Offset(sliderRect.center.dx, sliderRect.bottom - 8));
     await tester.pumpAndSettle();
 
-    expect(find.text('返回点歌'), findsNothing);
+    expect(find.text('杩斿洖鐐规瓕'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('preview-tap-target')),
       findsOneWidget,
@@ -1398,7 +1398,7 @@ void main() {
       _PreviewViewportTestApp(controller: controller, isFullscreen: true),
     );
 
-    expect(find.text('返回点歌'), findsNothing);
+    expect(find.text('杩斿洖鐐规瓕'), findsNothing);
 
     await tester.drag(
       find.byKey(const ValueKey<String>('fullscreen-preview-gesture-target')),
@@ -1409,7 +1409,7 @@ void main() {
     expect(controller.lastSeekProgress, isNotNull);
     expect(controller.lastSeekProgress!, greaterThan(0.25));
     expect(controller.lastSeekProgress!, lessThan(1.0));
-    expect(find.text('返回点歌'), findsOneWidget);
+    expect(find.text('杩斿洖鐐规瓕'), findsOneWidget);
   });
 
   testWidgets(
@@ -1593,3 +1593,4 @@ class _PreviewViewportTestApp extends StatelessWidget {
     );
   }
 }
+

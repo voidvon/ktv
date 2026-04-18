@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.ktv.player" "\0"
-            VALUE "FileDescription", "ktv2_example" "\0"
+            VALUE "CompanyName", "麦麦KTV" "\0"
+            VALUE "FileDescription", "麦麦KTV" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "ktv2_example" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.ktv.player. All rights reserved." "\0"
-            VALUE "OriginalFilename", "ktv2_example.exe" "\0"
-            VALUE "ProductName", "ktv2_example" "\0"
+            VALUE "InternalName", "麦麦KTV" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 麦麦KTV. All rights reserved." "\0"
+            VALUE "OriginalFilename", "麦麦KTV.exe" "\0"
+            VALUE "ProductName", "麦麦KTV" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

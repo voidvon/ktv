@@ -1,9 +1,9 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:ktv2_example/features/media_library/data/baidu_pan/baidu_pan_models.dart';
-import 'package:ktv2_example/features/media_library/data/baidu_pan/baidu_pan_remote_data_source.dart';
-import 'package:ktv2_example/features/media_library/data/baidu_pan/baidu_pan_song_source.dart';
-import 'package:ktv2_example/features/media_library/data/baidu_pan/baidu_pan_source_config_store.dart';
-import 'package:ktv2_example/features/media_library/data/media_library_repository.dart';
+﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_models.dart';
+import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_remote_data_source.dart';
+import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_song_source.dart';
+import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_source_config_store.dart';
+import 'package:maimai_ktv/features/media_library/data/media_library_repository.dart';
 
 void main() {
   test(
@@ -16,7 +16,7 @@ void main() {
             config: const BaiduPanSourceConfig(
               sourceRootId: 'baidu_pan:/KTV',
               rootPath: '/KTV',
-              displayName: '百度网盘',
+              displayName: '鐧惧害缃戠洏',
             ),
           );
       final _FakeBaiduPanRemoteDataSource remoteDataSource =
@@ -24,16 +24,16 @@ void main() {
             files: <BaiduPanRemoteFile>[
               const BaiduPanRemoteFile(
                 fsid: '1',
-                path: '/KTV/周杰伦-青花瓷-国语.mp4',
-                serverFilename: '周杰伦-青花瓷-国语.mp4',
+                path: '/KTV/鍛ㄦ澃浼?闈掕姳鐡?鍥借.mp4',
+                serverFilename: '鍛ㄦ澃浼?闈掕姳鐡?鍥借.mp4',
                 isDirectory: false,
                 size: 1024,
                 modifiedAtMillis: 1710000000000,
               ),
               const BaiduPanRemoteFile(
                 fsid: '2',
-                path: '/KTV/说明.txt',
-                serverFilename: '说明.txt',
+                path: '/KTV/璇存槑.txt',
+                serverFilename: '璇存槑.txt',
                 isDirectory: false,
                 size: 32,
                 modifiedAtMillis: 1710000000000,
@@ -56,8 +56,8 @@ void main() {
       );
       expect(songs.songs, hasLength(1));
       expect(songs.songs.single.sourceId, 'baidu_pan');
-      expect(songs.songs.single.title, '青花瓷');
-      expect(songs.songs.single.artist, '周杰伦');
+      expect(songs.songs.single.title, '闈掕姳鐡?);
+      expect(songs.songs.single.artist, '鍛ㄦ澃浼?);
     },
   );
 }
@@ -106,3 +106,4 @@ class _FakeBaiduPanSourceConfigStore implements BaiduPanSourceConfigStore {
     this.config = config;
   }
 }
+

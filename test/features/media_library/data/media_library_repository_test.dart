@@ -1,16 +1,16 @@
-import 'dart:io';
+﻿import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ktv2_example/core/models/artist.dart';
-import 'package:ktv2_example/core/models/artist_page.dart';
-import 'package:ktv2_example/core/models/song.dart';
-import 'package:ktv2_example/core/models/song_identity.dart';
-import 'package:ktv2_example/core/models/song_page.dart';
-import 'package:ktv2_example/features/media_library/data/android_storage_data_source.dart';
-import 'package:ktv2_example/features/media_library/data/media_index_store.dart';
-import 'package:ktv2_example/features/media_library/data/media_library_repository.dart';
-import 'package:ktv2_example/features/media_library/data/media_library_data_source.dart';
+import 'package:maimai_ktv/core/models/artist.dart';
+import 'package:maimai_ktv/core/models/artist_page.dart';
+import 'package:maimai_ktv/core/models/song.dart';
+import 'package:maimai_ktv/core/models/song_identity.dart';
+import 'package:maimai_ktv/core/models/song_page.dart';
+import 'package:maimai_ktv/features/media_library/data/android_storage_data_source.dart';
+import 'package:maimai_ktv/features/media_library/data/media_index_store.dart';
+import 'package:maimai_ktv/features/media_library/data/media_library_repository.dart';
+import 'package:maimai_ktv/features/media_library/data/media_library_data_source.dart';
 
 void main() {
   tearDown(() {
@@ -23,11 +23,11 @@ void main() {
           songsByDirectory: <String, List<LibrarySong>>{
             '/media': <LibrarySong>[
               const LibrarySong(
-                title: '青花瓷',
-                artist: '周杰伦',
-                mediaPath: '/media/青花瓷.mp4',
-                fileName: '周杰伦 - 青花瓷.mp4',
-                relativePath: '青花瓷.mp4',
+                title: '闈掕姳鐡?,
+                artist: '鍛ㄦ澃浼?,
+                mediaPath: '/media/闈掕姳鐡?mp4',
+                fileName: '鍛ㄦ澃浼?- 闈掕姳鐡?mp4',
+                relativePath: '闈掕姳鐡?mp4',
                 fileSize: 1024,
                 modifiedAtMillis: 1710000000000,
                 sourceFingerprint: 'content:1024:aaaa',
@@ -63,10 +63,10 @@ void main() {
             scannedSongs: <String, List<AndroidLibrarySong>>{
               'content://library/tree': <AndroidLibrarySong>[
                 const AndroidLibrarySong(
-                  title: '海阔天空',
+                  title: '娴烽様澶╃┖',
                   artist: 'Beyond',
                   mediaPath: 'content://library/tree/song-1',
-                  fileName: 'Beyond - 海阔天空.mp4',
+                  fileName: 'Beyond - 娴烽様澶╃┖.mp4',
                   extension: 'mp4',
                 ),
               ],
@@ -89,13 +89,13 @@ void main() {
       expect(androidStorageDataSource.scanCalls, <String>[
         'content://library/tree',
       ]);
-      expect(songPage.songs.single.title, '海阔天空');
+      expect(songPage.songs.single.title, '娴烽様澶╃┖');
       final SongPage aggregatePage = await repository.queryAggregatedSongs(
         pageIndex: 0,
         pageSize: 8,
         localDirectory: 'content://library/tree',
       );
-      expect(aggregatePage.songs.single.title, '海阔天空');
+      expect(aggregatePage.songs.single.title, '娴烽様澶╃┖');
     },
   );
 
@@ -103,10 +103,10 @@ void main() {
     final List<LibrarySong> librarySongs = List<LibrarySong>.generate(
       10050,
       (int index) => LibrarySong(
-        title: '歌曲$index',
-        artist: '歌手',
+        title: '姝屾洸$index',
+        artist: '姝屾墜',
         mediaPath: '/media/$index.mp4',
-        fileName: '歌手 - 歌曲$index.mp4',
+        fileName: '姝屾墜 - 姝屾洸$index.mp4',
         relativePath: '$index.mp4',
         fileSize: 2048 + index,
         modifiedAtMillis: 1710000000000 + index,
@@ -127,11 +127,11 @@ void main() {
 
     final List<Song> songs = await repository.getSongsByIds(
       directory: '/media',
-      songIds: <String>[buildAggregateSongId(title: '歌曲10049', artist: '歌手')],
+      songIds: <String>[buildAggregateSongId(title: '姝屾洸10049', artist: '姝屾墜')],
     );
 
     expect(songs, hasLength(1));
-    expect(songs.single.title, '歌曲10049');
+    expect(songs.single.title, '姝屾洸10049');
   });
 
   test(
@@ -142,10 +142,10 @@ void main() {
             songsByDirectory: <String, List<LibrarySong>>{
               '/media': <LibrarySong>[
                 const LibrarySong(
-                  title: '同一首歌',
-                  artist: '同一歌手',
+                  title: '鍚屼竴棣栨瓕',
+                  artist: '鍚屼竴姝屾墜',
                   mediaPath: '/media/a.mp4',
-                  fileName: '同一歌手 - 同一首歌.mp4',
+                  fileName: '鍚屼竴姝屾墜 - 鍚屼竴棣栨瓕.mp4',
                   relativePath: 'a.mp4',
                   fileSize: 100,
                   modifiedAtMillis: 1710000000001,
@@ -153,10 +153,10 @@ void main() {
                   extension: 'mp4',
                 ),
                 const LibrarySong(
-                  title: '同一首歌',
-                  artist: '同一歌手',
+                  title: '鍚屼竴棣栨瓕',
+                  artist: '鍚屼竴姝屾墜',
                   mediaPath: '/media/b.mp4',
-                  fileName: '同一歌手 - 同一首歌.mp4',
+                  fileName: '鍚屼竴姝屾墜 - 鍚屼竴棣栨瓕.mp4',
                   relativePath: 'b.mp4',
                   fileSize: 100,
                   modifiedAtMillis: 1710000000002,
@@ -192,7 +192,7 @@ void main() {
       }
     });
 
-    final File originalFile = File('${root.path}/歌手 - 同一首歌.mp4');
+    final File originalFile = File('${root.path}/姝屾墜 - 鍚屼竴棣栨瓕.mp4');
     final List<int> bytes = List<int>.generate(
       200000,
       (int index) => index % 251,
@@ -204,7 +204,7 @@ void main() {
     final List<LibrarySong> firstScan = await dataSource.scanLibrary(root.path);
     expect(firstScan, hasLength(1));
 
-    await originalFile.rename('${root.path}/已改名.mp4');
+    await originalFile.rename('${root.path}/宸叉敼鍚?mp4');
     final List<LibrarySong> secondScan = await dataSource.scanLibrary(
       root.path,
     );
@@ -224,17 +224,17 @@ void main() {
         }
       });
 
-      final File file = File('${root.path}/周杰伦-青花瓷-国语-流行.mp4');
+      final File file = File('${root.path}/鍛ㄦ澃浼?闈掕姳鐡?鍥借-娴佽.mp4');
       await file.writeAsBytes(const <int>[1, 2, 3], flush: true);
 
       final MediaLibraryDataSource dataSource = MediaLibraryDataSource();
       final List<LibrarySong> songs = await dataSource.scanLibrary(root.path);
 
       expect(songs, hasLength(1));
-      expect(songs.single.artist, '周杰伦');
-      expect(songs.single.title, '青花瓷');
-      expect(songs.single.languages, <String>['国语']);
-      expect(songs.single.tags, <String>['流行']);
+      expect(songs.single.artist, '鍛ㄦ澃浼?);
+      expect(songs.single.title, '闈掕姳鐡?);
+      expect(songs.single.languages, <String>['鍥借']);
+      expect(songs.single.tags, <String>['娴佽']);
     },
   );
 
@@ -248,7 +248,7 @@ void main() {
       }
     });
 
-    final File file = File('${root.path}/A-Lin-Love-Love-Love-国语-流行.mp4');
+    final File file = File('${root.path}/A-Lin-Love-Love-Love-鍥借-娴佽.mp4');
     await file.writeAsBytes(const <int>[1, 2, 3], flush: true);
 
     final MediaLibraryDataSource dataSource = MediaLibraryDataSource();
@@ -257,8 +257,8 @@ void main() {
     expect(songs, hasLength(1));
     expect(songs.single.artist, 'A-Lin');
     expect(songs.single.title, 'Love-Love-Love');
-    expect(songs.single.languages, <String>['国语']);
-    expect(songs.single.tags, <String>['流行']);
+    expect(songs.single.languages, <String>['鍥借']);
+    expect(songs.single.tags, <String>['娴佽']);
   });
 
   test('aggregated song queries filter and paginate in sqlite', () async {
@@ -267,41 +267,41 @@ void main() {
         songsByDirectory: <String, List<LibrarySong>>{
           '/media': <LibrarySong>[
             const TestLibrarySong(
-              title: '珊瑚海',
-              artist: '周杰伦 & Lara',
+              title: '鐝婄憵娴?,
+              artist: '鍛ㄦ澃浼?& Lara',
               mediaPath: '/media/1.mp4',
-              fileName: '周杰伦 & Lara - 珊瑚海.mp4',
+              fileName: '鍛ㄦ澃浼?& Lara - 鐝婄憵娴?mp4',
               relativePath: '1.mp4',
               fileSize: 1001,
               modifiedAtMillis: 1710000000001,
               sourceFingerprint: 'content:1001:a',
-              languages: <String>['国语'],
+              languages: <String>['鍥借'],
               searchIndex: 'shanhuhai zhoujielun lara',
               extension: 'mp4',
             ),
             const TestLibrarySong(
-              title: '夜曲',
-              artist: '周杰伦',
+              title: '澶滄洸',
+              artist: '鍛ㄦ澃浼?,
               mediaPath: '/media/2.mp4',
-              fileName: '周杰伦 - 夜曲.mp4',
+              fileName: '鍛ㄦ澃浼?- 澶滄洸.mp4',
               relativePath: '2.mp4',
               fileSize: 1002,
               modifiedAtMillis: 1710000000002,
               sourceFingerprint: 'content:1002:b',
-              languages: <String>['国语'],
+              languages: <String>['鍥借'],
               searchIndex: 'yequ zhoujielun',
               extension: 'mp4',
             ),
             const TestLibrarySong(
-              title: '海阔天空',
+              title: '娴烽様澶╃┖',
               artist: 'Beyond',
               mediaPath: '/media/3.mp4',
-              fileName: 'Beyond - 海阔天空.mp4',
+              fileName: 'Beyond - 娴烽様澶╃┖.mp4',
               relativePath: '3.mp4',
               fileSize: 1003,
               modifiedAtMillis: 1710000000003,
               sourceFingerprint: 'content:1003:c',
-              languages: <String>['粤语'],
+              languages: <String>['绮よ'],
               searchIndex: 'haikuotiankong beyond',
               extension: 'mp4',
             ),
@@ -318,20 +318,20 @@ void main() {
       pageIndex: 0,
       pageSize: 1,
       localDirectory: '/media',
-      language: '国语',
-      artist: '周杰伦',
+      language: '鍥借',
+      artist: '鍛ㄦ澃浼?,
     );
     final SongPage secondPage = await repository.queryAggregatedSongs(
       pageIndex: 1,
       pageSize: 1,
       localDirectory: '/media',
-      language: '国语',
-      artist: '周杰伦',
+      language: '鍥借',
+      artist: '鍛ㄦ澃浼?,
     );
 
     expect(page.totalCount, 2);
-    expect(page.songs.single.title, '夜曲');
-    expect(secondPage.songs.single.title, '珊瑚海');
+    expect(page.songs.single.title, '澶滄洸');
+    expect(secondPage.songs.single.title, '鐝婄憵娴?);
   });
 
   test(
@@ -342,28 +342,28 @@ void main() {
           songsByDirectory: <String, List<LibrarySong>>{
             '/media': <LibrarySong>[
               const TestLibrarySong(
-                title: '珊瑚海',
-                artist: '周杰伦 & Lara',
+                title: '鐝婄憵娴?,
+                artist: '鍛ㄦ澃浼?& Lara',
                 mediaPath: '/media/1.mp4',
-                fileName: '周杰伦 & Lara - 珊瑚海.mp4',
+                fileName: '鍛ㄦ澃浼?& Lara - 鐝婄憵娴?mp4',
                 relativePath: '1.mp4',
                 fileSize: 1001,
                 modifiedAtMillis: 1710000000001,
                 sourceFingerprint: 'content:1001:a',
-                languages: <String>['国语'],
+                languages: <String>['鍥借'],
                 searchIndex: 'shanhuhai zhoujielun lara',
                 extension: 'mp4',
               ),
               const TestLibrarySong(
-                title: '简单爱',
-                artist: '周杰伦',
+                title: '绠€鍗曠埍',
+                artist: '鍛ㄦ澃浼?,
                 mediaPath: '/media/2.mp4',
-                fileName: '周杰伦 - 简单爱.mp4',
+                fileName: '鍛ㄦ澃浼?- 绠€鍗曠埍.mp4',
                 relativePath: '2.mp4',
                 fileSize: 1002,
                 modifiedAtMillis: 1710000000002,
                 sourceFingerprint: 'content:1002:b',
-                languages: <String>['国语'],
+                languages: <String>['鍥借'],
                 searchIndex: 'jiandanai zhoujielun',
                 extension: 'mp4',
               ),
@@ -385,8 +385,8 @@ void main() {
       final List<Song> songs = await repository.getAggregatedSongsByIds(
         localDirectory: '/media',
         songIds: <String>[
-          buildAggregateSongId(title: '简单爱', artist: '周杰伦'),
-          buildAggregateSongId(title: '珊瑚海', artist: '周杰伦 & Lara'),
+          buildAggregateSongId(title: '绠€鍗曠埍', artist: '鍛ㄦ澃浼?),
+          buildAggregateSongId(title: '鐝婄憵娴?, artist: '鍛ㄦ澃浼?& Lara'),
         ],
       );
 
@@ -394,8 +394,8 @@ void main() {
       expect(artistPage.artists.single.name, 'Lara');
       expect(artistPage.artists.single.songCount, 1);
       expect(songs.map((Song song) => song.title).toList(), <String>[
-        '简单爱',
-        '珊瑚海',
+        '绠€鍗曠埍',
+        '鐝婄憵娴?,
       ]);
     },
   );
@@ -409,15 +409,15 @@ void main() {
         songsByDirectory: <String, List<LibrarySong>>{
           '/media': <LibrarySong>[
             const TestLibrarySong(
-              title: '青花瓷',
-              artist: '周杰伦',
+              title: '闈掕姳鐡?,
+              artist: '鍛ㄦ澃浼?,
               mediaPath: '/media/1.mp4',
-              fileName: '周杰伦 - 青花瓷.mp4',
+              fileName: '鍛ㄦ澃浼?- 闈掕姳鐡?mp4',
               relativePath: '1.mp4',
               fileSize: 1001,
               modifiedAtMillis: 1710000000001,
               sourceFingerprint: 'content:1001:a',
-              languages: <String>['国语'],
+              languages: <String>['鍥借'],
               searchIndex: 'qinghuaci zhoujielun',
               extension: 'mp4',
             ),
@@ -452,9 +452,9 @@ void main() {
     );
 
     expect(localPage.totalCount, 1);
-    expect(localPage.songs.single.title, '青花瓷');
+    expect(localPage.songs.single.title, '闈掕姳鐡?);
     expect(aggregatePage.totalCount, 1);
-    expect(aggregatePage.songs.single.title, '青花瓷');
+    expect(aggregatePage.songs.single.title, '闈掕姳鐡?);
   });
 }
 
@@ -467,7 +467,7 @@ Song song({required String title, required String artist}) {
     ),
     title: title,
     artist: artist,
-    languages: const <String>['其它'],
+    languages: const <String>['鍏跺畠'],
     searchIndex: '$title $artist'.toLowerCase(),
     mediaPath: '/tmp/$title.mp4',
   );
@@ -501,7 +501,7 @@ class TestLibrarySong extends LibrarySong {
     required super.modifiedAtMillis,
     required super.sourceFingerprint,
     required super.extension,
-    super.languages = const <String>['其它'],
+    super.languages = const <String>['鍏跺畠'],
     super.tags = const <String>[],
     required this.searchIndex,
   });
@@ -557,3 +557,4 @@ class FakeAndroidStorageDataSource extends AndroidStorageDataSource {
     );
   }
 }
+

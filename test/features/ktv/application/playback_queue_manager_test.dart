@@ -1,10 +1,10 @@
-import 'package:flutter/widgets.dart';
+﻿import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ktv2/ktv2.dart';
-import 'package:ktv2_example/core/models/song_identity.dart';
-import 'package:ktv2_example/core/models/song.dart';
-import 'package:ktv2_example/features/ktv/application/playback_queue_manager.dart';
-import 'package:ktv2_example/features/ktv/application/playable_song_resolver.dart';
+import 'package:maimai_ktv/core/models/song_identity.dart';
+import 'package:maimai_ktv/core/models/song.dart';
+import 'package:maimai_ktv/features/ktv/application/playback_queue_manager.dart';
+import 'package:maimai_ktv/features/ktv/application/playable_song_resolver.dart';
 
 void main() {
   test('requestSong opens first song and appends later songs', () async {
@@ -12,8 +12,8 @@ void main() {
     final PlaybackQueueManager manager = PlaybackQueueManager(
       playerController: playerController,
     );
-    final Song first = _song('第一首');
-    final Song second = _song('第二首');
+    final Song first = _song('绗竴棣?);
+    final Song second = _song('绗簩棣?);
 
     final List<Song> initialQueue = await manager.requestSong(
       const <Song>[],
@@ -24,7 +24,7 @@ void main() {
       second,
     );
 
-    expect(playerController.lastOpenedSource?.displayName, '第一首');
+    expect(playerController.lastOpenedSource?.displayName, '绗竴棣?);
     expect(nextQueue, <Song>[first, second]);
   });
 
@@ -33,8 +33,8 @@ void main() {
     final PlaybackQueueManager manager = PlaybackQueueManager(
       playerController: playerController,
     );
-    final Song first = _song('第一首');
-    final Song second = _song('第二首');
+    final Song first = _song('绗竴棣?);
+    final Song second = _song('绗簩棣?);
 
     final List<Song> queueAfterFirst = await manager.requestSong(
       const <Song>[],
@@ -54,7 +54,7 @@ void main() {
     );
 
     expect(remainingQueue, <Song>[second]);
-    expect(playerController.lastOpenedSource?.displayName, '第二首');
+    expect(playerController.lastOpenedSource?.displayName, '绗簩棣?);
     expect(playerController.audioOutputMode, AudioOutputMode.accompaniment);
   });
 
@@ -64,15 +64,15 @@ void main() {
       playerController: playerController,
       playableSongResolver: _FakePlayableSongResolver(
         resolvedPath: '/cache/resolved.mp4',
-        displayName: '缓存版第一首',
+        displayName: '缂撳瓨鐗堢涓€棣?,
       ),
     );
-    final Song first = _song('第一首');
+    final Song first = _song('绗竴棣?);
 
     await manager.requestSong(const <Song>[], first);
 
     expect(playerController.lastOpenedSource?.path, '/cache/resolved.mp4');
-    expect(playerController.lastOpenedSource?.displayName, '缓存版第一首');
+    expect(playerController.lastOpenedSource?.displayName, '缂撳瓨鐗堢涓€棣?);
   });
 
   test('prioritizeQueuedSong moves item to front when nothing is playing', () {
@@ -80,9 +80,9 @@ void main() {
     final PlaybackQueueManager manager = PlaybackQueueManager(
       playerController: playerController,
     );
-    final Song first = _song('第一首');
-    final Song second = _song('第二首');
-    final Song third = _song('第三首');
+    final Song first = _song('绗竴棣?);
+    final Song second = _song('绗簩棣?);
+    final Song third = _song('绗笁棣?);
 
     final List<Song> nextQueue = manager.prioritizeQueuedSong(<Song>[
       first,
@@ -100,7 +100,7 @@ void main() {
       final PlaybackQueueManager manager = PlaybackQueueManager(
         playerController: playerController,
       );
-      final Song first = _song('第一首');
+      final Song first = _song('绗竴棣?);
 
       final List<Song> queue = await manager.requestSong(const <Song>[], first);
       final List<Song> remainingQueue = await manager.skipCurrentSong(
@@ -109,7 +109,7 @@ void main() {
       );
 
       expect(remainingQueue, <Song>[first]);
-      expect(playerController.lastOpenedSource?.displayName, '第一首');
+      expect(playerController.lastOpenedSource?.displayName, '绗竴棣?);
       expect(playerController.hasMedia, isTrue);
       expect(playerController.stopPlaybackCallCount, 0);
     },
@@ -120,8 +120,8 @@ void main() {
     final PlaybackQueueManager manager = PlaybackQueueManager(
       playerController: playerController,
     );
-    final Song current = _song('当前歌曲');
-    final Song pending = _song('等待下载');
+    final Song current = _song('褰撳墠姝屾洸');
+    final Song pending = _song('绛夊緟涓嬭浇');
 
     final List<Song> queue = await manager.requestSong(const <Song>[], current);
     final List<Song> nextQueue = <Song>[...queue, pending];
@@ -131,7 +131,7 @@ void main() {
     );
 
     expect(remainingQueue, nextQueue);
-    expect(playerController.lastOpenedSource?.displayName, '当前歌曲');
+    expect(playerController.lastOpenedSource?.displayName, '褰撳墠姝屾洸');
   });
 
   test('restartPlayback resumes playback from start when paused', () async {
@@ -139,7 +139,7 @@ void main() {
     final PlaybackQueueManager manager = PlaybackQueueManager(
       playerController: playerController,
     );
-    final Song first = _song('第一首');
+    final Song first = _song('绗竴棣?);
 
     await manager.requestSong(const <Song>[], first);
     await playerController.seekToProgress(0.5);
@@ -156,14 +156,14 @@ void main() {
 
 Song _song(String title) {
   return Song(
-    songId: buildAggregateSongId(title: title, artist: '歌手'),
+    songId: buildAggregateSongId(title: title, artist: '姝屾墜'),
     sourceId: 'local',
     sourceSongId: buildLocalSourceSongId(
       fingerprint: buildLocalMetadataFingerprint(locator: '/tmp/$title.mp4'),
     ),
     title: title,
-    artist: '歌手',
-    languages: const <String>['其它'],
+    artist: '姝屾墜',
+    languages: const <String>['鍏跺畠'],
     searchIndex: title.toLowerCase(),
     mediaPath: '/tmp/$title.mp4',
   );
@@ -265,3 +265,4 @@ class _FakePlayableSongResolver implements PlayableSongResolver {
     );
   }
 }
+

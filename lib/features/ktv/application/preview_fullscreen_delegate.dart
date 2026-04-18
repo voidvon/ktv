@@ -10,7 +10,7 @@ abstract class PreviewFullscreenDelegate {
 class MethodChannelPreviewFullscreenDelegate extends PreviewFullscreenDelegate {
   const MethodChannelPreviewFullscreenDelegate({
     MethodChannel orientationChannel = const MethodChannel(
-      'ktv2_example/orientation',
+      'com.app0122.maimai.app/orientation',
     ),
   }) : _orientationChannel = orientationChannel;
 

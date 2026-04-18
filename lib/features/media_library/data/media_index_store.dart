@@ -74,6 +74,7 @@ class MediaIndexStore {
   static const String aggregateSongItemsTable = 'aggregate_song_items';
   static const String aggregateSongLinksTable = 'aggregate_song_links';
   static const String sourceSyncStatesTable = 'source_sync_states';
+  static const String appSettingsTable = 'app_settings';
 
   static const String columnSourceType = 'source_type';
   static const String columnSourceSongId = 'source_song_id';
@@ -104,6 +105,10 @@ class MediaIndexStore {
   static const String columnLastSyncedAt = 'last_synced_at';
   static const String columnSyncStatus = 'sync_status';
   static const String columnLastError = 'last_error';
+  static const String columnSettingKey = 'setting_key';
+  static const String columnSettingValue = 'setting_value';
+
+  static const String settingSelectedDirectory = 'selected_directory';
 
   Future<Database>? _database;
   Future<void>? _pendingAggregateIndexCheck;
@@ -351,6 +356,50 @@ class MediaIndexStore {
       <Object?>['local', 'local', normalizedLocalRootId, 'deleted'],
     );
     return rows.isNotEmpty;
+  }
+
+  Future<void> saveSelectedDirectory(String path) async {
+    final String normalizedPath = path.trim();
+    if (normalizedPath.isEmpty) {
+      await clearSelectedDirectory();
+      return;
+    }
+
+    final Database db = await database;
+    await db.insert(appSettingsTable, <String, Object?>{
+      columnSettingKey: settingSelectedDirectory,
+      columnSettingValue: normalizedPath,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<String?> loadSelectedDirectory() async {
+    final Database db = await database;
+    final List<Map<String, Object?>> rows = await db.query(
+      appSettingsTable,
+      columns: <String>[columnSettingValue],
+      where: '$columnSettingKey = ?',
+      whereArgs: <Object?>[settingSelectedDirectory],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+
+    final String normalizedPath =
+        (rows.first[columnSettingValue]?.toString() ?? '').trim();
+    if (normalizedPath.isEmpty) {
+      return null;
+    }
+    return normalizedPath;
+  }
+
+  Future<void> clearSelectedDirectory() async {
+    final Database db = await database;
+    await db.delete(
+      appSettingsTable,
+      where: '$columnSettingKey = ?',
+      whereArgs: <Object?>[settingSelectedDirectory],
+    );
   }
 
   Future<List<Song>> loadLocalSongs({required String sourceRootId}) async {
@@ -963,6 +1012,7 @@ class MediaIndexStore {
   }
 
   Future<void> _resetSchema(Database db) async {
+    await db.execute('DROP TABLE IF EXISTS $appSettingsTable');
     await db.execute('DROP TABLE IF EXISTS $aggregateSongLinksTable');
     await db.execute('DROP TABLE IF EXISTS $aggregateSongItemsTable');
     await db.execute('DROP TABLE IF EXISTS $sourceSongItemsTable');
@@ -1025,6 +1075,12 @@ class MediaIndexStore {
         $columnSyncStatus TEXT NOT NULL DEFAULT 'idle',
         $columnLastError TEXT,
         PRIMARY KEY ($columnSourceType, $columnSourceRootId)
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $appSettingsTable (
+        $columnSettingKey TEXT NOT NULL PRIMARY KEY,
+        $columnSettingValue TEXT
       )
     ''');
     await db.execute('''

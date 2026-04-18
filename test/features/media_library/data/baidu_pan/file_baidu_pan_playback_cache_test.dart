@@ -1,13 +1,13 @@
-import 'dart:io';
+﻿import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ktv2_example/core/models/song.dart';
-import 'package:ktv2_example/core/models/song_identity.dart';
-import 'package:ktv2_example/features/media_library/data/baidu_pan/baidu_pan_auth_repository.dart';
-import 'package:ktv2_example/features/media_library/data/baidu_pan/baidu_pan_models.dart';
-import 'package:ktv2_example/features/media_library/data/baidu_pan/baidu_pan_remote_data_source.dart';
-import 'package:ktv2_example/features/media_library/data/baidu_pan/file_baidu_pan_playback_cache.dart';
-import 'package:ktv2_example/features/media_library/data/cloud/cloud_playback_cache.dart';
+import 'package:maimai_ktv/core/models/song.dart';
+import 'package:maimai_ktv/core/models/song_identity.dart';
+import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_auth_repository.dart';
+import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_models.dart';
+import 'package:maimai_ktv/features/media_library/data/baidu_pan/baidu_pan_remote_data_source.dart';
+import 'package:maimai_ktv/features/media_library/data/baidu_pan/file_baidu_pan_playback_cache.dart';
+import 'package:maimai_ktv/features/media_library/data/cloud/cloud_playback_cache.dart';
 
 void main() {
   test(
@@ -71,13 +71,13 @@ void main() {
 
 Song _song() {
   return Song(
-    songId: buildAggregateSongId(title: '青花瓷', artist: '周杰伦'),
+    songId: buildAggregateSongId(title: '闈掕姳鐡?, artist: '鍛ㄦ澃浼?),
     sourceId: 'baidu_pan',
     sourceSongId: '12345',
-    title: '青花瓷',
-    artist: '周杰伦',
-    languages: const <String>['国语'],
-    searchIndex: '青花瓷 周杰伦',
+    title: '闈掕姳鐡?,
+    artist: '鍛ㄦ澃浼?,
+    languages: const <String>['鍥借'],
+    searchIndex: '闈掕姳鐡?鍛ㄦ澃浼?,
     mediaPath: '',
   );
 }
@@ -90,8 +90,8 @@ class _FakeBaiduPanRemoteDataSource implements BaiduPanRemoteDataSource {
     getPlayableFileMetaCallCount += 1;
     return const BaiduPanRemoteFile(
       fsid: '12345',
-      path: '/KTV/周杰伦-青花瓷-国语.mp4',
-      serverFilename: '周杰伦-青花瓷-国语.mp4',
+      path: '/KTV/鍛ㄦ澃浼?闈掕姳鐡?鍥借.mp4',
+      serverFilename: '鍛ㄦ澃浼?闈掕姳鐡?鍥借.mp4',
       isDirectory: false,
       size: 1024,
       modifiedAtMillis: 1710000000000,
@@ -142,3 +142,4 @@ class _FakeBaiduPanAuthRepository implements BaiduPanAuthRepository {
   @override
   Future<BaiduPanAuthToken?> readToken() async => null;
 }
+
