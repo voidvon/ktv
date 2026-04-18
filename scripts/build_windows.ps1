@@ -25,7 +25,7 @@ function Invoke-Step {
     Set-Location $WorkingDirectory
     & $FilePath @Arguments
     if ($LASTEXITCODE -ne 0) {
-      throw "Command failed with exit code $LASTEXITCODE: $FilePath $($Arguments -join ' ')"
+      throw "Command failed with exit code ${LASTEXITCODE}: $FilePath $($Arguments -join ' ')"
     }
   } finally {
     Set-Location $oldLocation
@@ -49,15 +49,29 @@ function Get-ProjectVersion {
   return $versionLine.Matches[0].Groups[1].Value.Trim()
 }
 
-function Get-VisualStudioGenerator {
+function Get-VisualStudioGeneratorInfo {
   $vswherePath = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
   if (Test-Path $vswherePath) {
+    $installPath = & $vswherePath -latest -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 -property installationPath
+    if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($installPath)) {
+      return [pscustomobject]@{
+        Generator = 'Visual Studio 17 2022'
+        InstancePath = $installPath.Trim()
+      }
+    }
+
     $installPath = & $vswherePath -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
     if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($installPath)) {
-      return 'Visual Studio 17 2022'
+      return [pscustomobject]@{
+        Generator = 'Visual Studio 17 2022'
+        InstancePath = $installPath.Trim()
+      }
     }
   }
-  return 'Visual Studio 17 2022'
+  return [pscustomobject]@{
+    Generator = 'Visual Studio 17 2022'
+    InstancePath = $null
+  }
 }
 
 function Get-ArchMatrix {
@@ -93,6 +107,16 @@ function Get-ArchMatrix {
     }
 }
 
+function Test-FlutterWindowsArm64Artifacts {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$FlutterRoot
+  )
+
+  $arm64ReleaseDir = Join-Path $FlutterRoot 'bin\cache\artifacts\engine\windows-arm64-release'
+  return Test-Path $arm64ReleaseDir
+}
+
 if ($env:OS -ne 'Windows_NT') {
   throw 'This script must run on a Windows host.'
 }
@@ -100,7 +124,8 @@ if ($env:OS -ne 'Windows_NT') {
 $repoRoot = Resolve-RepoRoot
 $pubspecPath = Join-Path $repoRoot 'pubspec.yaml'
 $version = Get-ProjectVersion -PubspecPath $pubspecPath
-$generator = Get-VisualStudioGenerator
+$generatorInfo = Get-VisualStudioGeneratorInfo
+$generator = $generatorInfo.Generator
 $modeLower = $Mode.ToLowerInvariant()
 $architectures = Get-ArchMatrix -RequestedArch $Arch
 
@@ -113,8 +138,6 @@ if (-not $SkipPubGet) {
   Invoke-Step -FilePath 'flutter' -Arguments @('pub', 'get') -WorkingDirectory $repoRoot
 }
 
-Invoke-Step -FilePath 'flutter' -Arguments @('build', 'windows', "--$modeLower", '--config-only', '--no-pub') -WorkingDirectory $repoRoot
-
 foreach ($archConfig in $architectures) {
   $buildDir = Join-Path $repoRoot ("build\windows\{0}" -f $archConfig.Name)
   $outputDir = Join-Path $buildDir ("runner\{0}" -f $Mode)
@@ -124,13 +147,29 @@ foreach ($archConfig in $architectures) {
     Remove-Item -Recurse -Force $buildDir
   }
 
-  Invoke-Step -FilePath 'cmake' -Arguments @(
+  if ($archConfig.Name -eq 'arm64') {
+    $flutterCommand = Get-Command flutter -ErrorAction Stop
+    $flutterRoot = Split-Path -Parent (Split-Path -Parent $flutterCommand.Source)
+    if (-not (Test-FlutterWindowsArm64Artifacts -FlutterRoot $flutterRoot)) {
+      throw "Flutter SDK at '$flutterRoot' does not contain Windows ARM64 engine artifacts. Install an SDK that includes 'bin\\cache\\artifacts\\engine\\windows-arm64-release' before building arm64."
+    }
+  }
+
+  Invoke-Step -FilePath 'flutter' -Arguments @('build', 'windows', "--$modeLower", '--config-only', '--no-pub') -WorkingDirectory $repoRoot
+
+  $cmakeArguments = @(
     '-S', 'windows',
     '-B', $buildDir,
     '-G', $generator,
     '-A', $archConfig.CmakeArch,
     "-DFLUTTER_TARGET_PLATFORM=$($archConfig.FlutterTargetPlatform)"
-  ) -WorkingDirectory $repoRoot
+  )
+
+  if (-not [string]::IsNullOrWhiteSpace($generatorInfo.InstancePath)) {
+    $cmakeArguments += "-DCMAKE_GENERATOR_INSTANCE=$($generatorInfo.InstancePath)"
+  }
+
+  Invoke-Step -FilePath 'cmake' -Arguments $cmakeArguments -WorkingDirectory $repoRoot
 
   Invoke-Step -FilePath 'cmake' -Arguments @(
     '--build', $buildDir,
