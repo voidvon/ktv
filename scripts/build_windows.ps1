@@ -117,6 +117,25 @@ function Test-FlutterWindowsArm64Artifacts {
   return Test-Path $arm64ReleaseDir
 }
 
+function Clear-SharedFlutterWindowsOutputs {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$RepoRoot
+  )
+
+  $sharedPaths = @(
+    (Join-Path $RepoRoot 'build\native_assets\windows'),
+    (Join-Path $RepoRoot 'build\flutter_assets'),
+    (Join-Path $RepoRoot 'build\windows\app.so')
+  )
+
+  foreach ($path in $sharedPaths) {
+    if (Test-Path $path) {
+      Remove-Item -Recurse -Force $path
+    }
+  }
+}
+
 if ($env:OS -ne 'Windows_NT') {
   throw 'This script must run on a Windows host.'
 }
@@ -146,6 +165,9 @@ foreach ($archConfig in $architectures) {
   if ($Clean -and (Test-Path $buildDir)) {
     Remove-Item -Recurse -Force $buildDir
   }
+  if ($Clean) {
+    Clear-SharedFlutterWindowsOutputs -RepoRoot $repoRoot
+  }
 
   if ($archConfig.Name -eq 'arm64') {
     $flutterCommand = Get-Command flutter -ErrorAction Stop
@@ -155,7 +177,17 @@ foreach ($archConfig in $architectures) {
     }
   }
 
-  Invoke-Step -FilePath 'flutter' -Arguments @('build', 'windows', "--$modeLower", '--config-only', '--no-pub') -WorkingDirectory $repoRoot
+  Invoke-Step -FilePath 'flutter' -Arguments @(
+    'build', 'windows',
+    "--$modeLower",
+    '--config-only',
+    '--no-pub'
+  ) -WorkingDirectory $repoRoot
+
+  # Flutter desktop writes native assets and AOT outputs into shared `build/`
+  # paths. Clear them here so the following CMake/tool_backend pass must
+  # regenerate the current architecture's artifacts.
+  Clear-SharedFlutterWindowsOutputs -RepoRoot $repoRoot
 
   $cmakeArguments = @(
     '-S', 'windows',

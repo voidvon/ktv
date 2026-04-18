@@ -51,6 +51,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build_windows.ps1 -Arch all -
 - `-SkipZip` 只编译，不压缩
 - `-SkipPubGet` 跳过 `flutter pub get`
 
+脚本会在每个架构构建前清理 Flutter 放在共享 `build/` 目录里的 Windows 原生产物，再由后续的 CMake/tool_backend 按当前 `FLUTTER_TARGET_PLATFORM` 重新生成。这样可以避免在同一台机器上连续构建 `x64` 和 `arm64` 时，把错误架构的 `sqlite3.dll` 或 `app.so` 混入最终包。
+
 ## 产物目录
 
 未压缩目录位于：
