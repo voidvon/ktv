@@ -2,6 +2,17 @@
 
 This file records the exact branch, commit and release link used for each published package.
 
+## v1.0.0-alpha.7
+- Date: 2026-04-19
+- Title: 麦麦KTV v1.0.0-alpha.7
+- Repo: voidvon/maimai-ktv
+- Branch: main
+- Commit: e1f0578 (e1f0578d47307216044a17d301feb2c4ab8046bb)
+- Dirty Worktree: no
+- Release: https://github.com/voidvon/maimai-ktv/releases/tag/v1.0.0-alpha.7
+- Assets:
+  - maimai-ktv-v1.0.0-alpha.7-windows-x64.zip
+
 ## v1.0.0-alpha.6
 - Date: 2026-04-13
 - Title: 麦麦KTV v1.0.0-alpha.6
