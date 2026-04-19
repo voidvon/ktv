@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:file_selector/file_selector.dart';
 
 import '../../../core/models/artist.dart';
 import '../../../core/models/artist_page.dart';
@@ -58,6 +59,16 @@ class MediaLibraryRepository {
     return _scanDirectoryDataSource.pickDirectory(
       initialDirectory: initialDirectory,
     );
+  }
+
+  Future<List<XFile>> pickImportFiles({String? initialDirectory}) {
+    return _scanDirectoryDataSource.pickImportFiles(
+      initialDirectory: initialDirectory,
+    );
+  }
+
+  Future<String?> importPickedFiles(List<XFile> selectedFiles) {
+    return _scanDirectoryDataSource.importPickedFiles(selectedFiles);
   }
 
   Future<bool> ensureDirectoryAccess(String path) {

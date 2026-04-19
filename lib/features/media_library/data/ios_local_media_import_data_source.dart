@@ -31,12 +31,22 @@ class IosLocalMediaImportDataSource {
     label: 'Supported Media Files',
   );
 
-  Future<String?> importFiles({String? initialDirectory}) async {
-    final List<XFile> selectedFiles = await _filePicker(
+  Future<List<XFile>> pickFiles({String? initialDirectory}) {
+    return _filePicker(
       acceptedTypeGroups: const <XTypeGroup>[_iosImportTypeGroup],
       confirmButtonText: '导入',
       initialDirectory: initialDirectory,
     );
+  }
+
+  Future<String?> importFiles({String? initialDirectory}) async {
+    final List<XFile> selectedFiles = await pickFiles(
+      initialDirectory: initialDirectory,
+    );
+    return importPickedFiles(selectedFiles);
+  }
+
+  Future<String?> importPickedFiles(List<XFile> selectedFiles) async {
     if (selectedFiles.isEmpty) {
       return null;
     }

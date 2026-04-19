@@ -36,6 +36,8 @@ class KtvShell extends StatefulWidget {
 
 class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
   static const Duration _backgroundErrorSuppressDuration = Duration(seconds: 2);
+  static const double _wideShellMaxWidth = 980;
+  static const double _landscapeSongBookShellMaxWidth = 1120;
 
   late final KtvController _controller;
   late final KtvSearchCoordinator _searchCoordinator;
@@ -181,15 +183,15 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
   }
 
   void _enterPreviewFullscreen() {
-    unawaited(_previewCoordinator.enterPreviewFullscreen());
+    unawaited(
+      _previewCoordinator.enterPreviewFullscreen(
+        entryOrientation: mounted ? MediaQuery.orientationOf(context) : null,
+      ),
+    );
   }
 
   void _exitPreviewFullscreen() {
-    unawaited(
-      _previewCoordinator.exitPreviewFullscreen(
-        restoredOrientation: mounted ? MediaQuery.orientationOf(context) : null,
-      ),
-    );
+    unawaited(_previewCoordinator.exitPreviewFullscreen());
   }
 
   void _handleBackToSongBookFromFullscreen() {
@@ -524,6 +526,7 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
         SizedBox(
           width: sidePanelWidth,
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               HomePreviewCard(
@@ -654,30 +657,52 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
                           (BuildContext context, BoxConstraints constraints) {
                             final Orientation orientation =
                                 MediaQuery.orientationOf(context);
+                            final bool isLandscape =
+                                orientation == Orientation.landscape;
                             _previewCoordinator
                                 .syncSystemStatusBarForOrientation(orientation);
                             final bool useWideLayout =
-                                orientation == Orientation.landscape ||
-                                constraints.maxWidth >= 860;
+                                isLandscape || constraints.maxWidth >= 860;
+                            final bool useLandscapeSongBookLayout =
+                                isLandscape &&
+                                _controller.route != KtvRoute.home;
                             final double columnGap = constraints.maxWidth < 760
                                 ? 16
                                 : 28;
+                            final double shellMaxWidth =
+                                useLandscapeSongBookLayout
+                                ? _landscapeSongBookShellMaxWidth
+                                : _wideShellMaxWidth;
+                            final double effectiveShellWidth = math.min(
+                              constraints.maxWidth,
+                              shellMaxWidth,
+                            );
                             final double candidateSidePanelWidth =
-                                (constraints.maxWidth * 0.36)
+                                (effectiveShellWidth * 0.36)
                                     .clamp(220.0, 304.0)
                                     .toDouble();
                             final double maxAllowedSidePanelWidth = math.max(
                               180,
-                              constraints.maxWidth - columnGap - 260,
+                              effectiveShellWidth - columnGap - 260,
                             );
-                            final double sidePanelWidth = math.min(
-                              candidateSidePanelWidth,
-                              maxAllowedSidePanelWidth,
-                            );
+                            final _WidePanelLayout wideSongBookPanelLayout =
+                                _resolveWideSongBookPanelLayout(
+                                  availableWidth: effectiveShellWidth,
+                                  columnGap: columnGap,
+                                );
+                            final double sidePanelWidth =
+                                useLandscapeSongBookLayout
+                                ? wideSongBookPanelLayout.leftWidth
+                                : math.min(
+                                    candidateSidePanelWidth,
+                                    maxAllowedSidePanelWidth,
+                                  );
                             final double rightPanelWidth =
-                                constraints.maxWidth -
-                                sidePanelWidth -
-                                columnGap;
+                                useLandscapeSongBookLayout
+                                ? wideSongBookPanelLayout.rightWidth
+                                : effectiveShellWidth -
+                                      sidePanelWidth -
+                                      columnGap;
                             final bool compactWideHomePage =
                                 rightPanelWidth < 520;
                             final double minContentHeight = math.max(
@@ -685,7 +710,9 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
                               constraints.maxHeight - 158,
                             );
                             final Widget constrainedShell = ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 980),
+                              constraints: BoxConstraints(
+                                maxWidth: shellMaxWidth,
+                              ),
                               child: GradientShell(
                                 padding: EdgeInsets.zero,
                                 child: useWideLayout
@@ -719,7 +746,7 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
                                         ? SizedBox(
                                             width: math.min(
                                               constraints.maxWidth,
-                                              980,
+                                              _wideShellMaxWidth,
                                             ),
                                             height: constraints.maxHeight,
                                             child: constrainedShell,
@@ -772,4 +799,32 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
       },
     );
   }
+}
+
+_WidePanelLayout _resolveWideSongBookPanelLayout({
+  required double availableWidth,
+  required double columnGap,
+}) {
+  final double contentWidth = math.max(0, availableWidth - columnGap);
+  double leftWidth = (contentWidth * 0.34).clamp(260.0, 460.0).toDouble();
+  double rightWidth = math.max(0, contentWidth - leftWidth);
+
+  if (rightWidth > 760) {
+    rightWidth = 760;
+    leftWidth = math.max(0, contentWidth - rightWidth);
+  }
+
+  if (leftWidth > 460) {
+    leftWidth = 460;
+    rightWidth = math.max(0, contentWidth - leftWidth);
+  }
+
+  return _WidePanelLayout(leftWidth: leftWidth, rightWidth: rightWidth);
+}
+
+class _WidePanelLayout {
+  const _WidePanelLayout({required this.leftWidth, required this.rightWidth});
+
+  final double leftWidth;
+  final double rightWidth;
 }

@@ -34,6 +34,7 @@ class KtvPreviewCoordinator extends ChangeNotifier {
   bool _isPreviewFullscreen = false;
   Rect? _previewViewportRect;
   bool _didSchedulePreviewViewportSync = false;
+  Orientation? _fullscreenEntryOrientation;
 
   bool get isPreviewFullscreen => _isPreviewFullscreen;
   Rect? get previewViewportRect => _previewViewportRect;
@@ -77,8 +78,11 @@ class KtvPreviewCoordinator extends ChangeNotifier {
     });
   }
 
-  Future<void> enterPreviewFullscreen() {
-    return _setPreviewFullscreen(enabled: true);
+  Future<void> enterPreviewFullscreen({Orientation? entryOrientation}) {
+    return _setPreviewFullscreen(
+      enabled: true,
+      entryOrientation: entryOrientation,
+    );
   }
 
   Future<void> exitPreviewFullscreen({Orientation? restoredOrientation}) {
@@ -90,10 +94,14 @@ class KtvPreviewCoordinator extends ChangeNotifier {
 
   Future<void> _setPreviewFullscreen({
     required bool enabled,
+    Orientation? entryOrientation,
     Orientation? restoredOrientation,
   }) async {
     if (_isPreviewFullscreen == enabled) {
       return;
+    }
+    if (enabled) {
+      _fullscreenEntryOrientation = entryOrientation;
     }
     _isPreviewFullscreen = enabled;
     if (!enabled) {
@@ -113,9 +121,12 @@ class KtvPreviewCoordinator extends ChangeNotifier {
     }
 
     await _setPlatformFullscreenOrientation(enabled: false);
-    await SystemChrome.setPreferredOrientations(<DeviceOrientation>[]);
-    if (restoredOrientation != null) {
-      syncSystemStatusBarForOrientation(restoredOrientation);
+    final Orientation? targetOrientation =
+        restoredOrientation ?? _fullscreenEntryOrientation;
+    await _restorePreferredOrientations(targetOrientation);
+    _fullscreenEntryOrientation = null;
+    if (targetOrientation != null) {
+      syncSystemStatusBarForOrientation(targetOrientation);
     }
   }
 
@@ -123,6 +134,20 @@ class KtvPreviewCoordinator extends ChangeNotifier {
     required bool enabled,
   }) async {
     await _fullscreenDelegate.setVideoFullscreen(enabled: enabled);
+  }
+
+  Future<void> _restorePreferredOrientations(Orientation? orientation) async {
+    if (orientation != Orientation.portrait) {
+      await SystemChrome.setPreferredOrientations(<DeviceOrientation>[]);
+      return;
+    }
+
+    await SystemChrome.setPreferredOrientations(<DeviceOrientation>[
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+    await Future<void>.microtask(() {});
+    await SystemChrome.setPreferredOrientations(<DeviceOrientation>[]);
   }
 
   void _syncPreviewViewportRect() {

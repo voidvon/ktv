@@ -116,23 +116,9 @@ class HomePage extends StatelessWidget {
           ),
           SizedBox(height: shouldUseCompactLayout ? 16 : 18),
           if (shouldUseCompactLayout || shouldScroll)
-            Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 324),
-                child: shortcutGrid,
-              ),
-            )
+            shortcutGrid
           else
-            Expanded(
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 324),
-                  child: shortcutGrid,
-                ),
-              ),
-            ),
+            Expanded(child: shortcutGrid),
         ];
 
         final Widget content = Column(

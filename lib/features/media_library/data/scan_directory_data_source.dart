@@ -52,6 +52,22 @@ class ScanDirectoryDataSource {
     return getDirectoryPath(initialDirectory: initialDirectory);
   }
 
+  Future<List<XFile>> pickImportFiles({String? initialDirectory}) {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) {
+      throw UnsupportedError('pickImportFiles is only available on iOS');
+    }
+    return _iosLocalMediaImportDataSource.pickFiles(
+      initialDirectory: initialDirectory,
+    );
+  }
+
+  Future<String?> importPickedFiles(List<XFile> selectedFiles) {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) {
+      throw UnsupportedError('importPickedFiles is only available on iOS');
+    }
+    return _iosLocalMediaImportDataSource.importPickedFiles(selectedFiles);
+  }
+
   Future<bool> ensureDirectoryAccess(String path) {
     return _androidStorageDataSource.ensureDirectoryAccess(path);
   }

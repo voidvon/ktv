@@ -498,18 +498,69 @@ class _AboutPage extends StatelessWidget {
   }
 }
 
-class _LocalDirectorySettingsPage extends StatelessWidget {
+class _LocalDirectorySettingsPage extends StatefulWidget {
   const _LocalDirectorySettingsPage({required this.controller});
 
   final SettingsController controller;
+
+  @override
+  State<_LocalDirectorySettingsPage> createState() =>
+      _LocalDirectorySettingsPageState();
+}
+
+class _LocalDirectorySettingsPageState
+    extends State<_LocalDirectorySettingsPage>
+    with WidgetsBindingObserver {
+  Timer? _selectionRecoveryTimer;
+  AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
+
+  SettingsController get controller => widget.controller;
 
   bool get _usesImportedLocalLibrary =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    _selectionRecoveryTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final AppLifecycleState previousState = _appLifecycleState;
+    _appLifecycleState = state;
+    if (state != AppLifecycleState.resumed ||
+        !_isBackgroundLifecycle(previousState) ||
+        !_usesImportedLocalLibrary) {
+      return;
+    }
+    _selectionRecoveryTimer?.cancel();
+    _selectionRecoveryTimer = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) {
+        return;
+      }
+      controller.recoverStuckDirectorySelection();
+    });
+  }
+
+  bool _isBackgroundLifecycle(AppLifecycleState state) {
+    return state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: controller,
+      animation: widget.controller,
       builder: (BuildContext context, _) {
         final String pageTitle = _usesImportedLocalLibrary ? '本地文件' : '本地目录';
         final String introText = _usesImportedLocalLibrary
@@ -524,8 +575,10 @@ class _LocalDirectorySettingsPage extends StatelessWidget {
         final IconData actionIcon = _usesImportedLocalLibrary
             ? Icons.file_upload_rounded
             : Icons.folder_open_rounded;
-        final String actionLabel = controller.isPickingDirectory
-            ? (_usesImportedLocalLibrary ? '导入中' : '选择中')
+        final String actionLabel = controller.isImportingDirectory
+            ? '导入中'
+            : controller.isSelectingDirectory
+            ? '选择中'
             : (_usesImportedLocalLibrary ? '导入文件' : '选择目录');
         return Scaffold(
           backgroundColor: const Color(0xFF0A0014),
