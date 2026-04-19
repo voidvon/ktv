@@ -11,6 +11,12 @@ This file records the exact branch, commit and release link used for each publis
 - Dirty Worktree: no
 - Release: https://github.com/voidvon/maimai-ktv/releases/tag/v1.0.0-alpha.7
 - Assets:
+  - maimai-ktv-v1.0.0-alpha.7-android-arm64-v8a.apk
+  - maimai-ktv-v1.0.0-alpha.7-android-armeabi-v7a.apk
+  - maimai-ktv-v1.0.0-alpha.7-android-universal.apk
+  - maimai-ktv-v1.0.0-alpha.7-android-x86_64.apk
+  - maimai-ktv-v1.0.0-alpha.7-ios-unsigned.ipa
+  - maimai-ktv-v1.0.0-alpha.7-macos.zip
   - maimai-ktv-v1.0.0-alpha.7-windows-x64.zip
 
 ## v1.0.0-alpha.6
