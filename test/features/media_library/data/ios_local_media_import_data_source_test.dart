@@ -5,6 +5,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:maimai_ktv/features/media_library/data/ios_local_media_import_data_source.dart';
 
 void main() {
+  test('iosImportTypeGroup allows all files for iOS document picker', () {
+    final XTypeGroup typeGroup = IosLocalMediaImportDataSource.iosImportTypeGroup;
+
+    expect(typeGroup.allowsAny, isTrue);
+    expect(typeGroup.uniformTypeIdentifiers, isNull);
+  });
+
   test(
     'importFiles copies selected videos into the app library directory',
     () async {
@@ -23,7 +30,7 @@ void main() {
         }
       });
 
-      final File sourceFile = File('${sourceRoot.path}/Singer - Song.mp4');
+      final File sourceFile = File('${sourceRoot.path}/Singer - Song.dat');
       await sourceFile.writeAsBytes(<int>[1, 2, 3, 4], flush: true);
       final File ignoredFile = File('${sourceRoot.path}/notes.txt');
       await ignoredFile.writeAsString('skip me', flush: true);
@@ -35,10 +42,14 @@ void main() {
                   acceptedTypeGroups = const [],
                   String? confirmButtonText,
                   String? initialDirectory,
-                }) async => <XFile>[
-                  XFile(sourceFile.path),
-                  XFile(ignoredFile.path),
-                ],
+                }) async {
+                  expect(acceptedTypeGroups, hasLength(1));
+                  expect(acceptedTypeGroups.single.allowsAny, isTrue);
+                  return <XFile>[
+                    XFile(sourceFile.path),
+                    XFile(ignoredFile.path),
+                  ];
+                },
             libraryDirectoryProvider: () async => targetRoot,
           );
 
@@ -46,7 +57,7 @@ void main() {
 
       expect(importedDirectory, targetRoot.path);
       expect(
-        await File('${targetRoot.path}/Singer - Song.mp4').exists(),
+        await File('${targetRoot.path}/Singer - Song.dat').exists(),
         isTrue,
       );
       expect(await File('${targetRoot.path}/notes.txt').exists(), isFalse);

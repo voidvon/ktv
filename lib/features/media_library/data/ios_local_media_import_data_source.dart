@@ -24,11 +24,16 @@ class IosLocalMediaImportDataSource {
   final LocalMediaFilePicker _filePicker;
   final Future<Directory> Function() _libraryDirectoryProvider;
 
+  // iOS Maps "allow any" to UTType public.data. This is more reliable than
+  // trying to describe every video-like container, and it keeps .dat files
+  // selectable so we can apply our own extension filter after selection.
+  static const XTypeGroup _iosImportTypeGroup = XTypeGroup(
+    label: 'Supported Media Files',
+  );
+
   Future<String?> importFiles({String? initialDirectory}) async {
     final List<XFile> selectedFiles = await _filePicker(
-      acceptedTypeGroups: <XTypeGroup>[
-        XTypeGroup(label: 'Video Files', extensions: supportedVideoExtensions),
-      ],
+      acceptedTypeGroups: const <XTypeGroup>[_iosImportTypeGroup],
       confirmButtonText: '导入',
       initialDirectory: initialDirectory,
     );
@@ -59,6 +64,8 @@ class IosLocalMediaImportDataSource {
     }
     return libraryDirectory.path;
   }
+
+  static XTypeGroup get iosImportTypeGroup => _iosImportTypeGroup;
 
   static Future<Directory> _defaultLibraryDirectoryProvider() async {
     final Directory supportDirectory = await getApplicationSupportDirectory();
