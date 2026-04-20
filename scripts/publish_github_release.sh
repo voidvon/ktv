@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 DEFAULT_RELEASE_HISTORY_FILE="${ROOT_DIR}/docs/release-history.md"
-DEFAULT_LATEST_MANIFEST_FILE="${ROOT_DIR}/docs/latest.json"
+DEFAULT_LATEST_MANIFEST_FILE="${ROOT_DIR}/docs/public/latest.json"
 
 usage() {
   cat <<'EOF'
@@ -30,7 +30,7 @@ Options:
   --download-mode <mode>   Override manifest download mode: external, apk, appinstaller, sparkle.
   --download-url <url>     Override manifest download URL.
   --feed-url <url>         Override manifest feed URL, e.g. Sparkle appcast.
-  --latest-manifest-file   Local latest.json path to update. Default: docs/latest.json.
+  --latest-manifest-file   Local latest.json path to update. Default: docs/public/latest.json.
   --skip-latest-manifest   Skip updating latest.json after publishing.
   --required-update        Mark the platform entry as required update in latest.json.
   --dry-run                Resolve assets & print release command without publishing.
@@ -245,31 +245,33 @@ build_manifest_args_for_android() {
   local sha256
   local variant_count=0
 
-  for asset_path in "${ASSET_PATHS[@]}"; do
-    asset_name="$(basename "${asset_path}")"
-    asset_url="$(release_asset_url "${REPO}" "${TAG}" "${asset_path}")"
-    sha256="$(file_sha256 "${asset_path}" 2>/dev/null || true)"
-    case "${asset_name}" in
-      *android-arm64-v8a.apk)
-        MANIFEST_ARGS+=(--variant "arm64-v8a|${asset_url}|${sha256}")
-        variant_count=$((variant_count + 1))
-        ;;
-      *android-armeabi-v7a.apk)
-        MANIFEST_ARGS+=(--variant "armeabi-v7a|${asset_url}|${sha256}")
-        variant_count=$((variant_count + 1))
-        ;;
-      *android-x86_64.apk)
-        MANIFEST_ARGS+=(--variant "x86_64|${asset_url}|${sha256}")
-        variant_count=$((variant_count + 1))
-        ;;
-      *android-universal.apk)
-        MANIFEST_ARGS+=(--fallback-url "${asset_url}")
-        if [[ -n "${sha256}" ]]; then
-          MANIFEST_ARGS+=(--fallback-sha256 "${sha256}")
-        fi
-        ;;
-    esac
-  done
+  if [[ ${#ASSET_PATHS[@]} -gt 0 ]]; then
+    for asset_path in "${ASSET_PATHS[@]}"; do
+      asset_name="$(basename "${asset_path}")"
+      asset_url="$(release_asset_url "${REPO}" "${TAG}" "${asset_path}")"
+      sha256="$(file_sha256 "${asset_path}" 2>/dev/null || true)"
+      case "${asset_name}" in
+        *android-arm64-v8a.apk)
+          MANIFEST_ARGS+=(--variant "arm64-v8a|${asset_url}|${sha256}")
+          variant_count=$((variant_count + 1))
+          ;;
+        *android-armeabi-v7a.apk)
+          MANIFEST_ARGS+=(--variant "armeabi-v7a|${asset_url}|${sha256}")
+          variant_count=$((variant_count + 1))
+          ;;
+        *android-x86_64.apk)
+          MANIFEST_ARGS+=(--variant "x86_64|${asset_url}|${sha256}")
+          variant_count=$((variant_count + 1))
+          ;;
+        *android-universal.apk)
+          MANIFEST_ARGS+=(--fallback-url "${asset_url}")
+          if [[ -n "${sha256}" ]]; then
+            MANIFEST_ARGS+=(--fallback-sha256 "${sha256}")
+          fi
+          ;;
+      esac
+    done
+  fi
 
   if [[ ${variant_count} -eq 0 && ${#ASSET_PATHS[@]} -gt 0 ]]; then
     asset_path="${ASSET_PATHS[0]}"
@@ -292,16 +294,18 @@ build_manifest_args_for_generic_platform() {
   if [[ -z "${resolved_mode}" ]]; then
     case "${PLATFORM}" in
       windows)
-        for asset_path in "${ASSET_PATHS[@]}"; do
-          asset_name="$(basename "${asset_path}")"
-          if [[ "${asset_name}" == *.appinstaller ]]; then
-            resolved_mode="appinstaller"
-            if [[ -z "${resolved_url}" ]]; then
-              resolved_url="$(release_asset_url "${REPO}" "${TAG}" "${asset_path}")"
+        if [[ ${#ASSET_PATHS[@]} -gt 0 ]]; then
+          for asset_path in "${ASSET_PATHS[@]}"; do
+            asset_name="$(basename "${asset_path}")"
+            if [[ "${asset_name}" == *.appinstaller ]]; then
+              resolved_mode="appinstaller"
+              if [[ -z "${resolved_url}" ]]; then
+                resolved_url="$(release_asset_url "${REPO}" "${TAG}" "${asset_path}")"
+              fi
+              break
             fi
-            break
-          fi
-        done
+          done
+        fi
         ;;
       macos)
         if [[ -n "${FEED_URL}" ]]; then
@@ -589,12 +593,14 @@ if [[ ${SHOULD_BUILD} -eq 1 ]]; then
   )
 fi
 
-for asset_path in "${ASSET_PATHS[@]}"; do
-  if [[ ! -f "${asset_path}" ]]; then
-    echo "Asset not found: ${asset_path}" >&2
-    exit 1
-  fi
-done
+if [[ ${#ASSET_PATHS[@]} -gt 0 ]]; then
+  for asset_path in "${ASSET_PATHS[@]}"; do
+    if [[ ! -f "${asset_path}" ]]; then
+      echo "Asset not found: ${asset_path}" >&2
+      exit 1
+    fi
+  done
+fi
 
 if [[ -n "${NOTES_FILE}" ]]; then
   if [[ ! -f "${NOTES_FILE}" ]]; then
@@ -640,9 +646,11 @@ fi
 declare -a gh_args
 gh_args=(release create "${TAG}" --repo "${REPO}" --title "${TITLE}")
 
-for asset_path in "${ASSET_PATHS[@]}"; do
-  gh_args+=("${asset_path}")
-done
+if [[ ${#ASSET_PATHS[@]} -gt 0 ]]; then
+  for asset_path in "${ASSET_PATHS[@]}"; do
+    gh_args+=("${asset_path}")
+  done
+fi
 
 if [[ -n "${TARGET}" ]]; then
   gh_args+=(--target "${TARGET}")
@@ -673,9 +681,13 @@ if [[ ${DRY_RUN} -eq 1 ]]; then
   echo "Tag: ${TAG}"
   echo "Title: ${TITLE}"
   echo "Assets:"
-  for asset_path in "${ASSET_PATHS[@]}"; do
-    echo "  - ${asset_path}"
-  done
+  if [[ ${#ASSET_PATHS[@]} -gt 0 ]]; then
+    for asset_path in "${ASSET_PATHS[@]}"; do
+      echo "  - ${asset_path}"
+    done
+  else
+    echo "  (none)"
+  fi
   echo "Command:"
   printf '  gh'
   for arg in "${gh_args[@]}"; do

@@ -1,6 +1,22 @@
 import { defineConfig } from 'vitepress'
 
+const repositoryOwner = process.env.GITHUB_REPOSITORY?.split('/')[0] ?? ''
+const repositoryName = process.env.GITHUB_REPOSITORY?.split('/')[1] ?? ''
+const isGitHubPagesBuild = process.env.GITHUB_ACTIONS === 'true'
+const base = isGitHubPagesBuild && repositoryName
+  ? `/${repositoryName}/`
+  : '/'
+const withBase = (path: string) => `${base}${path.replace(/^\/+/, '')}`
+const pagesSiteOrigin = isGitHubPagesBuild && repositoryOwner && repositoryName
+  ? `https://${repositoryOwner}.github.io`
+  : ''
+const withPublicUrl = (path: string) => {
+  const resolvedPath = withBase(path)
+  return pagesSiteOrigin ? `${pagesSiteOrigin}${resolvedPath}` : resolvedPath
+}
+
 export default defineConfig({
+  base,
   lang: 'zh-CN',
   title: '麦麦KTV',
   description: '面向家庭娱乐、包厢点歌和大屏播放场景的跨平台 KTV 点歌应用。',
@@ -13,17 +29,17 @@ export default defineConfig({
     /^\/scripts\/build_windows\.ps1$/
   ],
   head: [
-    ['link', { rel: 'icon', href: '/favicon.ico' }],
-    ['link', { rel: 'apple-touch-icon', href: '/app-icon.png' }],
+    ['link', { rel: 'icon', href: withPublicUrl('/favicon.ico') }],
+    ['link', { rel: 'apple-touch-icon', href: withPublicUrl('/app-icon.png') }],
     ['meta', { name: 'theme-color', content: '#ff6a3d' }],
     ['meta', { name: 'apple-mobile-web-app-title', content: '麦麦KTV' }],
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:title', content: '麦麦KTV' }],
     ['meta', { property: 'og:description', content: '点歌、排队、播放控制、下载管理与歌库配置统一在同一套界面里。' }],
-    ['meta', { property: 'og:image', content: '/images/song-search-screen.jpg' }]
+    ['meta', { property: 'og:image', content: withPublicUrl('/images/song-search-screen.jpg') }]
   ],
   themeConfig: {
-    logo: '/app-icon.png',
+    logo: withBase('/app-icon.png'),
     nav: [
       { text: '首页', link: '/' },
       { text: '快速开始', link: '/guide/' },

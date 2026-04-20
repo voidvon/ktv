@@ -2,24 +2,39 @@
 
 ## 目标
 
-本文档用于说明麦麦 KTV 当前仓库的多平台发版流程，以及如何同步维护更新入口文件 `docs/latest.json`。
+本文档用于说明麦麦 KTV 当前仓库的多平台发版流程，以及如何同步维护更新入口文件 `docs/public/latest.json`。
 
 当前约束：
 
 - 各平台可以独立发版
 - 各平台不要求同一天发布
 - 客户端只读取当前平台对应的最新版本记录
-- 统一入口文件仍然只有一份：`docs/latest.json`
+- 统一入口文件仍然只有一份：`docs/public/latest.json`
 
 ## 关键文件
 
 - 发布脚本：`scripts/publish_github_release.sh`
 - manifest 写入器：`scripts/update_latest_manifest.dart`
-- 更新入口文件：`docs/latest.json`
+- 更新入口文件：`docs/public/latest.json`
+- 站点访问路径：`/latest.json`
 - 发布历史：`docs/release-history.md`
 - Android 构建说明：`docs/android_build.md`
 - Windows 构建说明：`docs/windows_build.md`
 - 更新策略说明：`docs/app_update_strategy.md`
+
+## VitePress 托管约定
+
+当前仓库把 `latest.json` 放在 `docs/public/` 下，VitePress 构建后会原样复制到站点根目录。
+
+当前仓库启用 GitHub Pages Action 构建时，会自动按仓库名注入 base。对于 `voidvon/maimai-ktv`，线上地址会是：
+
+```text
+https://voidvon.github.io/maimai-ktv/latest.json
+```
+
+如果未来改成自定义域名，或者修改了 Pages 的 base，那么客户端更新地址也要一起调整。
+
+本地开发和普通 `npm run docs:build` 仍然默认使用 `/`，不会影响本地预览。
 
 ## 发版前检查
 
@@ -35,7 +50,7 @@
 
 ## latest.json 的规则
 
-`docs/latest.json` 是统一更新入口，但它内部按平台分开记录：
+`docs/public/latest.json` 是统一更新入口，但它内部按平台分开记录：
 
 ```json
 {
@@ -75,7 +90,7 @@
 
 - `--platform` 决定更新 `latest.json` 的哪个区块
 - `--skip-build` 适用于 Windows、macOS、iOS 等已提前构建好产物的情况
-- `--latest-manifest-file` 默认就是 `docs/latest.json`
+- `--latest-manifest-file` 默认就是 `docs/public/latest.json`
 - `--dry-run` 只打印 GitHub Release 和 manifest 更新命令，不会真正发布
 
 ## Android 发版
@@ -249,14 +264,14 @@ scripts/publish_github_release.sh \
 
 ## 发布后要做什么
 
-脚本更新的是仓库里的本地 `docs/latest.json`。发布完成后还需要确保这个文件对客户端可访问。
+脚本更新的是仓库里的本地 `docs/public/latest.json`。该目录会被 VitePress 当作静态资源目录，站点构建后会产出根路径 `/latest.json`。
 
-至少要完成其中一种：
+发布完成后至少还要完成：
 
-1. 把 `docs/latest.json` 提交到仓库并部署到客户端读取的稳定 URL
-2. 将生成后的 `latest.json` 同步到单独的静态托管地址
+1. 把 `docs/public/latest.json` 提交到仓库
+2. 部署 VitePress 站点，让客户端通过站点根路径 `/latest.json` 访问
 
-如果客户端读取的是固定线上地址，而你只在本地改了文件但没有发布出去，应用端仍然看不到新版本。
+如果客户端读取的是站点固定地址，而你只在本地改了文件但没有重新部署站点，应用端仍然看不到新版本。
 
 ## 推荐发布顺序
 
@@ -267,8 +282,8 @@ scripts/publish_github_release.sh \
 3. 构建并验证目标平台产物
 4. 先执行 `--dry-run`
 5. 正式执行发布脚本
-6. 检查 `docs/latest.json` 是否只更新了目标平台条目
-7. 将 `docs/latest.json` 同步到线上可访问地址
+6. 检查 `docs/public/latest.json` 是否只更新了目标平台条目
+7. 部署 VitePress 站点，并确认线上 `/latest.json` 已更新
 
 ## 常见错误
 
@@ -280,7 +295,7 @@ scripts/publish_github_release.sh \
   - 客户端会退化成普通外链，不会走 Sparkle
 - iOS 把 unsigned IPA 直接当作正式更新入口
   - 更合理的是写 TestFlight 或 App Store 地址
-- 发布后没同步 `docs/latest.json`
+- 发布后没部署包含 `docs/public/latest.json` 的站点
   - 客户端更新检查不会看到新版本
 
 ## 相关文档
