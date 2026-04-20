@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 DEFAULT_RELEASE_HISTORY_FILE="${ROOT_DIR}/docs/release-history.md"
+DEFAULT_LATEST_MANIFEST_FILE="${ROOT_DIR}/docs/latest.json"
 
 usage() {
   cat <<'EOF'
@@ -13,6 +14,7 @@ Usage:
 
 Options:
   --repo <owner/repo>      Target GitHub repository for the release. Required.
+  --platform <name>        Release platform: android, windows, macos, ios. Default: android.
   --tag <tag>              Release tag. Defaults to v<pubspec version>.
   --title <title>          Release title. Defaults to "KTV Android <version>".
   --notes <text>           Release notes text.
@@ -25,6 +27,12 @@ Options:
   --generate-notes         Let GitHub generate release notes automatically.
   --no-split-per-abi       Build a universal APK instead of split-per-abi APKs.
   --skip-build             Upload existing asset without running flutter build.
+  --download-mode <mode>   Override manifest download mode: external, apk, appinstaller, sparkle.
+  --download-url <url>     Override manifest download URL.
+  --feed-url <url>         Override manifest feed URL, e.g. Sparkle appcast.
+  --latest-manifest-file   Local latest.json path to update. Default: docs/latest.json.
+  --skip-latest-manifest   Skip updating latest.json after publishing.
+  --required-update        Mark the platform entry as required update in latest.json.
   --dry-run                Resolve assets & print release command without publishing.
   --skip-auth-check        Skip `gh auth status` validation.
   -h, --help               Show this help message.
@@ -46,6 +54,29 @@ require_command() {
     echo "Missing required command: ${command_name}" >&2
     exit 1
   fi
+}
+
+resolve_dart_command() {
+  local flutter_bin
+  local flutter_root
+  local flutter_dart
+
+  if flutter_bin="$(command -v flutter 2>/dev/null)"; then
+    flutter_root="$(cd "$(dirname "${flutter_bin}")/.." && pwd)"
+    flutter_dart="${flutter_root}/bin/cache/dart-sdk/bin/dart"
+    if [[ -x "${flutter_dart}" ]]; then
+      printf '%s' "${flutter_dart}"
+      return
+    fi
+  fi
+
+  if command -v dart >/dev/null 2>&1; then
+    command -v dart
+    return
+  fi
+
+  echo "Missing required command: dart" >&2
+  exit 1
 }
 
 read_pubspec_version() {
@@ -90,11 +121,217 @@ current_date() {
   date '+%Y-%m-%d'
 }
 
+current_timestamp_utc() {
+  date -u '+%Y-%m-%dT%H:%M:%SZ'
+}
+
 is_worktree_dirty() {
   if [[ -n "$(git -C "${ROOT_DIR}" status --porcelain)" ]]; then
     echo "yes"
   else
     echo "no"
+  fi
+}
+
+display_version() {
+  printf '%s' "${1%%+*}"
+}
+
+build_number() {
+  local version="$1"
+  if [[ "${version}" == *+* ]]; then
+    printf '%s' "${version##*+}"
+  else
+    printf '0'
+  fi
+}
+
+normalize_platform() {
+  case "$1" in
+    android|windows|macos|ios)
+      printf '%s' "$1"
+      ;;
+    *)
+      echo "Unsupported platform: $1" >&2
+      exit 1
+      ;;
+  esac
+}
+
+default_release_title() {
+  local platform="$1"
+  local tag="$2"
+  case "${platform}" in
+    android) printf 'KTV Android %s' "${tag}" ;;
+    windows) printf 'KTV Windows %s' "${tag}" ;;
+    macos) printf 'KTV macOS %s' "${tag}" ;;
+    ios) printf 'KTV iOS %s' "${tag}" ;;
+  esac
+}
+
+default_release_notes() {
+  local platform="$1"
+  local tag="$2"
+  case "${platform}" in
+    android)
+      if [[ ${USE_SPLIT_PER_ABI} -eq 1 ]]; then
+        printf 'Android split-per-abi release package for %s.' "${tag}"
+      else
+        printf 'Android release package for %s.' "${tag}"
+      fi
+      ;;
+    windows) printf 'Windows release package for %s.' "${tag}" ;;
+    macos) printf 'macOS release package for %s.' "${tag}" ;;
+    ios) printf 'iOS release package for %s.' "${tag}" ;;
+  esac
+}
+
+release_asset_url() {
+  local repo="$1"
+  local tag="$2"
+  local asset_path="$3"
+  printf 'https://github.com/%s/releases/download/%s/%s' \
+    "${repo}" \
+    "${tag}" \
+    "$(basename "${asset_path}")"
+}
+
+file_sha256() {
+  local asset_path="$1"
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "${asset_path}" | awk '{print $1}'
+    return
+  fi
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "${asset_path}" | awk '{print $1}'
+    return
+  fi
+  return 1
+}
+
+add_manifest_note_args() {
+  local text="$1"
+  local line
+  while IFS= read -r line; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    if [[ -n "${line}" ]]; then
+      MANIFEST_ARGS+=(--note "${line}")
+    fi
+  done <<< "${text}"
+}
+
+manifest_args_have_target() {
+  local arg
+  for arg in "${MANIFEST_ARGS[@]}"; do
+    case "${arg}" in
+      --url|--feed-url|--fallback-url|--variant)
+        return 0
+        ;;
+    esac
+  done
+  return 1
+}
+
+build_manifest_args_for_android() {
+  MANIFEST_ARGS+=(--mode apk)
+  if [[ -n "${DOWNLOAD_URL}" ]]; then
+    MANIFEST_ARGS+=(--url "${DOWNLOAD_URL}")
+    return
+  fi
+  local asset_path
+  local asset_name
+  local asset_url
+  local sha256
+  local variant_count=0
+
+  for asset_path in "${ASSET_PATHS[@]}"; do
+    asset_name="$(basename "${asset_path}")"
+    asset_url="$(release_asset_url "${REPO}" "${TAG}" "${asset_path}")"
+    sha256="$(file_sha256 "${asset_path}" 2>/dev/null || true)"
+    case "${asset_name}" in
+      *android-arm64-v8a.apk)
+        MANIFEST_ARGS+=(--variant "arm64-v8a|${asset_url}|${sha256}")
+        variant_count=$((variant_count + 1))
+        ;;
+      *android-armeabi-v7a.apk)
+        MANIFEST_ARGS+=(--variant "armeabi-v7a|${asset_url}|${sha256}")
+        variant_count=$((variant_count + 1))
+        ;;
+      *android-x86_64.apk)
+        MANIFEST_ARGS+=(--variant "x86_64|${asset_url}|${sha256}")
+        variant_count=$((variant_count + 1))
+        ;;
+      *android-universal.apk)
+        MANIFEST_ARGS+=(--fallback-url "${asset_url}")
+        if [[ -n "${sha256}" ]]; then
+          MANIFEST_ARGS+=(--fallback-sha256 "${sha256}")
+        fi
+        ;;
+    esac
+  done
+
+  if [[ ${variant_count} -eq 0 && ${#ASSET_PATHS[@]} -gt 0 ]]; then
+    asset_path="${ASSET_PATHS[0]}"
+    asset_url="$(release_asset_url "${REPO}" "${TAG}" "${asset_path}")"
+    sha256="$(file_sha256 "${asset_path}" 2>/dev/null || true)"
+    MANIFEST_ARGS+=(--url "${asset_url}")
+    if [[ -n "${sha256}" ]]; then
+      MANIFEST_ARGS+=(--sha256 "${sha256}")
+    fi
+  fi
+}
+
+build_manifest_args_for_generic_platform() {
+  local resolved_mode="${DOWNLOAD_MODE:-}"
+  local resolved_url="${DOWNLOAD_URL:-}"
+  local sha256=""
+  local asset_path=""
+  local asset_name=""
+
+  if [[ -z "${resolved_mode}" ]]; then
+    case "${PLATFORM}" in
+      windows)
+        for asset_path in "${ASSET_PATHS[@]}"; do
+          asset_name="$(basename "${asset_path}")"
+          if [[ "${asset_name}" == *.appinstaller ]]; then
+            resolved_mode="appinstaller"
+            if [[ -z "${resolved_url}" ]]; then
+              resolved_url="$(release_asset_url "${REPO}" "${TAG}" "${asset_path}")"
+            fi
+            break
+          fi
+        done
+        ;;
+      macos)
+        if [[ -n "${FEED_URL}" ]]; then
+          resolved_mode="sparkle"
+        fi
+        ;;
+    esac
+  fi
+
+  if [[ -z "${resolved_mode}" ]]; then
+    resolved_mode="external"
+  fi
+
+  MANIFEST_ARGS+=(--mode "${resolved_mode}")
+
+  if [[ -n "${FEED_URL}" ]]; then
+    MANIFEST_ARGS+=(--feed-url "${FEED_URL}")
+  fi
+
+  if [[ -z "${resolved_url}" && "${resolved_mode}" != "sparkle" && ${#ASSET_PATHS[@]} -gt 0 ]]; then
+    asset_path="${ASSET_PATHS[0]}"
+    resolved_url="$(release_asset_url "${REPO}" "${TAG}" "${asset_path}")"
+    sha256="$(file_sha256 "${asset_path}" 2>/dev/null || true)"
+  fi
+
+  if [[ -n "${resolved_url}" ]]; then
+    MANIFEST_ARGS+=(--url "${resolved_url}")
+  fi
+  if [[ -n "${sha256}" ]]; then
+    MANIFEST_ARGS+=(--sha256 "${sha256}")
   fi
 }
 
@@ -148,6 +385,7 @@ append_release_history() {
 }
 
 REPO=""
+PLATFORM="android"
 TAG=""
 TITLE=""
 NOTES=""
@@ -161,12 +399,23 @@ PRERELEASE=0
 USE_SPLIT_PER_ABI=1
 DRY_RUN=0
 RELEASE_HISTORY_FILE="${DEFAULT_RELEASE_HISTORY_FILE}"
+LATEST_MANIFEST_FILE="${DEFAULT_LATEST_MANIFEST_FILE}"
+SHOULD_UPDATE_LATEST_MANIFEST=1
+DOWNLOAD_MODE=""
+DOWNLOAD_URL=""
+FEED_URL=""
+REQUIRED_UPDATE=0
 declare -a ASSET_PATHS=()
+declare -a MANIFEST_ARGS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo)
       REPO="${2:-}"
+      shift 2
+      ;;
+    --platform)
+      PLATFORM="$(normalize_platform "${2:-}")"
       shift 2
       ;;
     --tag)
@@ -217,6 +466,30 @@ while [[ $# -gt 0 ]]; do
       SHOULD_BUILD=0
       shift
       ;;
+    --download-mode)
+      DOWNLOAD_MODE="${2:-}"
+      shift 2
+      ;;
+    --download-url)
+      DOWNLOAD_URL="${2:-}"
+      shift 2
+      ;;
+    --feed-url)
+      FEED_URL="${2:-}"
+      shift 2
+      ;;
+    --latest-manifest-file)
+      LATEST_MANIFEST_FILE="${2:-}"
+      shift 2
+      ;;
+    --skip-latest-manifest)
+      SHOULD_UPDATE_LATEST_MANIFEST=0
+      shift
+      ;;
+    --required-update)
+      REQUIRED_UPDATE=1
+      shift
+      ;;
     --dry-run)
       DRY_RUN=1
       shift
@@ -256,7 +529,16 @@ fi
 require_command gh
 
 if [[ ${SHOULD_BUILD} -eq 1 ]]; then
+  if [[ "${PLATFORM}" != "android" ]]; then
+    echo "Automatic build is currently only supported for --platform android." >&2
+    echo "Use --skip-build and pass --asset for ${PLATFORM} releases." >&2
+    exit 1
+  fi
   require_command flutter
+fi
+
+if [[ ${SHOULD_UPDATE_LATEST_MANIFEST} -eq 1 ]]; then
+  DART_CMD="$(resolve_dart_command)"
 fi
 
 VERSION="$(read_pubspec_version)"
@@ -264,6 +546,9 @@ if [[ -z "${VERSION}" ]]; then
   echo "Failed to read version from pubspec.yaml." >&2
   exit 1
 fi
+DISPLAY_VERSION="$(display_version "${VERSION}")"
+BUILD_NUMBER="$(build_number "${VERSION}")"
+PUBLISHED_AT="$(current_timestamp_utc)"
 
 CURRENT_BRANCH="$(current_branch)"
 CURRENT_COMMIT_SHORT="$(current_commit_short)"
@@ -272,11 +557,11 @@ CURRENT_DATE="$(current_date)"
 WORKTREE_DIRTY="$(is_worktree_dirty)"
 
 if [[ -z "${TAG}" ]]; then
-  TAG="v${VERSION%%+*}"
+  TAG="v${DISPLAY_VERSION}"
 fi
 
 if [[ -z "${TITLE}" ]]; then
-  TITLE="KTV Android ${TAG}"
+  TITLE="$(default_release_title "${PLATFORM}" "${TAG}")"
 fi
 
 if [[ ${SHOULD_CHECK_AUTH} -eq 1 && ${DRY_RUN} -eq 0 ]]; then
@@ -285,9 +570,11 @@ if [[ ${SHOULD_CHECK_AUTH} -eq 1 && ${DRY_RUN} -eq 0 ]]; then
 fi
 
 if [[ ${#ASSET_PATHS[@]} -eq 0 ]]; then
-  while IFS= read -r asset_path; do
-    ASSET_PATHS+=("${asset_path}")
-  done < <(default_android_asset_paths "${VERSION}" "${USE_SPLIT_PER_ABI}")
+  if [[ "${PLATFORM}" == "android" ]]; then
+    while IFS= read -r asset_path; do
+      ASSET_PATHS+=("${asset_path}")
+    done < <(default_android_asset_paths "${VERSION}" "${USE_SPLIT_PER_ABI}")
+  fi
 fi
 
 if [[ ${SHOULD_BUILD} -eq 1 ]]; then
@@ -312,6 +599,40 @@ done
 if [[ -n "${NOTES_FILE}" ]]; then
   if [[ ! -f "${NOTES_FILE}" ]]; then
     echo "Notes file not found: ${NOTES_FILE}" >&2
+    exit 1
+  fi
+fi
+
+if [[ ${SHOULD_UPDATE_LATEST_MANIFEST} -eq 1 ]]; then
+  MANIFEST_ARGS=(
+    --file "${LATEST_MANIFEST_FILE}"
+    --platform "${PLATFORM}"
+    --version "${DISPLAY_VERSION}"
+    --build-number "${BUILD_NUMBER}"
+    --published-at "${PUBLISHED_AT}"
+  )
+
+  if [[ ${REQUIRED_UPDATE} -eq 1 ]]; then
+    MANIFEST_ARGS+=(--required-update)
+  fi
+
+  if [[ -n "${NOTES}" ]]; then
+    add_manifest_note_args "${NOTES}"
+  elif [[ -n "${NOTES_FILE}" ]]; then
+    add_manifest_note_args "$(cat "${NOTES_FILE}")"
+  elif [[ ${GENERATE_NOTES} -eq 0 ]]; then
+    add_manifest_note_args "$(default_release_notes "${PLATFORM}" "${TAG}")"
+  fi
+
+  if [[ "${PLATFORM}" == "android" ]]; then
+    build_manifest_args_for_android
+  else
+    build_manifest_args_for_generic_platform
+  fi
+
+  if ! manifest_args_have_target; then
+    echo "Cannot update latest manifest without a download target for ${PLATFORM}." >&2
+    echo "Pass --asset, --download-url, or --feed-url, or use --skip-latest-manifest." >&2
     exit 1
   fi
 fi
@@ -342,15 +663,12 @@ elif [[ -n "${NOTES}" ]]; then
 elif [[ -n "${NOTES_FILE}" ]]; then
   gh_args+=(--notes-file "${NOTES_FILE}")
 else
-  if [[ ${USE_SPLIT_PER_ABI} -eq 1 ]]; then
-    gh_args+=(--notes "Android split-per-abi release package for ${TAG}.")
-  else
-    gh_args+=(--notes "Android release package for ${TAG}.")
-  fi
+  gh_args+=(--notes "$(default_release_notes "${PLATFORM}" "${TAG}")")
 fi
 
 if [[ ${DRY_RUN} -eq 1 ]]; then
   echo "Dry run only. Release will not be published."
+  echo "Platform: ${PLATFORM}"
   echo "Repo: ${REPO}"
   echo "Tag: ${TAG}"
   echo "Title: ${TITLE}"
@@ -364,6 +682,15 @@ if [[ ${DRY_RUN} -eq 1 ]]; then
     printf ' %q' "${arg}"
   done
   printf '\n'
+  if [[ ${SHOULD_UPDATE_LATEST_MANIFEST} -eq 1 ]]; then
+    echo "Latest manifest file: ${LATEST_MANIFEST_FILE}"
+    echo "Manifest update command:"
+    printf '  %q %q' "${DART_CMD}" "scripts/update_latest_manifest.dart"
+    for arg in "${MANIFEST_ARGS[@]}"; do
+      printf ' %q' "${arg}"
+    done
+    printf '\n'
+  fi
   exit 0
 fi
 
@@ -372,6 +699,14 @@ RELEASE_URL="$(gh "${gh_args[@]}")"
 
 echo "Release published successfully."
 echo "${RELEASE_URL}"
+
+if [[ ${SHOULD_UPDATE_LATEST_MANIFEST} -eq 1 ]]; then
+  (
+    cd "${ROOT_DIR}"
+    "${DART_CMD}" scripts/update_latest_manifest.dart "${MANIFEST_ARGS[@]}"
+  )
+  echo "Latest manifest updated: ${LATEST_MANIFEST_FILE}"
+fi
 
 append_release_history \
   "${RELEASE_HISTORY_FILE}" \

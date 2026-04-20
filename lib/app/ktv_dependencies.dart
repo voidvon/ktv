@@ -15,6 +15,16 @@ import '../features/media_library/data/baidu_pan/file_baidu_pan_source_config_st
 import '../features/media_library/data/cloud/cloud_playback_cache.dart';
 import '../features/media_library/data/local_song_source_adapter.dart';
 import '../features/media_library/data/media_library_repository.dart';
+import '../features/update/application/app_version_source.dart';
+import '../features/update/application/update_controller.dart';
+import '../features/update/application/update_package_downloader.dart';
+import '../features/update/application/update_package_installer.dart';
+import '../features/update/application/update_platform_adapter.dart';
+import '../features/update/application/update_platform_info_source.dart';
+import '../features/update/application/update_service.dart';
+import '../features/update/data/update_manifest_client.dart';
+import '../features/update/data/update_manifest_config.dart';
+import '../features/update/domain/app_update_info.dart';
 
 KtvController createKtvController({
   MediaLibraryRepository? mediaLibraryRepository,
@@ -67,5 +77,26 @@ KtvController createKtvController({
             'baidu_pan': baiduPanPlaybackCache,
           },
         ),
+  );
+}
+
+UpdateController createUpdateController() {
+  final AppUpdatePlatform platform = AppUpdateInfo.currentPlatform();
+  final MethodChannelUpdatePlatformInfoSource platformInfoSource =
+      MethodChannelUpdatePlatformInfoSource();
+  return UpdateController(
+    updateService: UpdateService(
+      versionSource: PackageInfoAppVersionSource(),
+      manifestClient: UpdateManifestClient(manifestUri: kAppUpdateManifestUri),
+      platform: platform,
+      platformInfoSource: platformInfoSource,
+    ),
+    platformAdapter: ExternalUpdatePlatformAdapter(
+      platform: platform,
+      releasePageUri: kAppReleasePageUri,
+      platformInfoSource: platformInfoSource,
+      packageDownloader: HttpUpdatePackageDownloader(),
+      packageInstaller: MethodChannelUpdatePackageInstaller(),
+    ),
   );
 }

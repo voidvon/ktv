@@ -1,0 +1,290 @@
+# Release Publish Guide
+
+## 目标
+
+本文档用于说明麦麦 KTV 当前仓库的多平台发版流程，以及如何同步维护更新入口文件 `docs/latest.json`。
+
+当前约束：
+
+- 各平台可以独立发版
+- 各平台不要求同一天发布
+- 客户端只读取当前平台对应的最新版本记录
+- 统一入口文件仍然只有一份：`docs/latest.json`
+
+## 关键文件
+
+- 发布脚本：`scripts/publish_github_release.sh`
+- manifest 写入器：`scripts/update_latest_manifest.dart`
+- 更新入口文件：`docs/latest.json`
+- 发布历史：`docs/release-history.md`
+- Android 构建说明：`docs/android_build.md`
+- Windows 构建说明：`docs/windows_build.md`
+- 更新策略说明：`docs/app_update_strategy.md`
+
+## 发版前检查
+
+发布任意平台前，建议先确认：
+
+- `pubspec.yaml` 版本号已更新
+- `CHANGELOG.md` 已补充本次用户可感知变更
+- 对应平台产物已验证可安装或可运行
+- `gh auth status` 可正常通过
+- 清楚本次发版的平台
+
+如果只是某个平台单独修复，不要为了“对齐”去强行更新其他平台的 `latest.json` 条目。
+
+## latest.json 的规则
+
+`docs/latest.json` 是统一更新入口，但它内部按平台分开记录：
+
+```json
+{
+  "platforms": {
+    "android": { "...": "android latest entry" },
+    "windows": { "...": "windows latest entry" },
+    "macos": { "...": "macos latest entry" },
+    "ios": { "...": "ios latest entry" }
+  }
+}
+```
+
+重要规则：
+
+- Android、Windows、macOS、iOS 各自维护自己的最新版本
+- Windows 晚发版时，只更新 `platforms.windows`
+- Android 发版时，只更新 `platforms.android`
+- 不要用新的 Windows 版本覆盖 Android 的版本号
+
+## 脚本参数
+
+当前发布脚本核心参数：
+
+- `--repo <owner/repo>`
+- `--platform <android|windows|macos|ios>`
+- `--asset <path>`
+- `--skip-build`
+- `--latest-manifest-file <path>`
+- `--skip-latest-manifest`
+- `--download-mode <external|apk|appinstaller|sparkle>`
+- `--download-url <url>`
+- `--feed-url <url>`
+- `--required-update`
+- `--dry-run`
+
+说明：
+
+- `--platform` 决定更新 `latest.json` 的哪个区块
+- `--skip-build` 适用于 Windows、macOS、iOS 等已提前构建好产物的情况
+- `--latest-manifest-file` 默认就是 `docs/latest.json`
+- `--dry-run` 只打印 GitHub Release 和 manifest 更新命令，不会真正发布
+
+## Android 发版
+
+Android 是当前唯一支持脚本内自动构建的平台。
+
+默认发布 split APK：
+
+```bash
+scripts/publish_github_release.sh \
+  --repo voidvon/maimai-ktv \
+  --platform android
+```
+
+行为：
+
+- 自动读取 `pubspec.yaml` 版本
+- 自动构建 Android APK
+- 默认上传 split-per-ABI APK
+- 自动把 `arm64-v8a`、`armeabi-v7a`、`x86_64` 写入 `latest.json`
+- 如果有 universal APK，会写入 `fallbackUrl`
+
+如果要发布 universal APK：
+
+```bash
+scripts/publish_github_release.sh \
+  --repo voidvon/maimai-ktv \
+  --platform android \
+  --no-split-per-abi
+```
+
+如果已经提前构建好产物：
+
+```bash
+scripts/publish_github_release.sh \
+  --repo voidvon/maimai-ktv \
+  --platform android \
+  --skip-build \
+  --asset dist/android/maimai-ktv-1.0.0-alpha.8-android-arm64-v8a.apk \
+  --asset dist/android/maimai-ktv-1.0.0-alpha.8-android-armeabi-v7a.apk \
+  --asset dist/android/maimai-ktv-1.0.0-alpha.8-android-x86_64.apk \
+  --asset dist/android/maimai-ktv-1.0.0-alpha.8-android-universal.apk
+```
+
+## Windows 发版
+
+当前脚本不会自动构建 Windows，需要先准备好产物。
+
+如果当前仍然发布 ZIP：
+
+```bash
+scripts/publish_github_release.sh \
+  --repo voidvon/maimai-ktv \
+  --platform windows \
+  --skip-build \
+  --asset dist/windows/ktv2_example-1.0.0-alpha.9-windows-x64.zip
+```
+
+行为：
+
+- 上传 Windows 资产
+- 更新 `platforms.windows`
+- 默认会把首个资产 URL 写进 `download.url`
+- 默认 `mode` 为 `external`
+
+如果未来改成 `MSIX + .appinstaller`，推荐这样：
+
+```bash
+scripts/publish_github_release.sh \
+  --repo voidvon/maimai-ktv \
+  --platform windows \
+  --skip-build \
+  --asset dist/windows/maimai-ktv-1.0.0-alpha.9-windows-x64.msix \
+  --asset dist/windows/maimai-ktv.appinstaller
+```
+
+此时脚本会优先识别 `.appinstaller`，把 `mode` 写成 `appinstaller`。
+
+如果你想强制指定下载入口，也可以显式传：
+
+```bash
+scripts/publish_github_release.sh \
+  --repo voidvon/maimai-ktv \
+  --platform windows \
+  --skip-build \
+  --asset dist/windows/maimai-ktv-1.0.0-alpha.9-windows-x64.msix \
+  --download-mode appinstaller \
+  --download-url https://example.com/maimai-ktv.appinstaller
+```
+
+## macOS 发版
+
+当前脚本不会自动构建 macOS，需要先准备好桌面包。
+
+如果当前只是普通下载包：
+
+```bash
+scripts/publish_github_release.sh \
+  --repo voidvon/maimai-ktv \
+  --platform macos \
+  --skip-build \
+  --asset dist/macos/maimai-ktv-1.0.0-alpha.8-macos.zip
+```
+
+如果未来接入 Sparkle，应优先写 appcast：
+
+```bash
+scripts/publish_github_release.sh \
+  --repo voidvon/maimai-ktv \
+  --platform macos \
+  --skip-build \
+  --asset dist/macos/maimai-ktv-1.0.0-alpha.8-macos.zip \
+  --download-mode sparkle \
+  --feed-url https://example.com/appcast.xml
+```
+
+此时客户端会优先使用 `feedUrl`，而不是直接打开 zip。
+
+## iOS 发版
+
+当前 iOS 更适合写外部分发地址，而不是应用内安装包地址。
+
+如果是 TestFlight：
+
+```bash
+scripts/publish_github_release.sh \
+  --repo voidvon/maimai-ktv \
+  --platform ios \
+  --skip-build \
+  --asset dist/ios/maimai-ktv-1.0.0-alpha.8-ios-unsigned.ipa \
+  --download-mode external \
+  --download-url https://testflight.apple.com/join/xxxx
+```
+
+如果只是保留 GitHub Release 交付，也可以不传 `--download-url`，脚本会默认使用首个资产 URL。
+
+## 强制更新
+
+如果某个平台需要强制更新，只给那个平台加：
+
+```bash
+--required-update
+```
+
+这只会写入当前 `--platform` 对应的条目，不会影响其他平台。
+
+## dry-run
+
+发版前建议先跑：
+
+```bash
+scripts/publish_github_release.sh \
+  --repo voidvon/maimai-ktv \
+  --platform windows \
+  --skip-build \
+  --asset dist/windows/example.zip \
+  --dry-run
+```
+
+它会输出：
+
+- 预计执行的 `gh release create`
+- 预计写入 `latest.json` 的 manifest 更新命令
+
+这一步适合先检查：
+
+- 平台是否选对
+- tag/title 是否正确
+- 下载模式是否正确
+- manifest 是否会写到预期文件
+
+## 发布后要做什么
+
+脚本更新的是仓库里的本地 `docs/latest.json`。发布完成后还需要确保这个文件对客户端可访问。
+
+至少要完成其中一种：
+
+1. 把 `docs/latest.json` 提交到仓库并部署到客户端读取的稳定 URL
+2. 将生成后的 `latest.json` 同步到单独的静态托管地址
+
+如果客户端读取的是固定线上地址，而你只在本地改了文件但没有发布出去，应用端仍然看不到新版本。
+
+## 推荐发布顺序
+
+推荐顺序：
+
+1. 更新 `pubspec.yaml`
+2. 更新 `CHANGELOG.md`
+3. 构建并验证目标平台产物
+4. 先执行 `--dry-run`
+5. 正式执行发布脚本
+6. 检查 `docs/latest.json` 是否只更新了目标平台条目
+7. 将 `docs/latest.json` 同步到线上可访问地址
+
+## 常见错误
+
+- 忘记传 `--platform`
+  - 会默认按 `android` 处理
+- Windows 单独发版却覆盖了 Android 版本
+  - 现在脚本已按平台写入，不应再手工改成全局结构
+- macOS Sparkle 只上传 zip 没写 `--feed-url`
+  - 客户端会退化成普通外链，不会走 Sparkle
+- iOS 把 unsigned IPA 直接当作正式更新入口
+  - 更合理的是写 TestFlight 或 App Store 地址
+- 发布后没同步 `docs/latest.json`
+  - 客户端更新检查不会看到新版本
+
+## 相关文档
+
+- [多平台更新策略](./app_update_strategy.md)
+- [Android 构建说明](./android_build.md)
+- [Windows 构建说明](./windows_build.md)

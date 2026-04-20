@@ -4,6 +4,13 @@ import 'package:maimai_ktv/features/ktv/application/ktv_controller.dart';
 import 'package:maimai_ktv/features/ktv/presentation/home_page.dart';
 import 'package:maimai_ktv/features/ktv/presentation/ktv_shell.dart';
 import 'package:maimai_ktv/features/ktv/presentation/songbook_page.dart';
+import 'package:maimai_ktv/features/update/application/app_version_source.dart';
+import 'package:maimai_ktv/features/update/application/update_controller.dart';
+import 'package:maimai_ktv/features/update/application/update_platform_adapter.dart';
+import 'package:maimai_ktv/features/update/application/update_service.dart';
+import 'package:maimai_ktv/features/update/data/update_manifest_client.dart';
+import 'package:maimai_ktv/features/update/domain/app_update_info.dart';
+import 'package:maimai_ktv/features/update/domain/app_version.dart';
 
 import 'test_support/ktv_test_doubles.dart';
 
@@ -20,14 +27,34 @@ void main() {
     );
   }
 
+  UpdateController buildUpdateController() {
+    return UpdateController(
+      updateService: UpdateService(
+        versionSource: _FakeVersionSource(
+          AppVersion(displayVersion: '1.0.0-alpha.7', buildNumber: 7),
+        ),
+        manifestClient: UpdateManifestClient(manifestUri: null),
+        platform: AppUpdatePlatform.android,
+      ),
+      platformAdapter: _FakeUpdatePlatformAdapter(),
+    );
+  }
+
   testWidgets('renders the home shell with the main shortcuts', (
     WidgetTester tester,
   ) async {
     final KtvController controller = buildController();
+    final UpdateController updateController = buildUpdateController();
     addTearDown(controller.dispose);
+    addTearDown(updateController.dispose);
 
     await tester.pumpWidget(
-      MaterialApp(home: KtvShell(controller: controller)),
+      MaterialApp(
+        home: KtvShell(
+          controller: controller,
+          updateController: updateController,
+        ),
+      ),
     );
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -41,10 +68,17 @@ void main() {
     WidgetTester tester,
   ) async {
     final KtvController controller = buildController();
+    final UpdateController updateController = buildUpdateController();
     addTearDown(controller.dispose);
+    addTearDown(updateController.dispose);
 
     await tester.pumpWidget(
-      MaterialApp(home: KtvShell(controller: controller)),
+      MaterialApp(
+        home: KtvShell(
+          controller: controller,
+          updateController: updateController,
+        ),
+      ),
     );
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -59,7 +93,9 @@ void main() {
     'uses the full portrait width for home shortcuts on larger screens',
     (WidgetTester tester) async {
       final KtvController controller = buildController();
+      final UpdateController updateController = buildUpdateController();
       addTearDown(controller.dispose);
+      addTearDown(updateController.dispose);
 
       tester.view.physicalSize = const Size(800, 1280);
       tester.view.devicePixelRatio = 1.0;
@@ -69,7 +105,12 @@ void main() {
       });
 
       await tester.pumpWidget(
-        MaterialApp(home: KtvShell(controller: controller)),
+        MaterialApp(
+          home: KtvShell(
+            controller: controller,
+            updateController: updateController,
+          ),
+        ),
       );
       await tester.pump(const Duration(milliseconds: 300));
 
@@ -87,7 +128,9 @@ void main() {
     'keeps the landscape song book panels balanced on larger screens',
     (WidgetTester tester) async {
       final KtvController controller = buildController();
+      final UpdateController updateController = buildUpdateController();
       addTearDown(controller.dispose);
+      addTearDown(updateController.dispose);
 
       tester.view.physicalSize = const Size(1400, 900);
       tester.view.devicePixelRatio = 1.0;
@@ -97,7 +140,12 @@ void main() {
       });
 
       await tester.pumpWidget(
-        MaterialApp(home: KtvShell(controller: controller)),
+        MaterialApp(
+          home: KtvShell(
+            controller: controller,
+            updateController: updateController,
+          ),
+        ),
       );
       await tester.pump(const Duration(milliseconds: 300));
 
@@ -122,7 +170,9 @@ void main() {
     'centers the landscape song book preview and search controls vertically',
     (WidgetTester tester) async {
       final KtvController controller = buildController();
+      final UpdateController updateController = buildUpdateController();
       addTearDown(controller.dispose);
+      addTearDown(updateController.dispose);
 
       tester.view.physicalSize = const Size(1400, 900);
       tester.view.devicePixelRatio = 1.0;
@@ -132,7 +182,12 @@ void main() {
       });
 
       await tester.pumpWidget(
-        MaterialApp(home: KtvShell(controller: controller)),
+        MaterialApp(
+          home: KtvShell(
+            controller: controller,
+            updateController: updateController,
+          ),
+        ),
       );
       await tester.pump(const Duration(milliseconds: 300));
 
@@ -155,4 +210,21 @@ void main() {
       );
     },
   );
+}
+
+class _FakeVersionSource implements AppVersionSource {
+  const _FakeVersionSource(this.version);
+
+  final AppVersion version;
+
+  @override
+  Future<AppVersion> readCurrentVersion() async => version;
+}
+
+class _FakeUpdatePlatformAdapter implements UpdatePlatformAdapter {
+  @override
+  Future<bool> openReleasePage() async => true;
+
+  @override
+  Future<bool> openUpdate(AppUpdateInfo updateInfo) async => true;
 }

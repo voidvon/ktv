@@ -5,6 +5,7 @@ import android.content.ActivityNotFoundException
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.database.DatabaseUtils
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
@@ -15,7 +16,9 @@ import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.view.Surface
+import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -131,6 +134,7 @@ class MainActivity : FlutterActivity() {
         const val androidStorageChannel = "com.app0122.maimai.app/android_storage"
         const val orientationChannel = "com.app0122.maimai.app/orientation"
         const val qrImageChannel = "com.app0122.maimai.app/qr_image"
+        const val updateChannel = "com.app0122.maimai.app/update"
         val supportedExtensions =
             setOf(
                 "3g2",
@@ -331,6 +335,34 @@ class MainActivity : FlutterActivity() {
                             result.error(
                                 "save_failed",
                                 error.message ?: "Failed to save qr image",
+                                null,
+                            )
+                        }
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            updateChannel,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getSupportedAbis" -> {
+                    result.success(Build.SUPPORTED_ABIS.toList())
+                }
+                "installApk" -> {
+                    val filePath = call.argument<String>("filePath")
+                    if (filePath.isNullOrBlank()) {
+                        result.error("invalid_args", "Missing filePath", null)
+                    } else {
+                        try {
+                            result.success(installApk(filePath))
+                        } catch (error: Exception) {
+                            result.error(
+                                "install_failed",
+                                error.message ?: "Failed to start apk install",
                                 null,
                             )
                         }
@@ -585,6 +617,45 @@ class MainActivity : FlutterActivity() {
             contentResolver.delete(uri, null, null)
             throw error
         }
+    }
+
+    private fun installApk(filePath: String): Map<String, String> {
+        val apkFile = File(filePath)
+        if (!apkFile.exists() || !apkFile.isFile) {
+            throw IllegalStateException("安装包不存在：$filePath")
+        }
+
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            !packageManager.canRequestPackageInstalls()
+        ) {
+            val settingsIntent =
+                Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:$packageName"),
+                ).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            startActivity(settingsIntent)
+            return mapOf("status" to "permission_required")
+        }
+
+        val authority = "$packageName.fileprovider"
+        val apkUri = FileProvider.getUriForFile(this, authority, apkFile)
+        val installIntent =
+            Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(apkUri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+
+        val resolvedActivity = installIntent.resolveActivity(packageManager)
+        if (resolvedActivity == null) {
+            throw IllegalStateException("系统安装器不可用")
+        }
+
+        startActivity(installIntent)
+        return mapOf("status" to "install_started")
     }
 
     private fun scanLibrary(rootUri: String): List<Map<String, Any?>> {

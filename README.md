@@ -157,6 +157,8 @@ cd ../ktv-player && flutter analyze && flutter test
 - [Android 构建说明](docs/android_build.md)
 - [Windows 构建说明](docs/windows_build.md)
 - [Android 播放链路说明](docs/android_playback_notes.md)
+- [多平台更新策略](docs/app_update_strategy.md)
+- [发版与 latest.json 维护说明](docs/release_publish.md)
 
 ## 产品价值
 

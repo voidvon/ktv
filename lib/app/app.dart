@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../features/ktv/application/ktv_controller.dart';
+import '../features/update/application/update_controller.dart';
 import '../features/ktv/presentation/ktv_shell.dart';
 import 'ktv_dependencies.dart';
 
@@ -13,6 +16,13 @@ class KtvApp extends StatefulWidget {
 
 class _KtvAppState extends State<KtvApp> {
   late final KtvController _controller = createKtvController();
+  late final UpdateController _updateController = createUpdateController();
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_updateController.initialize());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,12 +46,16 @@ class _KtvAppState extends State<KtvApp> {
           displayColor: const Color(0xFFFFF7FF),
         ),
       ),
-      home: KtvShell(controller: _controller),
+      home: KtvShell(
+        controller: _controller,
+        updateController: _updateController,
+      ),
     );
   }
 
   @override
   void dispose() {
+    _updateController.dispose();
     _controller.dispose();
     super.dispose();
   }

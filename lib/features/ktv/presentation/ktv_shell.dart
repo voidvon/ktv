@@ -16,6 +16,7 @@ import '../../media_library/data/cloud/cloud_song_download_service.dart';
 import '../../settings/application/baidu_pan_settings_controller.dart';
 import '../../settings/application/settings_controller.dart';
 import '../../settings/presentation/settings_page.dart';
+import '../../update/application/update_controller.dart';
 import '../application/download_manager_models.dart';
 import '../application/ktv_controller.dart';
 import 'home_page.dart';
@@ -26,9 +27,14 @@ import 'songbook_contracts.dart';
 import 'songbook_page.dart';
 
 class KtvShell extends StatefulWidget {
-  const KtvShell({super.key, required this.controller});
+  const KtvShell({
+    super.key,
+    required this.controller,
+    required this.updateController,
+  });
 
   final KtvController controller;
+  final UpdateController updateController;
 
   @override
   State<KtvShell> createState() => _KtvShellState();
@@ -147,6 +153,7 @@ class _KtvShellState extends State<KtvShell> with WidgetsBindingObserver {
                 controller: settingsController,
                 baiduPanController: baiduPanController,
                 ktvController: _controller,
+                updateController: widget.updateController,
               );
             },
             fullscreenDialog: true,

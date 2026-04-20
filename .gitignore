@@ -46,6 +46,8 @@ migrate_working_dir/
 **/macos/Flutter/ephemeral/
 **/macos/Pods/
 dist/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
 
 # Symbolication related
 app.*.symbols
@@ -57,3 +59,5 @@ app.*.map.json
 **/android/app/debug
 **/android/app/profile
 **/android/app/release
+
+node_modules/

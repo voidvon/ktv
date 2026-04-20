@@ -10,6 +10,8 @@ import '../../ktv/application/download_manager_models.dart';
 import '../../ktv/application/ktv_controller.dart';
 import '../../media_library/data/baidu_pan/baidu_pan_models.dart';
 import '../../media_library/data/cloud/cloud_playback_cache.dart';
+import '../../update/application/update_controller.dart';
+import '../../update/domain/update_check_result.dart';
 import '../application/baidu_pan_settings_controller.dart';
 import '../data/qr_image_save_data_source.dart';
 import '../application/settings_controller.dart';
@@ -30,11 +32,13 @@ class SettingsPage extends StatelessWidget {
     required this.controller,
     required this.baiduPanController,
     required this.ktvController,
+    required this.updateController,
   });
 
   final SettingsController controller;
   final BaiduPanSettingsController baiduPanController;
   final KtvController ktvController;
+  final UpdateController updateController;
 
   @override
   Widget build(BuildContext context) {
@@ -70,6 +74,7 @@ class SettingsPage extends StatelessWidget {
                     controller,
                     baiduPanController,
                     ktvController,
+                    updateController,
                   ]),
                   builder: (BuildContext context, _) {
                     final bool baiduPanReady =
@@ -80,6 +85,8 @@ class SettingsPage extends StatelessWidget {
                         ktvController.downloadingSongs.length;
                     final int downloadedCount =
                         ktvController.downloadedSongs.length;
+                    final UpdateController updateController =
+                        this.updateController;
                     return Column(
                       children: <Widget>[
                         _SettingsEntryCard(
@@ -172,6 +179,23 @@ class SettingsPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         _SettingsEntryCard(
+                          title: '检查更新',
+                          subtitle: updateController.summaryText,
+                          icon: Icons.system_update_rounded,
+                          onTap: () async {
+                            await Navigator.of(context).push<void>(
+                              MaterialPageRoute<void>(
+                                builder: (BuildContext context) {
+                                  return _UpdatePage(
+                                    controller: updateController,
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        _SettingsEntryCard(
                           title: '关于我们',
                           subtitle: '查看应用简介和开源地址',
                           icon: Icons.info_outline_rounded,
@@ -179,7 +203,9 @@ class SettingsPage extends StatelessWidget {
                             await Navigator.of(context).push<void>(
                               MaterialPageRoute<void>(
                                 builder: (BuildContext context) {
-                                  return const _AboutPage();
+                                  return _AboutPage(
+                                    updateController: updateController,
+                                  );
                                 },
                               ),
                             );
@@ -415,9 +441,11 @@ class _DownloadManagerPage extends StatelessWidget {
 }
 
 class _AboutPage extends StatelessWidget {
-  const _AboutPage();
+  const _AboutPage({required this.updateController});
 
   static const String _opensourceUrl = 'https://github.com/voidvon/maimai-ktv';
+
+  final UpdateController updateController;
 
   @override
   Widget build(BuildContext context) {
@@ -434,6 +462,16 @@ class _AboutPage extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.all(24),
               children: <Widget>[
+                AnimatedBuilder(
+                  animation: updateController,
+                  builder: (BuildContext context, _) {
+                    return _InfoCard(
+                      title: '版本信息',
+                      content: _buildAboutVersionText(updateController),
+                    );
+                  },
+                ),
+                const SizedBox(height: 14),
                 const _InfoCard(
                   title: '应用介绍',
                   content: '麦麦 KTV 是一个简洁的点歌与播放应用，方便在本地或云端曲库中快速找歌、点歌和播放。',
@@ -463,28 +501,67 @@ class _AboutPage extends StatelessWidget {
                         style: TextStyle(color: Color(0xFFD8E5FF), height: 1.5),
                       ),
                       const SizedBox(height: 14),
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          await Clipboard.setData(
-                            const ClipboardData(text: _opensourceUrl),
-                          );
-                          if (!context.mounted) {
-                            return;
-                          }
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('开源地址已复制')),
-                          );
-                        },
-                        icon: const Icon(Icons.copy_rounded),
-                        label: const Text('复制地址'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Color(0x33FFFFFF)),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                await updateController.openReleasePage();
+                                if (!context.mounted) {
+                                  return;
+                                }
+                                final String? errorMessage =
+                                    updateController.actionErrorMessage;
+                                if (errorMessage == null) {
+                                  return;
+                                }
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(errorMessage)),
+                                );
+                              },
+                              icon: const Icon(Icons.open_in_browser_rounded),
+                              label: const Text('查看发布页'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: const BorderSide(
+                                  color: Color(0x33FFFFFF),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                await Clipboard.setData(
+                                  const ClipboardData(text: _opensourceUrl),
+                                );
+                                if (!context.mounted) {
+                                  return;
+                                }
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('开源地址已复制')),
+                                );
+                              },
+                              icon: const Icon(Icons.copy_rounded),
+                              label: const Text('复制地址'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: const BorderSide(
+                                  color: Color(0x33FFFFFF),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -496,6 +573,169 @@ class _AboutPage extends StatelessWidget {
       ),
     );
   }
+
+  String _buildAboutVersionText(UpdateController controller) {
+    final String currentVersion = controller.currentVersion?.fullValue ?? '读取中';
+    final UpdateCheckResult? result = controller.lastResult;
+    final String latestVersion = result?.updateInfo?.version.fullValue ?? '未检查';
+    final String lastCheckedAt = controller.lastCheckedAt == null
+        ? '未检查'
+        : _formatDateTime(controller.lastCheckedAt!);
+    return '当前版本：$currentVersion\n'
+        '最新版本：$latestVersion\n'
+        '最近检查：$lastCheckedAt';
+  }
+}
+
+class _UpdatePage extends StatelessWidget {
+  const _UpdatePage({required this.controller});
+
+  final UpdateController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (BuildContext context, _) {
+        final UpdateCheckResult? result = controller.lastResult;
+        final String currentVersion =
+            controller.currentVersion?.fullValue ?? '读取中';
+        final String latestVersion =
+            result?.updateInfo?.version.fullValue ?? '未检查';
+        final String publishedAt = result?.updateInfo?.publishedAt == null
+            ? '未知'
+            : _formatDateTime(result!.updateInfo!.publishedAt!);
+        final List<String> notes =
+            result?.updateInfo?.notes ?? const <String>[];
+        return Scaffold(
+          backgroundColor: const Color(0xFF0A0014),
+          appBar: AppBar(
+            title: const Text('检查更新'),
+            backgroundColor: Colors.transparent,
+          ),
+          body: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 640),
+                child: ListView(
+                  padding: const EdgeInsets.all(24),
+                  children: <Widget>[
+                    _InfoCard(
+                      title: '当前状态',
+                      content: _buildUpdateSummary(
+                        controller: controller,
+                        currentVersion: currentVersion,
+                        latestVersion: latestVersion,
+                        publishedAt: publishedAt,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _InfoCard(
+                      title: '更新说明',
+                      content: notes.isEmpty ? '暂无更新说明。' : notes.join('\n'),
+                    ),
+                    if (controller.actionErrorMessage != null) ...<Widget>[
+                      const SizedBox(height: 14),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF1F1),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          controller.actionErrorMessage!,
+                          style: const TextStyle(
+                            color: Color(0xFF9C2F2F),
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: controller.isBusy
+                                ? null
+                                : () async {
+                                    await controller.checkForUpdates();
+                                  },
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFFFF6E67),
+                            ),
+                            icon: const Icon(Icons.refresh_rounded),
+                            label: Text(controller.isChecking ? '检查中' : '检查更新'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: controller.isBusy
+                                ? null
+                                : () async {
+                                    if (result?.isUpdateAvailable ?? false) {
+                                      await controller.openUpdate();
+                                    } else {
+                                      await controller.openReleasePage();
+                                    }
+                                  },
+                            icon: Icon(
+                              result?.isUpdateAvailable ?? false
+                                  ? Icons.system_update_alt_rounded
+                                  : Icons.open_in_browser_rounded,
+                            ),
+                            label: Text(
+                              result?.isUpdateAvailable ?? false
+                                  ? controller.updateActionLabel
+                                  : '查看发布页',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _buildUpdateSummary({
+    required UpdateController controller,
+    required String currentVersion,
+    required String latestVersion,
+    required String publishedAt,
+  }) {
+    final UpdateCheckResult? result = controller.lastResult;
+    final String statusLabel = switch (result?.state ?? UpdateCheckState.idle) {
+      UpdateCheckState.idle => '尚未检查',
+      UpdateCheckState.unavailable => '当前无法提供在线更新',
+      UpdateCheckState.upToDate => '已经是最新版本',
+      UpdateCheckState.updateAvailable => '发现新版本',
+      UpdateCheckState.failed => '检查失败',
+    };
+    final String message = result?.message ?? '可先查看当前版本，再手动检查更新。';
+    return '状态：$statusLabel\n'
+        '当前版本：$currentVersion\n'
+        '最新版本：$latestVersion\n'
+        '发布时间：$publishedAt\n'
+        '最近检查：${controller.lastCheckedAt == null ? '未检查' : _formatDateTime(controller.lastCheckedAt!)}\n'
+        '说明：$message';
+  }
+}
+
+String _formatDateTime(DateTime dateTime) {
+  final DateTime localDateTime = dateTime.toLocal();
+  final String month = localDateTime.month.toString().padLeft(2, '0');
+  final String day = localDateTime.day.toString().padLeft(2, '0');
+  final String hour = localDateTime.hour.toString().padLeft(2, '0');
+  final String minute = localDateTime.minute.toString().padLeft(2, '0');
+  return '${localDateTime.year}-$month-$day $hour:$minute';
 }
 
 class _LocalDirectorySettingsPage extends StatefulWidget {
