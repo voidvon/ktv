@@ -10,6 +10,8 @@ This file records the exact branch, commit and release link used for each publis
 - Commit: e1f0578 (e1f0578d47307216044a17d301feb2c4ab8046bb)
 - Dirty Worktree: no
 - Release: https://github.com/voidvon/maimai-ktv/releases/tag/v1.0.0-alpha.7
+- Platform Support: Android / macOS / Windows x64 / iOS (unsigned IPA)
+- Playback Note: 仅 Android 支持单音轨 KTV 视频资源，其他平台暂不支持该类资源。
 - Assets:
   - maimai-ktv-v1.0.0-alpha.7-android-arm64-v8a.apk
   - maimai-ktv-v1.0.0-alpha.7-android-armeabi-v7a.apk

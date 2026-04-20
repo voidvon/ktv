@@ -10,19 +10,22 @@ The format is intentionally simple:
 
 ## [v1.0.0-alpha.7] - 2026-04-19
 
-### Added
+### 新增
 
-- First Windows desktop release package published through GitHub Releases.
+- GitHub Releases 新增 Windows x64 桌面测试包。
+- GitHub Releases 新增 iOS unsigned IPA 测试包，便于 iPhone 真机安装验证。
 
-### Changed
+### 变更
 
-- iOS local media import is more reliable, including better handling for imported `.dat` files and directory scans.
-- iOS playback now uses the MobileVLCKit backend, improving compatibility with the current player integration.
-- Landscape playback layouts and KTV shell transitions are more stable, reducing preview and control inconsistencies while singing.
+- iOS 本地媒体导入更稳定，改进了 `.dat` 文件导入和目录扫描处理。
+- iOS 播放切换到 MobileVLCKit 后端，提升了与当前播放器集成的兼容性。
+- 横屏播放布局和 KTV 外壳切换更稳定，减少了演唱过程中预览区和控制层状态不一致的问题。
 
-### Notes
+### 说明
 
-- This is an alpha prerelease intended for testing and validation.
+- 当前版本已支持 Android、macOS、Windows x64 与 iOS 测试分发。
+- 仅 Android 支持单音轨 KTV 视频资源，其他平台暂不支持这类资源。
+- 这是一个 Alpha 预发布版本，主要用于测试与验证。
 
 ## [v1.0.0-alpha.6] - 2026-04-13
 
