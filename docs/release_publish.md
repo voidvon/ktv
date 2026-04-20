@@ -26,13 +26,13 @@
 
 当前仓库把 `latest.json` 放在 `docs/public/` 下，VitePress 构建后会原样复制到站点根目录。
 
-当前仓库启用 GitHub Pages Action 构建时，会自动按仓库名注入 base。对于 `voidvon/maimai-ktv`，线上地址会是：
+当前仓库当前已配置自定义域名 `maimai.tangbure.cc`。发布后客户端应读取：
 
 ```text
-https://voidvon.github.io/maimai-ktv/latest.json
+https://maimai.tangbure.cc/latest.json
 ```
 
-如果未来改成自定义域名，或者修改了 Pages 的 base，那么客户端更新地址也要一起调整。
+如果未来取消自定义域名，站点会退回 GitHub Pages 项目地址 `https://voidvon.github.io/maimai-ktv/`。如果更换域名，也要同步修改 workflow 中的 `VITEPRESS_CUSTOM_DOMAIN` 和 `docs/public/CNAME`。
 
 本地开发和普通 `npm run docs:build` 仍然默认使用 `/`，不会影响本地预览。
 

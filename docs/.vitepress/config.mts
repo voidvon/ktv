@@ -2,12 +2,17 @@ import { defineConfig } from 'vitepress'
 
 const repositoryOwner = process.env.GITHUB_REPOSITORY?.split('/')[0] ?? ''
 const repositoryName = process.env.GITHUB_REPOSITORY?.split('/')[1] ?? ''
+const customDomain = process.env.VITEPRESS_CUSTOM_DOMAIN?.trim() ?? ''
 const isGitHubPagesBuild = process.env.GITHUB_ACTIONS === 'true'
-const base = isGitHubPagesBuild && repositoryName
+const base = customDomain
+  ? '/'
+  : isGitHubPagesBuild && repositoryName
   ? `/${repositoryName}/`
   : '/'
 const withBase = (path: string) => `${base}${path.replace(/^\/+/, '')}`
-const pagesSiteOrigin = isGitHubPagesBuild && repositoryOwner && repositoryName
+const pagesSiteOrigin = customDomain
+  ? `https://${customDomain}`
+  : isGitHubPagesBuild && repositoryOwner && repositoryName
   ? `https://${repositoryOwner}.github.io`
   : ''
 const withPublicUrl = (path: string) => {
