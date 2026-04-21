@@ -24,7 +24,7 @@ export default defineConfig({
   base,
   lang: 'zh-CN',
   title: '麦麦KTV',
-  description: '面向家庭娱乐、包厢点歌和大屏播放场景的跨平台 KTV 点歌应用。',
+  description: '横屏点歌、跨平台播放的 KTV 应用与项目文档。',
   cleanUrls: true,
   lastUpdated: true,
   ignoreDeadLinks: [
@@ -40,16 +40,15 @@ export default defineConfig({
     ['meta', { name: 'apple-mobile-web-app-title', content: '麦麦KTV' }],
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:title', content: '麦麦KTV' }],
-    ['meta', { property: 'og:description', content: '点歌、排队、播放控制、下载管理与歌库配置统一在同一套界面里。' }],
-    ['meta', { property: 'og:image', content: withPublicUrl('/images/song-search-screen.jpg') }]
+    ['meta', { property: 'og:description', content: '横屏点歌、跨平台播放的 KTV 应用与项目文档。' }],
+    ['meta', { property: 'og:image', content: withPublicUrl('/images/desktop-screen.png') }]
   ],
   themeConfig: {
     logo: withBase('/app-icon.png'),
     nav: [
       { text: '首页', link: '/' },
-      { text: '快速开始', link: '/guide/' },
+      { text: '使用', link: '/guide/' },
       { text: '开发文档', link: '/develop/' },
-      { text: 'UI 设计', link: '/design/' },
       { text: '版本发布', link: '/release-history' }
     ],
     search: {
@@ -73,7 +72,7 @@ export default defineConfig({
     sidebar: {
       '/guide/': [
         {
-          text: '快速开始',
+          text: '使用',
           items: [
             { text: '概览', link: '/guide/' },
             { text: '版本发布记录', link: '/release-history' },
@@ -84,9 +83,9 @@ export default defineConfig({
       ],
       '/develop/': [
         {
-          text: '开发入口',
+          text: '基础',
           items: [
-            { text: '开发总览', link: '/develop/' },
+            { text: '开发文档', link: '/develop/' },
             { text: 'Android 构建', link: '/android_build' },
             { text: 'Windows 构建', link: '/windows_build' },
             { text: 'Android 播放链路', link: '/android_playback_notes' },
@@ -129,7 +128,7 @@ export default defineConfig({
         {
           text: '开发与发布',
           items: [
-            { text: '开发总览', link: '/develop/' },
+            { text: '开发文档', link: '/develop/' },
             { text: 'Android 构建', link: '/android_build' },
             { text: '发版与 latest.json 维护', link: '/release_publish' }
           ]

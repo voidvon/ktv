@@ -1,14 +1,14 @@
-# 开发总览
+# 开发文档
 
-这个入口页把当前仓库里最常用的开发文档集中起来，方便直接进入构建、发布、播放链路和数据源设计资料。
+这里收口的是当前仓库最常用的开发资料。
 
 ## 仓库定位
 
-- 当前仓库是 Flutter KTV 主应用，页面、歌库、文件选择和业务交互都在这里维护
-- 播放器 package 已迁移到外部协作目录 `../ktv-player/`
-- Android、macOS、Windows 和 iOS 的平台集成代码仍然在当前仓库维护
+- 当前仓库维护 Flutter KTV 主应用。
+- 页面、歌库、文件选择和业务交互都在这里。
+- 播放器 package 已迁移到 `../ktv-player/`。
 
-## 本地常用命令
+## 本地检查
 
 ```bash
 flutter pub get
@@ -26,13 +26,11 @@ flutter analyze
 flutter test
 ```
 
-## 必读文档
+## 先看哪类文档
 
-- [Android 构建说明](/android_build)
-- [Windows 构建说明](/windows_build)
-- [Android 播放链路说明](/android_playback_notes)
-- [发版与 latest.json 维护说明](/release_publish)
-- [SQLite 歌曲入库命名规则](/sqlite_song_import_rules)
+- 构建与运行： [Android 构建说明](/android_build)、[Windows 构建说明](/windows_build)
+- 播放与数据： [Android 播放链路说明](/android_playback_notes)、[SQLite 歌曲入库命名规则](/sqlite_song_import_rules)
+- 发布维护： [发版与 latest.json 维护说明](/release_publish)
 
 ## 数据源与云盘扩展
 
@@ -43,4 +41,4 @@ flutter test
 
 ## UI 与交互规范
 
-如果你改的是大屏点歌界面、搜索工作区或播放层交互，建议继续从 [UI 设计入口](/design/) 看下去，先确认设计规格和状态矩阵。
+如果你改的是大屏点歌界面、搜索工作区或播放层交互，直接进入 [UI 设计入口](/design/)。
