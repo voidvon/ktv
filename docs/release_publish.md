@@ -16,6 +16,7 @@
 - 发布脚本：`scripts/publish_github_release.sh`
 - manifest 写入器：`scripts/update_latest_manifest.dart`
 - 更新入口文件：`docs/public/latest.json`
+- 本地发版配置示例：`.release.env.example`
 - 站点访问路径：`/latest.json`
 - 发布历史：`docs/release-history.md`
 - Android 构建说明：`docs/android_build.md`
@@ -70,6 +71,27 @@ https://maimai.0122.vip/latest.json
 - Android 发版时，只更新 `platforms.android`
 - 不要用新的 Windows 版本覆盖 Android 的版本号
 
+## 本地环境文件
+
+发布脚本会自动读取仓库根目录下的 `.release.env.local`。
+
+推荐做法：
+
+1. 复制 `.release.env.example` 为 `.release.env.local`
+2. 填入你自己的上传目录、下载域名和明文 SSH 私钥
+3. 本地执行：
+
+```bash
+chmod 600 .release.env.local
+```
+
+说明：
+
+- `.release.env.local` 只用于本地，不要提交到仓库
+- 命令行参数优先级高于 `.release.env.local`
+- 如果设置了 `SSH_PRIVATE_KEY`，脚本会在上传前临时写入私钥文件，用完即删
+- 如果没设置 `SSH_KNOWN_HOSTS_FILE`，脚本会使用 `StrictHostKeyChecking=accept-new`
+
 ## 脚本参数
 
 当前发布脚本核心参数：
@@ -82,7 +104,10 @@ https://maimai.0122.vip/latest.json
 - `--skip-latest-manifest`
 - `--download-mode <external|apk|appinstaller|sparkle>`
 - `--download-url <url>`
+- `--download-base-url <url>`
 - `--feed-url <url>`
+- `--upload-target <dest>`
+- `--skip-github-assets`
 - `--required-update`
 - `--dry-run`
 
@@ -92,6 +117,9 @@ https://maimai.0122.vip/latest.json
 - `--skip-build` 适用于 Windows、macOS、iOS 等已提前构建好产物的情况
 - `--latest-manifest-file` 默认就是 `docs/public/latest.json`
 - `--dry-run` 只打印 GitHub Release 和 manifest 更新命令，不会真正发布
+- `--upload-target` 会在发版前通过 `rsync` 把产物同步到本地目录或远端目录
+- `--download-base-url` 会把 manifest 里的下载地址改写为 `<base>/<basename>`
+- `--skip-github-assets` 适用于“保留 GitHub Release 页面，但安装包只走自建下载源”的情况
 
 ## Android 发版
 
@@ -134,6 +162,28 @@ scripts/publish_github_release.sh \
   --asset dist/android/maimai-ktv-1.0.0-alpha.8-android-x86_64.apk \
   --asset dist/android/maimai-ktv-1.0.0-alpha.8-android-universal.apk
 ```
+
+如果要把 Android APK 同步到自有服务器目录，并让客户端走 EdgeOne/CDN 域名下载：
+
+```bash
+scripts/publish_github_release.sh \
+  --repo voidvon/maimai-ktv \
+  --platform android \
+  --skip-build \
+  --asset dist/android/maimai-ktv-1.0.0-alpha.8-android-arm64-v8a.apk \
+  --asset dist/android/maimai-ktv-1.0.0-alpha.8-android-armeabi-v7a.apk \
+  --asset dist/android/maimai-ktv-1.0.0-alpha.8-android-x86_64.apk \
+  --asset dist/android/maimai-ktv-1.0.0-alpha.8-android-universal.apk \
+  --upload-target deploy@example.com:/data/downloads/maimai-ktv/releases/v1.0.0-alpha.8 \
+  --download-base-url https://download.example.com/maimai-ktv/releases/v1.0.0-alpha.8 \
+  --skip-github-assets
+```
+
+行为：
+
+- 先把 APK 上传到服务器版本目录
+- `latest.json` 中的 `variants` 和 `fallbackUrl` 自动改写为 CDN 地址
+- GitHub Release 仍会创建，但不会重复上传安装包资产
 
 ## Windows 发版
 
@@ -181,6 +231,19 @@ scripts/publish_github_release.sh \
   --download-url https://example.com/maimai-ktv.appinstaller
 ```
 
+如果你想保留 GitHub Release 记录，但 Windows ZIP 实际从自建下载域名分发：
+
+```bash
+scripts/publish_github_release.sh \
+  --repo voidvon/maimai-ktv \
+  --platform windows \
+  --skip-build \
+  --asset dist/windows/maimai-ktv-1.0.0-alpha.9-windows-x64.zip \
+  --upload-target deploy@example.com:/data/downloads/maimai-ktv/releases/v1.0.0-alpha.9 \
+  --download-base-url https://download.example.com/maimai-ktv/releases/v1.0.0-alpha.9 \
+  --skip-github-assets
+```
+
 ## macOS 发版
 
 当前脚本不会自动构建 macOS，需要先准备好桌面包。
@@ -193,6 +256,19 @@ scripts/publish_github_release.sh \
   --platform macos \
   --skip-build \
   --asset dist/macos/maimai-ktv-1.0.0-alpha.8-macos.zip
+```
+
+如果 ZIP 会先上传到自建下载源，再通过 EdgeOne/CDN 分发：
+
+```bash
+scripts/publish_github_release.sh \
+  --repo voidvon/maimai-ktv \
+  --platform macos \
+  --skip-build \
+  --asset dist/macos/maimai-ktv-1.0.0-alpha.8-macos.zip \
+  --upload-target deploy@example.com:/data/downloads/maimai-ktv/releases/v1.0.0-alpha.8 \
+  --download-base-url https://download.example.com/maimai-ktv/releases/v1.0.0-alpha.8 \
+  --skip-github-assets
 ```
 
 如果未来接入 Sparkle，应优先写 appcast：
@@ -226,6 +302,40 @@ scripts/publish_github_release.sh \
 ```
 
 如果只是保留 GitHub Release 交付，也可以不传 `--download-url`，脚本会默认使用首个资产 URL。
+
+如果你只是想把 IPA 作为测试包放到自建目录，不依赖 GitHub 资产：
+
+```bash
+scripts/publish_github_release.sh \
+  --repo voidvon/maimai-ktv \
+  --platform ios \
+  --skip-build \
+  --asset dist/ios/maimai-ktv-1.0.0-alpha.8-ios-unsigned.ipa \
+  --upload-target deploy@example.com:/data/downloads/maimai-ktv/releases/v1.0.0-alpha.8 \
+  --download-base-url https://download.example.com/maimai-ktv/releases/v1.0.0-alpha.8 \
+  --skip-github-assets
+```
+
+## 自建下载源建议
+
+推荐目录结构：
+
+```text
+/data/downloads/maimai-ktv/releases/v1.0.0-alpha.8/
+```
+
+推荐公网地址：
+
+```text
+https://download.example.com/maimai-ktv/releases/v1.0.0-alpha.8/
+```
+
+这样有几个好处：
+
+- 每个版本目录不可变，适合 CDN 强缓存
+- 旧版本文件保留，方便回滚
+- `download-base-url` 只需要和服务器目录一一对应
+- GitHub Release 和自建下载源可以长期并存
 
 ## 强制更新
 

@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 DEFAULT_RELEASE_HISTORY_FILE="${ROOT_DIR}/docs/release-history.md"
 DEFAULT_LATEST_MANIFEST_FILE="${ROOT_DIR}/docs/public/latest.json"
+DEFAULT_RELEASE_ENV_FILE="${ROOT_DIR}/.release.env.local"
 
 usage() {
   cat <<'EOF'
@@ -29,7 +30,11 @@ Options:
   --skip-build             Upload existing asset without running flutter build.
   --download-mode <mode>   Override manifest download mode: external, apk, appinstaller, sparkle.
   --download-url <url>     Override manifest download URL.
+  --download-base-url <url>
+                           Base public URL for uploaded assets. Uses <base>/<basename>.
   --feed-url <url>         Override manifest feed URL, e.g. Sparkle appcast.
+  --upload-target <dest>   Upload assets to a local/remote directory via rsync before publishing.
+  --skip-github-assets     Create/update GitHub Release without uploading release assets.
   --latest-manifest-file   Local latest.json path to update. Default: docs/public/latest.json.
   --skip-latest-manifest   Skip updating latest.json after publishing.
   --required-update        Mark the platform entry as required update in latest.json.
@@ -46,6 +51,16 @@ Examples:
     --title "KTV Android v1.2.0" \
     --generate-notes
 EOF
+}
+
+load_release_env() {
+  local env_file="${RELEASE_ENV_FILE:-${DEFAULT_RELEASE_ENV_FILE}}"
+  if [[ -f "${env_file}" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "${env_file}"
+    set +a
+  fi
 }
 
 require_command() {
@@ -196,6 +211,104 @@ release_asset_url() {
     "$(basename "${asset_path}")"
 }
 
+trim_trailing_slash() {
+  local value="$1"
+  while [[ "${value}" == */ ]]; do
+    value="${value%/}"
+  done
+  printf '%s' "${value}"
+}
+
+is_remote_target() {
+  local target="$1"
+  [[ "${target}" =~ ^[^/][^:]*:.+$ ]]
+}
+
+shell_escape_single_quotes() {
+  printf "%s" "$1" | sed "s/'/'\\\\''/g"
+}
+
+join_command_quoted() {
+  local command=("$@")
+  local index
+  for index in "${!command[@]}"; do
+    printf '%q' "${command[index]}"
+    if [[ "${index}" -lt $((${#command[@]} - 1)) ]]; then
+      printf ' '
+    fi
+  done
+}
+
+public_asset_url() {
+  local asset_path="$1"
+  if [[ -n "${DOWNLOAD_BASE_URL}" ]]; then
+    printf '%s/%s' \
+      "$(trim_trailing_slash "${DOWNLOAD_BASE_URL}")" \
+      "$(basename "${asset_path}")"
+    return
+  fi
+  release_asset_url "${REPO}" "${TAG}" "${asset_path}"
+}
+
+upload_release_assets() {
+  local target="$1"
+  shift
+  local asset_paths=("$@")
+  local normalized_target
+  local ssh_command=("ssh")
+  local ssh_key_file=""
+  local ssh_rsh=""
+
+  if [[ ${#asset_paths[@]} -eq 0 ]]; then
+    return
+  fi
+
+  normalized_target="${target}"
+  if is_remote_target "${target}"; then
+    local remote_spec="${target%%:*}"
+    local remote_path="${target#*:}"
+    local escaped_remote_path
+    escaped_remote_path="$(shell_escape_single_quotes "${remote_path}")"
+    normalized_target="${remote_spec}:${remote_path%/}/"
+
+    if [[ -n "${SSH_PRIVATE_KEY}" ]]; then
+      ssh_key_file="$(mktemp "${TMPDIR:-/tmp}/maimai-release-key.XXXXXX")"
+      chmod 600 "${ssh_key_file}"
+      printf '%s\n' "${SSH_PRIVATE_KEY}" > "${ssh_key_file}"
+      ssh_command+=("-i" "${ssh_key_file}" "-o" "IdentitiesOnly=yes")
+    fi
+    if [[ -n "${SSH_KNOWN_HOSTS_FILE}" ]]; then
+      ssh_command+=(
+        "-o" "UserKnownHostsFile=${SSH_KNOWN_HOSTS_FILE}"
+        "-o" "StrictHostKeyChecking=yes"
+      )
+    else
+      ssh_command+=("-o" "StrictHostKeyChecking=accept-new")
+    fi
+    ssh_rsh="$(join_command_quoted "${ssh_command[@]}")"
+
+    echo "Uploading assets to ${normalized_target}..."
+    if ! rsync -a -e "${ssh_rsh}" \
+      --rsync-path="mkdir -p '${escaped_remote_path}' && rsync" \
+      "${asset_paths[@]}" \
+      "${normalized_target}"; then
+      if [[ -n "${ssh_key_file}" ]]; then
+        rm -f "${ssh_key_file}"
+      fi
+      return 1
+    fi
+    if [[ -n "${ssh_key_file}" ]]; then
+      rm -f "${ssh_key_file}"
+    fi
+    return
+  fi
+
+  mkdir -p "${target}"
+  normalized_target="${target%/}/"
+  echo "Uploading assets to ${normalized_target}..."
+  rsync -a "${asset_paths[@]}" "${normalized_target}"
+}
+
 file_sha256() {
   local asset_path="$1"
   if command -v shasum >/dev/null 2>&1; then
@@ -248,7 +361,7 @@ build_manifest_args_for_android() {
   if [[ ${#ASSET_PATHS[@]} -gt 0 ]]; then
     for asset_path in "${ASSET_PATHS[@]}"; do
       asset_name="$(basename "${asset_path}")"
-      asset_url="$(release_asset_url "${REPO}" "${TAG}" "${asset_path}")"
+      asset_url="$(public_asset_url "${asset_path}")"
       sha256="$(file_sha256 "${asset_path}" 2>/dev/null || true)"
       case "${asset_name}" in
         *android-arm64-v8a.apk)
@@ -275,7 +388,7 @@ build_manifest_args_for_android() {
 
   if [[ ${variant_count} -eq 0 && ${#ASSET_PATHS[@]} -gt 0 ]]; then
     asset_path="${ASSET_PATHS[0]}"
-    asset_url="$(release_asset_url "${REPO}" "${TAG}" "${asset_path}")"
+    asset_url="$(public_asset_url "${asset_path}")"
     sha256="$(file_sha256 "${asset_path}" 2>/dev/null || true)"
     MANIFEST_ARGS+=(--url "${asset_url}")
     if [[ -n "${sha256}" ]]; then
@@ -300,7 +413,7 @@ build_manifest_args_for_generic_platform() {
             if [[ "${asset_name}" == *.appinstaller ]]; then
               resolved_mode="appinstaller"
               if [[ -z "${resolved_url}" ]]; then
-                resolved_url="$(release_asset_url "${REPO}" "${TAG}" "${asset_path}")"
+                resolved_url="$(public_asset_url "${asset_path}")"
               fi
               break
             fi
@@ -327,7 +440,7 @@ build_manifest_args_for_generic_platform() {
 
   if [[ -z "${resolved_url}" && "${resolved_mode}" != "sparkle" && ${#ASSET_PATHS[@]} -gt 0 ]]; then
     asset_path="${ASSET_PATHS[0]}"
-    resolved_url="$(release_asset_url "${REPO}" "${TAG}" "${asset_path}")"
+    resolved_url="$(public_asset_url "${asset_path}")"
     sha256="$(file_sha256 "${asset_path}" 2>/dev/null || true)"
   fi
 
@@ -388,27 +501,34 @@ append_release_history() {
   } >> "${history_file}"
 }
 
-REPO=""
-PLATFORM="android"
-TAG=""
-TITLE=""
-NOTES=""
-NOTES_FILE=""
-TARGET=""
-SHOULD_BUILD=1
-SHOULD_CHECK_AUTH=1
-GENERATE_NOTES=0
-DRAFT=0
-PRERELEASE=0
-USE_SPLIT_PER_ABI=1
-DRY_RUN=0
-RELEASE_HISTORY_FILE="${DEFAULT_RELEASE_HISTORY_FILE}"
-LATEST_MANIFEST_FILE="${DEFAULT_LATEST_MANIFEST_FILE}"
-SHOULD_UPDATE_LATEST_MANIFEST=1
-DOWNLOAD_MODE=""
-DOWNLOAD_URL=""
-FEED_URL=""
-REQUIRED_UPDATE=0
+load_release_env
+
+REPO="${REPO:-}"
+PLATFORM="${PLATFORM:-android}"
+TAG="${TAG:-}"
+TITLE="${TITLE:-}"
+NOTES="${NOTES:-}"
+NOTES_FILE="${NOTES_FILE:-}"
+TARGET="${TARGET:-}"
+SHOULD_BUILD="${SHOULD_BUILD:-1}"
+SHOULD_CHECK_AUTH="${SHOULD_CHECK_AUTH:-1}"
+GENERATE_NOTES="${GENERATE_NOTES:-0}"
+DRAFT="${DRAFT:-0}"
+PRERELEASE="${PRERELEASE:-0}"
+USE_SPLIT_PER_ABI="${USE_SPLIT_PER_ABI:-1}"
+DRY_RUN="${DRY_RUN:-0}"
+RELEASE_HISTORY_FILE="${RELEASE_HISTORY_FILE:-${DEFAULT_RELEASE_HISTORY_FILE}}"
+LATEST_MANIFEST_FILE="${LATEST_MANIFEST_FILE:-${DEFAULT_LATEST_MANIFEST_FILE}}"
+SHOULD_UPDATE_LATEST_MANIFEST="${SHOULD_UPDATE_LATEST_MANIFEST:-1}"
+DOWNLOAD_MODE="${DOWNLOAD_MODE:-}"
+DOWNLOAD_URL="${DOWNLOAD_URL:-}"
+FEED_URL="${FEED_URL:-}"
+REQUIRED_UPDATE="${REQUIRED_UPDATE:-0}"
+DOWNLOAD_BASE_URL="${DOWNLOAD_BASE_URL:-}"
+UPLOAD_TARGET="${UPLOAD_TARGET:-}"
+SKIP_GITHUB_ASSETS="${SKIP_GITHUB_ASSETS:-0}"
+SSH_PRIVATE_KEY="${SSH_PRIVATE_KEY:-}"
+SSH_KNOWN_HOSTS_FILE="${SSH_KNOWN_HOSTS_FILE:-}"
 declare -a ASSET_PATHS=()
 declare -a MANIFEST_ARGS=()
 
@@ -478,9 +598,21 @@ while [[ $# -gt 0 ]]; do
       DOWNLOAD_URL="${2:-}"
       shift 2
       ;;
+    --download-base-url)
+      DOWNLOAD_BASE_URL="${2:-}"
+      shift 2
+      ;;
     --feed-url)
       FEED_URL="${2:-}"
       shift 2
+      ;;
+    --upload-target)
+      UPLOAD_TARGET="${2:-}"
+      shift 2
+      ;;
+    --skip-github-assets)
+      SKIP_GITHUB_ASSETS=1
+      shift
       ;;
     --latest-manifest-file)
       LATEST_MANIFEST_FILE="${2:-}"
@@ -531,6 +663,10 @@ if [[ ${GENERATE_NOTES} -eq 1 && ( -n "${NOTES}" || -n "${NOTES_FILE}" ) ]]; the
 fi
 
 require_command gh
+
+if [[ -n "${UPLOAD_TARGET}" ]]; then
+  require_command rsync
+fi
 
 if [[ ${SHOULD_BUILD} -eq 1 ]]; then
   if [[ "${PLATFORM}" != "android" ]]; then
@@ -609,6 +745,10 @@ if [[ -n "${NOTES_FILE}" ]]; then
   fi
 fi
 
+if [[ -n "${DOWNLOAD_BASE_URL}" ]]; then
+  DOWNLOAD_BASE_URL="$(trim_trailing_slash "${DOWNLOAD_BASE_URL}")"
+fi
+
 if [[ ${SHOULD_UPDATE_LATEST_MANIFEST} -eq 1 ]]; then
   MANIFEST_ARGS=(
     --file "${LATEST_MANIFEST_FILE}"
@@ -646,7 +786,7 @@ fi
 declare -a gh_args
 gh_args=(release create "${TAG}" --repo "${REPO}" --title "${TITLE}")
 
-if [[ ${#ASSET_PATHS[@]} -gt 0 ]]; then
+if [[ ${SKIP_GITHUB_ASSETS} -eq 0 && ${#ASSET_PATHS[@]} -gt 0 ]]; then
   for asset_path in "${ASSET_PATHS[@]}"; do
     gh_args+=("${asset_path}")
   done
@@ -694,6 +834,15 @@ if [[ ${DRY_RUN} -eq 1 ]]; then
     printf ' %q' "${arg}"
   done
   printf '\n'
+  if [[ -n "${UPLOAD_TARGET}" && ${#ASSET_PATHS[@]} -gt 0 ]]; then
+    echo "Upload target: ${UPLOAD_TARGET}"
+    echo "Upload command:"
+    printf '  rsync -a'
+    for asset_path in "${ASSET_PATHS[@]}"; do
+      printf ' %q' "${asset_path}"
+    done
+    printf ' %q\n' "${UPLOAD_TARGET}"
+  fi
   if [[ ${SHOULD_UPDATE_LATEST_MANIFEST} -eq 1 ]]; then
     echo "Latest manifest file: ${LATEST_MANIFEST_FILE}"
     echo "Manifest update command:"
@@ -704,6 +853,10 @@ if [[ ${DRY_RUN} -eq 1 ]]; then
     printf '\n'
   fi
   exit 0
+fi
+
+if [[ -n "${UPLOAD_TARGET}" && ${#ASSET_PATHS[@]} -gt 0 ]]; then
+  upload_release_assets "${UPLOAD_TARGET}" "${ASSET_PATHS[@]}"
 fi
 
 echo "Publishing release ${TAG} to ${REPO}..."
