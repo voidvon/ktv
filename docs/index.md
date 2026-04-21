@@ -10,7 +10,7 @@ hero:
   actions:
     - theme: brand
       text: 立即下载
-      link: https://github.com/voidvon/maimai-ktv/releases
+      link: '#downloads'
     - theme: alt
       text: 发布记录
       link: /release-history
@@ -49,5 +49,3 @@ features:
 
 - Android 仍然是功能最完整的主力平台。
 - 文档站以“使用、开发、发布”三类信息为主，不再堆叠过多说明性内容。
-
-<HomeDownloads />

@@ -34,15 +34,12 @@ interface ManifestPayload {
 interface DownloadLink {
   label: string
   href: string
-  meta?: string
 }
 
 interface PlatformCard {
   key: string
   name: string
   version: string
-  publishedAt: string
-  summary?: string
   links: DownloadLink[]
 }
 
@@ -63,23 +60,6 @@ const abiLabels: Record<string, string> = {
   x86_64: 'Android x86_64'
 }
 
-const formatPublishedAt = (rawValue?: string) => {
-  if (!rawValue) {
-    return '发布时间待更新'
-  }
-
-  const date = new Date(rawValue)
-  if (Number.isNaN(date.getTime())) {
-    return rawValue
-  }
-
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(date)
-}
-
 const resolveDownloadLinks = (
   platformKey: string,
   download: DownloadEntry
@@ -91,8 +71,7 @@ const resolveDownloadLinks = (
           ? [
               {
                 label: abiLabels[variant.abi] ?? variant.abi,
-                href: variant.url,
-                meta: variant.sha256 ? `SHA256: ${variant.sha256.slice(0, 8)}...` : undefined
+                href: variant.url
               }
             ]
           : []
@@ -101,10 +80,7 @@ const resolveDownloadLinks = (
     if (download.fallbackUrl) {
       variantLinks.push({
         label: 'Android 通用包',
-        href: download.fallbackUrl,
-        meta: download.fallbackSha256
-          ? `SHA256: ${download.fallbackSha256.slice(0, 8)}...`
-          : undefined
+        href: download.fallbackUrl
       })
     }
 
@@ -125,8 +101,7 @@ const resolveDownloadLinks = (
   return [
     {
       label: linkLabelMap[platformKey] ?? '立即下载',
-      href: primaryUrl,
-      meta: download.sha256 ? `SHA256: ${download.sha256.slice(0, 8)}...` : undefined
+      href: primaryUrl
     }
   ]
 }
@@ -151,8 +126,6 @@ const cards = computed<PlatformCard[]>(() => {
           key: platformKey,
           name: platformLabels[platformKey] ?? platformKey,
           version: `${entry.version}+${entry.buildNumber}`,
-          publishedAt: formatPublishedAt(entry.publishedAt),
-          summary: entry.notes?.[0],
           links
         }
       ]
@@ -187,9 +160,6 @@ onMounted(async () => {
     <div class="home-downloads__header">
       <p class="home-downloads__eyebrow">最新下载</p>
       <h2>按平台直接下载安装包</h2>
-      <p class="home-downloads__intro">
-        这里直接读取站点根路径的 <code>/latest.json</code>。发版后只要清单更新，首页下载入口也会同步变化。
-      </p>
     </div>
 
     <div v-if="isLoading" class="home-downloads__status">
@@ -212,13 +182,7 @@ onMounted(async () => {
             <p class="home-downloads__platform">{{ card.name }}</p>
             <h3>{{ card.version }}</h3>
           </div>
-          <span class="home-downloads__date">{{ card.publishedAt }}</span>
         </div>
-
-        <p v-if="card.summary" class="home-downloads__summary">
-          {{ card.summary }}
-        </p>
-
         <div class="home-downloads__links">
           <a
             v-for="link in card.links"
@@ -229,7 +193,7 @@ onMounted(async () => {
             rel="noreferrer"
           >
             <span>{{ link.label }}</span>
-            <small v-if="link.meta">{{ link.meta }}</small>
+            <small>{{ card.version }}</small>
           </a>
         </div>
       </article>
@@ -309,16 +273,10 @@ onMounted(async () => {
   line-height: 1.1;
 }
 
-.home-downloads__platform,
-.home-downloads__date {
+.home-downloads__platform {
   margin: 0;
   color: var(--vp-c-text-2);
   font-size: 13px;
-}
-
-.home-downloads__summary {
-  margin: 16px 0 0;
-  color: var(--vp-c-text-2);
 }
 
 .home-downloads__links {
