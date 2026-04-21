@@ -39,7 +39,6 @@ interface DownloadLink {
 interface PlatformCard {
   key: string
   name: string
-  version: string
   links: DownloadLink[]
 }
 
@@ -125,7 +124,6 @@ const cards = computed<PlatformCard[]>(() => {
         {
           key: platformKey,
           name: platformLabels[platformKey] ?? platformKey,
-          version: `${entry.version}+${entry.buildNumber}`,
           links
         }
       ]
@@ -193,7 +191,6 @@ onMounted(async () => {
             rel="noreferrer"
           >
             <span>{{ link.label }}</span>
-            <small>{{ card.version }}</small>
           </a>
         </div>
       </article>
