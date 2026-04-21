@@ -1,3 +1,69 @@
 {
-  "platforms": {}
+  "platforms": {
+    "macos": {
+      "version": "1.0.0-alpha.7",
+      "buildNumber": 7,
+      "publishedAt": "2026-04-21T11:39:15Z",
+      "required": false,
+      "notes": [
+        "修复 macOS 打包后应用名称乱码问题。"
+      ],
+      "download": {
+        "mode": "external",
+        "url": "https://dl.maimai.0122.vip/releases/v1.0.0-alpha.7/maimai-ktv-v1.0.0-alpha.7-macos.zip",
+        "sha256": "bbe20e27bc704ff90c33a06d399fd8b3edb27d53dcb99107b4cafea24febbac9"
+      }
+    },
+    "android": {
+      "version": "1.0.0-alpha.7",
+      "buildNumber": 7,
+      "publishedAt": "2026-04-19T17:15:13Z",
+      "required": false,
+      "notes": [
+        "横屏播放布局和 KTV 外壳切换更稳定，减少了演唱过程中预览区和控制层状态不一致的问题。",
+        "当前版本已支持 Android、macOS、Windows x64 与 iOS 测试分发。",
+        "仅 Android 支持单音轨 KTV 视频资源，其他平台暂不支持这类资源。",
+        "这是一个 Alpha 预发布版本，主要用于测试与验证。"
+      ],
+      "download": {
+        "mode": "apk",
+        "fallbackUrl": "https://dl.maimai.0122.vip/releases/v1.0.0-alpha.7/maimai-ktv-v1.0.0-alpha.7-android-universal.apk",
+        "fallbackSha256": "646622b6f013e6835de3d8e9ee124366ceb3c589220623e2de0f6cba743430e1",
+        "variants": [
+          {
+            "abi": "arm64-v8a",
+            "url": "https://dl.maimai.0122.vip/releases/v1.0.0-alpha.7/maimai-ktv-v1.0.0-alpha.7-android-arm64-v8a-r1.apk",
+            "sha256": "cbdbf0dd8078905c9135635525cf7d5245d87279f45d207dc4d3b7dde4fe0b89"
+          },
+          {
+            "abi": "armeabi-v7a",
+            "url": "https://dl.maimai.0122.vip/releases/v1.0.0-alpha.7/maimai-ktv-v1.0.0-alpha.7-android-armeabi-v7a.apk",
+            "sha256": "1ed9b6164f83cecea977d194100ca51ccee1e8c1451e03371b103654c77500e9"
+          },
+          {
+            "abi": "x86_64",
+            "url": "https://dl.maimai.0122.vip/releases/v1.0.0-alpha.7/maimai-ktv-v1.0.0-alpha.7-android-x86_64.apk",
+            "sha256": "2b1a70c470cb2f65f0f45c7ecd2036f4c117d8b5936d00cea62cf641f5611c92"
+          }
+        ]
+      }
+    },
+    "ios": {
+      "version": "1.0.0-alpha.7",
+      "buildNumber": 7,
+      "publishedAt": "2026-04-19T17:15:13Z",
+      "required": false,
+      "notes": [
+        "iOS 本地媒体导入更稳定，改进了 .dat 文件导入和目录扫描处理。",
+        "iOS 播放切换到 MobileVLCKit 后端，提升了与当前播放器集成的兼容性。",
+        "新增 iOS unsigned IPA 测试包，便于 iPhone 真机安装验证。",
+        "这是一个 Alpha 预发布版本，主要用于测试与验证。"
+      ],
+      "download": {
+        "mode": "external",
+        "url": "https://dl.maimai.0122.vip/releases/v1.0.0-alpha.7/maimai-ktv-v1.0.0-alpha.7-ios-unsigned.ipa",
+        "sha256": "510b0fcaa07e07cdbd3c5c1d5b203bbcc2ff42244ef53bc3f3c6a15561420ecd"
+      }
+    }
+  }
 }
