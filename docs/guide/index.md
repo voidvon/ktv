@@ -34,4 +34,4 @@
 
 如果你不是终端用户，而是要继续开发或排查播放问题，直接进入 [开发文档](/develop/)。
 
-![麦麦KTV 手机端横屏点歌界面](/images/mobile-screen.jpg)
+![麦麦KTV 手机端横屏点歌界面](../images/mobile-screen.jpg)

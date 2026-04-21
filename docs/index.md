@@ -5,7 +5,7 @@ hero:
   name: 麦麦KTV
   tagline: 用一套清晰的界面完成找歌、排队和播放控制，适合家庭娱乐与包厢场景。
   image:
-    src: /images/desktop-screen.png
+    src: ./images/desktop-screen.png
     alt: 麦麦KTV 桌面端横屏点歌界面
   actions:
     - theme: brand
@@ -30,11 +30,11 @@ features:
 
 <div class="doc-shot-grid">
   <figure>
-    <img src="/images/desktop-screen.png" alt="麦麦KTV 桌面端横屏点歌界面">
+    <img src="./images/desktop-screen.png" alt="麦麦KTV 桌面端横屏点歌界面">
     <figcaption>桌面端</figcaption>
   </figure>
   <figure>
-    <img src="/images/mobile-screen.jpg" alt="麦麦KTV 手机端横屏点歌界面">
+    <img src="./images/mobile-screen.jpg" alt="麦麦KTV 手机端横屏点歌界面">
     <figcaption>手机端</figcaption>
   </figure>
 </div>
