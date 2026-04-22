@@ -196,7 +196,7 @@ scripts/publish_github_release.sh \
   --repo voidvon/maimai-ktv \
   --platform windows \
   --skip-build \
-  --asset dist/windows/ktv2_example-1.0.0-alpha.9-windows-x64.zip
+  --asset dist/windows/maimai-ktv-v1.0.0-alpha.9-windows-x64.zip
 ```
 
 行为：
@@ -238,7 +238,7 @@ scripts/publish_github_release.sh \
   --repo voidvon/maimai-ktv \
   --platform windows \
   --skip-build \
-  --asset dist/windows/maimai-ktv-1.0.0-alpha.9-windows-x64.zip \
+  --asset dist/windows/maimai-ktv-v1.0.0-alpha.9-windows-x64.zip \
   --upload-target deploy@example.com:/data/downloads/maimai-ktv/releases/v1.0.0-alpha.9 \
   --download-base-url https://download.example.com/maimai-ktv/releases/v1.0.0-alpha.9 \
   --skip-github-assets

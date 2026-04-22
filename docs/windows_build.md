@@ -34,8 +34,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build_windows.ps1 -Arch arm64
 
 默认输出：
 
-- `dist/windows/ktv2_example-<version>-windows-x64.zip`
-- `dist/windows/ktv2_example-<version>-windows-arm64.zip`
+- `dist/windows/maimai-ktv-v<version>-windows-x64.zip`
+- `dist/windows/maimai-ktv-v<version>-windows-arm64.zip`
 
 ## 可选参数
 
